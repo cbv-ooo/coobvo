@@ -37,6 +37,13 @@ final class Metrics {
     float holeD;
     boolean tablet;
 
+    /**
+     * Which side of the compact pill the small bubbles sit on.
+     * +1 = right of pill (default), -1 = left of pill.
+     * For S10e (right cutout / right-anchored pill) this is forced to -1 so both bubbles stay clear of the hole.
+     */
+    int bubbleSide = 1;
+
     Metrics(float density) {
         this.density = density;
         pillH = dp(30.0f);
