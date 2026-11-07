@@ -5,7 +5,7 @@ import android.os.HandlerThread;
 import android.os.Process;
 import android.content.SharedPreferences;
 import de.robv.android.xposed.XSharedPreferences;
-import dev.android.dynamicisland.island.rules.RuleConfig;
+import dev.android.dynamicisland.island.rules.RuleConfig;\nimport dev.android.dynamicisland.BuildConfig;
 import dev.android.dynamicisland.xposed.Diagnostics;
 import dev.android.dynamicisland.xposed.XLog;
 import java.util.Map;
@@ -17,7 +17,7 @@ import java.util.Set;
  * readable (module scope not granted yet, first boot, ...), so nothing here can break the island.
  */
 public final class ModuleSettings {
-    public static final String PACKAGE = "dev.android.dynamicisland";
+    public static final String PACKAGE = BuildConfig.APPLICATION_ID;
     public static final String FILE = "settings";
 
     public static final String KEY_PAUSED_TIMEOUT_S = "paused_timeout_s";

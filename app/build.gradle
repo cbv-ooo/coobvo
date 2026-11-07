@@ -10,11 +10,28 @@ android {
         applicationId 'dev.android.dynamicisland'
         minSdk 35
         targetSdk 36
-        versionCode 118
-        versionName providers.gradleProperty('localVersionName').getOrElse('0.1.16-dev4')
+        versionCode 119
+        versionName providers.gradleProperty('localVersionName').getOrElse('0.1.17-dev1')
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        coobvoDebug {
+            storeFile file('coobvo-debug.keystore')
+            storePassword 'android'
+            keyAlias 'coobvoDebug'
+            keyPassword 'android'
+        }
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix '.coobvo'
+            signingConfig signingConfigs.coobvoDebug
+        }
         release {
             minifyEnabled false
         }
