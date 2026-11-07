@@ -134,6 +134,8 @@ final class PillPainter {
             if (notch) glowCutout.addPath(notchBody);
             else if (pillVisible) glowCutout.addRoundRect(pill, r, r, Path.Direction.CW);
             if (hasBubble) glowCutout.addCircle(bubbleX, bubbleY, bubbleRadius, Path.Direction.CW);
+            if (hasBubble2) glowCutout.addRoundRect(bubble2, bubble2.width() / 2.0f,
+                    bubble2.height() / 2.0f, Path.Direction.CW);
             canvas.clipOutPath(glowCutout);
             if (hasNeck) canvas.clipOutPath(neck);
             // Also prime state if Android draws before admitting the first animation frame.
@@ -141,12 +143,14 @@ final class PillPainter {
             float alpha = bodyAlpha * clamp01(contentScale) * glowAlpha;
             if (pillVisible) glow.draw(canvas, pill, glowMotion, alpha, ModuleSettings.glowStrength());
             if (hasBubble) bubbleGlow.draw(canvas, bubble, glowMotion, alpha, ModuleSettings.glowStrength());
+            if (hasBubble2) bubbleGlow.draw(canvas, bubble2, glowMotion, alpha, ModuleSettings.glowStrength());
             canvas.restoreToCount(save);
         }
         boolean outlinePill = pillVisible && (scene.mode == Mode.COMPACT || scene.restingShown()) && bodyAlpha > IslandView.MIN_VISIBLE_ALPHA;
-        if ((outlinePill || hasBubble) && sp.outlineFade.value() > IslandView.MIN_VISIBLE_ALPHA
+        if ((outlinePill || hasBubble || hasBubble2) && sp.outlineFade.value() > IslandView.MIN_VISIBLE_ALPHA
                 && scene.pillOutlineOpacity() > IslandView.MIN_VISIBLE_ALPHA) {
-            drawOutline(canvas, pill, r, outlinePill, notch, bodyAlpha, hasBubble, hasNeck, neckAlpha, bubbleX, bubbleY, bubbleRadius);
+            drawOutline(canvas, pill, r, outlinePill, notch, bodyAlpha, hasBubble, hasNeck,
+                    neckAlpha, bubbleX, bubbleY, bubbleRadius, hasBubble2, bubble2);
         }
 
         int mainColor = bodyColor(scene.mainIn);
@@ -172,6 +176,11 @@ final class PillPainter {
             canvas.drawCircle(bubbleX, bubbleY, bubbleRadius, paints.shape);
             paints.shape.setColor(Colors.BLACK);
         }
+        if (hasBubble2) {
+            paints.shape.setColor(bodyColor(scene.bubble2In));
+            canvas.drawRoundRect(bubble2, bubble2.width() / 2.0f, bubble2.height() / 2.0f, paints.shape);
+            paints.shape.setColor(Colors.BLACK);
+        }
 
         if (pillVisible && contentAlpha > IslandView.MIN_VISIBLE_ALPHA) {
             int contentSave = canvas.save();
@@ -182,10 +191,16 @@ final class PillPainter {
             drawPillContent(canvas, full, full.height() / 2.0f, t, contentAlpha);
             canvas.restoreToCount(contentSave);
         }
-        if (hasBubble && split > BUBBLE_CONTENT_FROM) {
+        if ((hasBubble || hasBubble2) && split > BUBBLE_CONTENT_FROM) {
             float extra = clamp01((split - BUBBLE_CONTENT_FROM) / BUBBLE_CONTENT_RANGE) * contentAlpha;
-            drawBubbleLayer(canvas, scene.bubbleOut, t, extra);
-            drawBubbleLayer(canvas, scene.bubbleIn, t, extra);
+            if (hasBubble) {
+                drawBubbleLayer(canvas, scene.bubbleOut, bubble, t, extra);
+                drawBubbleLayer(canvas, scene.bubbleIn, bubble, t, extra);
+            }
+            if (hasBubble2) {
+                drawBubbleLayer(canvas, scene.bubble2Out, bubble2, t, extra);
+                drawBubbleLayer(canvas, scene.bubble2In, bubble2, t, extra);
+            }
         }
     }
 
