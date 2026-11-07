@@ -170,14 +170,6 @@ final class ReleaseRecommendations {
                     paint.setStrokeWidth(2.5f);paint.setColor(ui.dark ? 0xff4372ac : 0xff98bceb);
                     canvas.drawLine(27,30,27,22,paint);canvas.drawLine(45,30,45,22,paint);paint.setStyle(Paint.Style.FILL);
                 }
-                case BLUR -> {
-                    paint.setColor(0xff699cf0);canvas.drawCircle(27,30,16,paint);paint.setColor(0xffa98be3);canvas.drawCircle(46,44,15,paint);
-                    paint.setShader(new LinearGradient(12,14,60,58,ui.dark ? 0x99dfe9ff : 0xaaffffff,ui.dark ? 0x333d6296 : 0x5583ace9,Shader.TileMode.CLAMP));
-                    canvas.drawCircle(36,36,22,paint);paint.setShader(null);
-                    paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1.4f);paint.setColor(0xccffffff);canvas.drawCircle(36,36,22,paint);
-                    paint.setStrokeWidth(2.4f);paint.setStrokeCap(Paint.Cap.ROUND);paint.setColor(ui.dark ? 0xffeaf3ff : 0xff3d6eac);
-                    canvas.drawLine(26,36,46,36,paint);paint.setStyle(Paint.Style.FILL);
-                }
                 case NOTIFY -> {
                     paint.setColor(ui.dark ? 0xff080e19 : 0xff2b4b78);canvas.drawRoundRect(10,20,62,52,10,10,paint);
                     paint.setColor(0xff94c2ff);canvas.drawCircle(23,36,7,paint);
@@ -281,13 +273,7 @@ final class ReleaseRecommendations {
                     path.reset();path.moveTo(42,36);path.lineTo(47,33);path.lineTo(47,45);path.lineTo(42,42);path.close();canvas.drawPath(path,paint);
                     paint.setColor(ui.dark ? 0xff080e19 : 0xff2b4b78);canvas.drawCircle(34.5f,39,2.5f,paint);
                 }
-                case GLASS -> {
-                    paint.setColor(0xff699cf0);canvas.drawCircle(25,29,18,paint);paint.setColor(0xffa98be3);canvas.drawCircle(48,47,18,paint);
-                    paint.setShader(new LinearGradient(14,14,57,59,ui.dark ? 0xaadecaff : 0xccffffff,ui.dark ? 0x443d6296 : 0x7783ace9,Shader.TileMode.CLAMP));
-                    canvas.drawRoundRect(13,16,59,59,13,13,paint);paint.setShader(null);
-                    paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1);paint.setColor(0xccffffff);canvas.drawRoundRect(13,16,59,59,13,13,paint);paint.setStyle(Paint.Style.FILL);
-                    paint.setColor(0xfff5f8ff);canvas.drawRoundRect(22,28,48,32,2,2,paint);canvas.drawRoundRect(22,40,40,44,2,2,paint);
-                }
+
             }
             canvas.restoreToCount(save);
         }
