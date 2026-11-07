@@ -5,7 +5,7 @@ import java.util.List;
 
 /** Curated release content, independent of selection history and presentation. Add entries here at release time. */
 final class ReleaseHighlights {
-    enum Art { MOTION, FLASHLIGHT, SEARCH, GLASS, PREVIEW, SWIPE, BLUR, NOTIFY, PROGRESS, HOTSPOT, UNLOCK, HEADSET, IDLE, HOLD, PERFORMANCE, PALETTE, PULL, POPUP_TIME, CHARGING, CHARGING_TEXT, PRIVACY }
+    enum Art { MOTION, FLASHLIGHT, SEARCH, PREVIEW, SWIPE, NOTIFY, PROGRESS, HOTSPOT, UNLOCK, HEADSET, IDLE, HOLD, PERFORMANCE, PALETTE, PULL, POPUP_TIME, CHARGING, CHARGING_TEXT, PRIVACY }
     record Feature(String id,int title,int summary,Art art,SettingsSearchCatalog.Route route,int settingTitle) { }
     record Release(String family,List<Feature> features) { }
 
@@ -18,18 +18,13 @@ final class ReleaseHighlights {
                     new Feature("flashlight-beam",R.string.recommend_torch_title,R.string.recommend_torch,Art.FLASHLIGHT,
                             SettingsSearchCatalog.Route.APPEARANCE,R.string.torch_style),
                     new Feature("settings-search",R.string.recommend_search_title,R.string.recommend_search,Art.SEARCH,
-                            SettingsSearchCatalog.Route.SEARCH,0),
-                    new Feature("frosted-material",R.string.recommend_glass_title,R.string.recommend_glass,Art.GLASS,
-                            SettingsSearchCatalog.Route.APPEARANCE,R.string.material_style))),
+                            SettingsSearchCatalog.Route.SEARCH,0))),
+
             new Release("0.1.15",List.of(
                     new Feature("preview",R.string.recommend15_preview_title,R.string.recommend15_preview,Art.PREVIEW,
                             SettingsSearchCatalog.Route.APPEARANCE,R.string.anim_title),
                     new Feature("swipe",R.string.recommend15_swipe_title,R.string.recommend15_swipe,Art.SWIPE,
                             SettingsSearchCatalog.Route.APPEARANCE,R.string.anim_title),
-                    new Feature("blur",R.string.recommend15_blur_title,R.string.recommend15_blur,Art.BLUR,
-                            SettingsSearchCatalog.Route.APPEARANCE,R.string.transition_blur),
-                    new Feature("glass",R.string.recommend15_glass_title,R.string.recommend15_glass,Art.GLASS,
-                            SettingsSearchCatalog.Route.APPEARANCE,R.string.material_style),
                     new Feature("notify",R.string.recommend15_notify_title,R.string.recommend15_notify,Art.NOTIFY,
                             SettingsSearchCatalog.Route.NOTIFICATIONS,R.string.ui_notification_mode),
                     new Feature("progress",R.string.recommend15_progress_title,R.string.recommend15_progress,Art.PROGRESS,

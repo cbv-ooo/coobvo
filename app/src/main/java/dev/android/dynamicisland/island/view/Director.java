@@ -28,8 +28,6 @@ final class Director {
     private static final long CARD_STAGGER_MS = 70;
     /** Delay before the content of a freshly opened card fades in, after the card started growing. */
     private static final long CARD_CONTENT_DELAY_MS = 230;
-    /** How long a card's backdrop blur keeps the frame loop alive after it was switched on. */
-    private static final long BLUR_SETTLE_MS = 320;
     private static final long IN_DELAY_MS = 60;
     private static final long LEGACY_IN_DELAY_MS = 115;
     private static final long FIRST_CONTENT_IN_MS = 60;
@@ -90,8 +88,6 @@ final class Director {
         scene.peekOpen=false; scene.held=false;
         boolean expanded=scene.mode==Mode.EXPANDED;
         for (Card card:scene.cards) {
-            if(scene.blur!=null) scene.blur.release(card);
-            card.material.clear();
         }
         if(scene.iMode!=null) scene.iMode.dispose();
         scene.cards.clear();
@@ -99,6 +95,7 @@ final class Director {
         view.sliderBody=null; view.seekBody=null;
         scene.mode=Mode.HIDDEN;
         scene.mainIn=null; scene.mainOut=null; scene.bubbleIn=null; scene.bubbleOut=null;
+        scene.bubble2In=null; scene.bubble2Out=null;
         scene.contentHandoff=null;
         sp.pillBlob.snapTo(1); sp.stackDx.snapTo(0); sp.stackDy.snapTo(0);
         scene.iMode=ModuleSettings.iMode() ? new IMode(view,host,m,scene,bodies,this) : null;
@@ -155,16 +152,19 @@ final class Director {
             mediaFx.retainFor(scene.items, scene.minimized);
             scene.primary=list.isEmpty() ? null : list.get(0);
             scene.secondary=list.size()>1 ? list.get(1) : null;
+            scene.secondary2=list.size()>2 ? list.get(2) : null;
             scene.iMode.update();
             return;
         }
         IslandItem oldPrimary = scene.primary;
         IslandItem oldSecondary = scene.secondary;
+        IslandItem oldSecondary2 = scene.secondary2;
         scene.items.clear();
         scene.items.addAll(list);
         mediaFx.retainFor(scene.items, scene.minimized);
         scene.primary = list.isEmpty() ? null : list.get(0);
         scene.secondary = list.size() > 1 ? list.get(1) : null;
+        scene.secondary2 = list.size() > 2 ? list.get(2) : null;
         IslandItem primary = scene.primary;
         if (primary == null) {
             if (scene.mode == Mode.EXPANDED) {
@@ -182,7 +182,7 @@ final class Director {
             sp.width.animateTo(scene.pillWidthFor(scene.mainIn.content), Motion.PILL_RESIZE);
             sp.height.animateTo(m.pillH, Motion.PILL_RESIZE);
         }
-        updateBubble(oldSecondary, scene.secondary);
+        updateBubbles(oldSecondary, scene.secondary, oldSecondary2, scene.secondary2);
         view.scheduleFrame();
         view.scheduleTick();
         view.notifyHost();
@@ -240,14 +240,21 @@ final class Director {
 
     void refreshBubble() {
         if (scene.iMode != null) return;
-        scene.bubbleIn = Layer.shown(new BubbleContent(view, scene.secondary));
+        if (scene.secondary != null) {
+            BubbleContent content = new BubbleContent(view, scene.secondary);
+            scene.bubbleIn = scene.bubbleIn == null ? Layer.shown(content) : Layer.shownLike(content, scene.bubbleIn);
+        }
+        if (scene.secondary2 != null) {
+            BubbleContent content = new BubbleContent(view, scene.secondary2);
+            scene.bubble2In = scene.bubble2In == null ? Layer.shown(content) : Layer.shownLike(content, scene.bubble2In);
+        }
     }
 
     /** Remeasure with the new font while preserving which cards are open and their animation state. */
     void refreshFontLayouts() {
         if (scene.iMode != null) { scene.iMode.relayout(); return; }
         if (scene.mode == Mode.COMPACT && scene.primary != null) refreshMain();
-        if (scene.secondary != null && scene.bubbleIn != null) refreshBubble();
+        if (scene.secondary != null || scene.secondary2 != null) refreshBubble();
         if (scene.mode == Mode.EXPANDED) {
             List<IslandItem> opened = new ArrayList<>();
             for (Card card : scene.cards) if (!card.leaving) opened.add(card.item);
@@ -259,29 +266,20 @@ final class Director {
         view.scheduleFrame();
     }
 
-    private void updateBubble(IslandItem oldSecondary, IslandItem secondary) {
+    private void updateBubbles(IslandItem oldFirst, IslandItem first, IslandItem oldSecond, IslandItem second) {
         long t = IslandView.now();
-        if (secondary == null) {
-            if (scene.bubbleIn != null) {
-                scene.bubbleOut = scene.bubbleIn.toOutgoing(t, 0);
-            }
-            scene.bubbleIn = null;
+        updateBubbleLayer(oldFirst, first, false, t);
+        updateBubbleLayer(oldSecond, second, true, t);
+
+        if (first == null && second == null) {
+            view.removeCallbacks(startSplit);
             sp.split.animateTo(0.0f, Motion.BUBBLE_MERGE);
             return;
-        }
-        boolean same = oldSecondary != null && oldSecondary.key.equals(secondary.key);
-        if (scene.bubbleIn == null) {
-            scene.bubbleIn = Layer.incoming(new BubbleContent(view, secondary), t, BUBBLE_FIRST_IN_MS);
-        } else if (same) {
-            scene.bubbleIn = Layer.shownLike(new BubbleContent(view, secondary), scene.bubbleIn);
-        } else {
-            scene.bubbleOut = scene.bubbleIn.toOutgoing(t, 0);
-            scene.bubbleIn = Layer.incoming(new BubbleContent(view, secondary), t, inDelay());
         }
         if (scene.mode == Mode.COMPACT) {
             long sinceAppear = t - appearedAt;
             if (!legacy() && sinceAppear < SPLIT_AFTER_APPEAR_MS) {
-                // the pill is still landing: the bubble leaves it a moment later instead of competing with the drop
+                // Both companions leave together after the pill finishes its entrance.
                 view.removeCallbacks(startSplit);
                 view.postDelayed(startSplit, SPLIT_AFTER_APPEAR_MS - sinceAppear);
             } else {
@@ -290,8 +288,35 @@ final class Director {
         }
     }
 
+    /** Update one independent icon/content layer while both bubbles share the same split spring. */
+    private void updateBubbleLayer(IslandItem oldItem, IslandItem item, boolean second, long t) {
+        Layer incoming = second ? scene.bubble2In : scene.bubbleIn;
+        if (item == null) {
+            if (incoming != null) {
+                if (second) scene.bubble2Out = incoming.toOutgoing(t, 0);
+                else scene.bubbleOut = incoming.toOutgoing(t, 0);
+            }
+            if (second) scene.bubble2In = null;
+            else scene.bubbleIn = null;
+            return;
+        }
+        boolean same = oldItem != null && oldItem.key.equals(item.key);
+        Layer next;
+        if (incoming == null) {
+            next = Layer.incoming(new BubbleContent(view, item), t, BUBBLE_FIRST_IN_MS);
+        } else if (same) {
+            next = Layer.shownLike(new BubbleContent(view, item), incoming);
+        } else {
+            if (second) scene.bubble2Out = incoming.toOutgoing(t, 0);
+            else scene.bubbleOut = incoming.toOutgoing(t, 0);
+            next = Layer.incoming(new BubbleContent(view, item), t, inDelay());
+        }
+        if (second) scene.bubble2In = next;
+        else scene.bubbleIn = next;
+    }
+
     private void startSplitNow() {
-        if (scene.mode == Mode.COMPACT && scene.secondary != null) {
+        if (scene.mode == Mode.COMPACT && (scene.secondary != null || scene.secondary2 != null)) {
             sp.split.animateTo(1.0f, Motion.BUBBLE_SPLIT);
             view.scheduleFrame();
         }
@@ -362,6 +387,10 @@ final class Director {
             scene.bubbleOut = scene.bubbleIn.toOutgoing(t, 0);
         }
         scene.bubbleIn = null;
+        if (scene.bubble2In != null) {
+            scene.bubble2Out = scene.bubble2In.toOutgoing(t, 0);
+        }
+        scene.bubble2In = null;
         restingSize();
         sp.split.animateTo(0.0f, Motion.BUBBLE_MERGE);
         if (toLeft) {
@@ -453,12 +482,11 @@ final class Director {
         view.removeCallbacks(fadePillBlob);
         boolean hadCards = !scene.cards.isEmpty();
         for (Card card : scene.cards) {
-            if (scene.blur != null) scene.blur.release(card);
-            card.material.clear();
         }
         scene.cards.clear();
         scene.mainOut = null;
         scene.bubbleOut = null;
+        scene.bubble2Out = null;
         scene.contentHandoff = null;
         sp.pillBlob.snapTo(1);
         sp.outlineFade.snapTo(1);
@@ -704,7 +732,7 @@ final class Director {
         sp.width.animateTo(scene.pillWidthFor(scene.mainIn.content), Motion.PILL_REGROW);
         sp.height.animateTo(m.pillH, Motion.PILL_REGROW);
         if (withBubble || legacy() || scene.cards.isEmpty()) {
-            sp.split.animateTo(scene.secondary != null ? 1.0f : 0.0f, Motion.BUBBLE_SPLIT);
+            sp.split.animateTo(scene.secondary != null || scene.secondary2 != null ? 1.0f : 0.0f, Motion.BUBBLE_SPLIT);
         }
         view.scheduleFrame();
     }
@@ -808,7 +836,6 @@ final class Director {
     }
 
     private void startLeaving(Card c, long at) {
-        c.leaveContentBlur = StackPainter.contentBlurAmount(c, IslandView.now(), shapes.expansion(c));
         c.leaveContentAlpha = StackPainter.contentAlpha(c, IslandView.now(), shapes.expansion(c));
         c.handoff = null;
         c.leaving = true;
@@ -856,11 +883,7 @@ final class Director {
             }
             // non-short-circuit on purpose: every spring must be stepped
             boolean moving = !c.launched | c.cy.step(dt) | c.w.step(dt) | c.h.step(dt) | c.dx.step(dt);
-            if (moving) {
-                c.blurOnAt = t;
-            }
-            // frames go on a little after the last movement so the blur window catches up with the card
-            active |= moving || t - c.blurOnAt < BLUR_SETTLE_MS;
+            active |= moving;
             boolean gone = c.leaving && c.launched && Math.abs(c.cy.value() - c.targetCy) < m.dp(4.0f)
                     && (legacy() ? c.h.value() < m.pillH * 0.95f
                     : Math.abs(c.h.value() - c.targetH) < m.dp(3.0f) && Math.abs(c.w.value() - c.targetW) < m.dp(6.0f)
@@ -868,10 +891,7 @@ final class Director {
                     && (pillShown() || t - c.leaveAt > PILL_SETTLE_TIMEOUT_MS));
             if (gone) {
                 scene.cards.remove(i);
-                if (scene.blur != null) {
-                    scene.blur.release(c);
-                }
-            } else if (c.leaving) {
+                } else if (c.leaving) {
                 active = true; // a leaving card has to reach "gone" even if its springs rest early
             }
         }

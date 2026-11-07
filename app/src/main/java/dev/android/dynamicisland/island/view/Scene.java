@@ -1,6 +1,5 @@
 package dev.android.dynamicisland.island.view;
 
-import dev.android.dynamicisland.island.material.MaterialFrame;
 import dev.android.dynamicisland.island.model.IslandItem;
 import dev.android.dynamicisland.settings.ModuleSettings;
 import java.util.ArrayList;
@@ -23,15 +22,17 @@ final class Scene {
     final List<IslandItem> minimized = new ArrayList<>();
     IslandItem primary;
     IslandItem secondary;
+    /** Third live item, shown in an independent companion bubble. */
+    IslandItem secondary2;
     IslandItem glowSession;
     boolean explicitGlowSession;
     Layer mainIn;
     Layer mainOut;
     Layer bubbleIn;
     Layer bubbleOut;
+    Layer bubble2In;
+    Layer bubble2Out;
     final List<Card> cards = new ArrayList<>();
-    BlurSink blur;
-    MaterialFrame materialFrame;
 
     boolean suppressed;
     /** The display is entering sleep; the visual gate owns the exit, input stops immediately. */
@@ -79,8 +80,11 @@ final class Scene {
     }
 
     float pillOutlineTarget() {
-        boolean bubble = springs.split.value() > 0.003f;
-        return pillOutline.visible(ModuleSettings.pillOutlineMode(), pillBodyColor(mainIn), pillBodyColor(bubbleIn), bubble) ? 1f : 0f;
+        boolean split = springs.split.value() > 0.003f;
+        boolean bubble = split && (secondary != null || bubbleIn != null || bubbleOut != null);
+        boolean bubble2 = split && (secondary2 != null || bubble2In != null || bubble2Out != null);
+        return pillOutline.visible(ModuleSettings.pillOutlineMode(), pillBodyColor(mainIn),
+                pillBodyColor(bubbleIn), pillBodyColor(bubble2In), bubble, bubble2) ? 1f : 0f;
     }
 
     /** The shade is down far enough that the island has been sent away (it comes back only when the shade is nearly shut). */

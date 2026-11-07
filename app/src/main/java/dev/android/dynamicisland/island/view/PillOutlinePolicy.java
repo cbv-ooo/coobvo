@@ -17,11 +17,17 @@ final class PillOutlinePolicy {
     }
 
     boolean visible(int mode, int primaryColor, int bubbleColor, boolean hasBubble) {
+        return visible(mode, primaryColor, bubbleColor, 0, hasBubble, false);
+    }
+
+    boolean visible(int mode, int primaryColor, int bubbleColor, int secondBubbleColor,
+            boolean hasBubble, boolean hasSecondBubble) {
         if (mode == 1) return true;
         if (mode == 2) return false;
         if (backgroundLuma == null) return true;
         float contrast = contrast(luma(primaryColor), backgroundLuma);
         if (hasBubble) contrast = Math.min(contrast, contrast(luma(bubbleColor), backgroundLuma));
+        if (hasSecondBubble) contrast = Math.min(contrast, contrast(luma(secondBubbleColor), backgroundLuma));
         // Different enter/leave thresholds stop video, gradients, and sample noise flickering the rim.
         if (contrast >= HIDE_CONTRAST) automaticVisible = false;
         else if (contrast <= SHOW_CONTRAST) automaticVisible = true;

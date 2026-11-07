@@ -40,8 +40,8 @@ public class ReleaseRecommendationsTest {
             assertTrue(rec.available());
             SharedPreferences settings=ReflectionHelpers.getField(a,"prefs");Map<String,?> initial=Map.copyOf(settings.getAll());
             var release=ReleaseHighlights.forVersion("0.1.14");
-            assertEquals(5,release.features().size());
-            assertEquals(java.util.Set.of("imotion","imotion-gestures","flashlight-beam","settings-search","frosted-material"),
+            assertEquals(4,release.features().size());
+            assertEquals(java.util.Set.of("imotion","imotion-gestures","flashlight-beam","settings-search"),
                     release.features().stream().map(ReleaseHighlights.Feature::id).collect(java.util.stream.Collectors.toSet()));
             HashSet<String> visited=new HashSet<>();
             String previous=null;
@@ -111,7 +111,7 @@ public class ReleaseRecommendationsTest {
     @Test public void theNewReleaseHasTenCardsAndEachOpensItsRealSetting() throws Exception {
         pin("0.1.15");clearHistory();
         var release=ReleaseHighlights.forVersion("0.1.15");
-        assertEquals(10,release.features().size());
+        assertEquals(8,release.features().size());
         assertSame("a development build of the family shows the same cards",release,ReleaseHighlights.forVersion("0.1.15-dev1"));
         for(var feature:release.features()) {
             assertNotEquals(feature.id(),0,feature.title());

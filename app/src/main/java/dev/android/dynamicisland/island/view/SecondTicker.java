@@ -50,7 +50,6 @@ final class SecondTicker {
         try {
             posted = false;
             if (!needed() || scene.frozenByShade()) return;
-            stack.placeBlurs();
             remeasureChronometer();
             view.invalidate();
             schedule();

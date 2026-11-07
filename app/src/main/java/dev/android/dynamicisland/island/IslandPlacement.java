@@ -34,8 +34,6 @@ final class IslandPlacement {
     private static final int BAR_STATE_KEYGUARD = 1;
     private static final int BAR_STATE_SHADE_LOCKED = 2;
 
-    /** The camera hole is only used when its centre is this close (dp) to the screen centre. */
-    private static final float CUTOUT_CENTER_TOLERANCE_DP = 10.0f;
     /** The visible part of the camera hole as a fraction of its bounding box. */
     private static final float CUTOUT_VISIBLE_RATIO = 0.78f;
     /** Screens at least this wide (dp, short side) are treated as tablets. */
@@ -259,7 +257,6 @@ final class IslandPlacement {
         setSleeping(true);
         sleepFinished = true;
         if (view != null) view.finishSleeping();
-        if (window != null) window.stopBackdropSampling();
         onFrame();
     }
 
@@ -316,9 +313,16 @@ final class IslandPlacement {
         boolean manualHole = ModuleSettings.holeMode() == ModuleSettings.HOLE_MANUAL;
         float holeCenterX = (width / 2.0f) + (manualHole ? ModuleSettings.holeXDp() * density : 0.0f);
         float holeCenterY = statusBarCenterY() + (manualHole ? ModuleSettings.holeYDp() * density : 0.0f);
-        if (onHole && manualHole) {
-            centerX = holeCenterX;
-            centerY = holeCenterY;
+        Rect automaticCutout = onHole && !manualHole ? cameraHoleBounds() : null;
+        if (onHole) {
+            if (manualHole) {
+                centerX = holeCenterX;
+                centerY = holeCenterY;
+            } else if (automaticCutout != null) {
+                // DisplayCutout bounds are authoritative: the S10e camera is not horizontally centred.
+                centerX = automaticCutout.exactCenterX();
+                centerY = automaticCutout.exactCenterY();
+            }
         }
         boolean landscape = width > height;
         if (landscape) {
@@ -338,13 +342,15 @@ final class IslandPlacement {
                 case ModuleSettings.HOLE_NONE:
                     break;
                 default:
-                    holeD = cameraHoleDiameter(centerX);
+                    holeD = automaticCutout == null ? 0.0f
+                            : visibleCameraHoleDiameter(automaticCutout.width(), automaticCutout.height());
                     break;
             }
         }
         view.setPillSize(ModuleSettings.pillHeightPercent(), ModuleSettings.pillMinWidthDp(), ModuleSettings.pillMaxWidthDp());
         view.setHoleTextPadding(ModuleSettings.holeTextPaddingDp());
-        view.setGeometry(width, centerX, centerY, holeD, tablet);
+        int bubbleSide = bubbleSideForCenter(centerX, width, ModuleSettings.pillAnchor());
+        view.setGeometry(width, centerX, centerY, holeD, tablet, bubbleSide);
         // while the settings page is open the hole set by hand is drawn as a ring, to line it up with the real camera
         boolean marker = manualHole && ModuleSettings.placementPreviewActive();
         view.setHoleMarker(marker ? holeCenterX : -1.0f, holeCenterY, ModuleSettings.holeDiameterDp() * density);
@@ -375,15 +381,37 @@ final class IslandPlacement {
         return statusBarCenterY() + (ModuleSettings.pillYDp() * density);
     }
 
-    /** Diameter of the visible camera hole when it sits at the screen centre, else 0. */
-    private float cameraHoleDiameter(float screenCenterX) {
+    /** Reads the top camera cutout without assuming that it is at the horizontal screen centre. */
+    private Rect cameraHoleBounds() {
         DisplayCutout cutout = window.cutout();
-        Rect top = cutout == null ? null : cutout.getBoundingRectTop();
-        if (top == null || top.isEmpty()
-                || Math.abs(top.exactCenterX() - screenCenterX) >= density * CUTOUT_CENTER_TOLERANCE_DP) {
+        if (cutout == null) {
+            return null;
+        }
+        Rect top = cutout.getBoundingRectTop();
+        return top == null || top.isEmpty() ? null : new Rect(top);
+    }
+
+    /** Visible camera-hole diameter from its bounding rectangle, independent of its screen position. */
+    static float visibleCameraHoleDiameter(int width, int height) {
+        if (width <= 0 || height <= 0) {
             return 0.0f;
         }
-        return Math.min(top.width(), top.height()) * CUTOUT_VISIBLE_RATIO;
+        return Math.min(width, height) * CUTOUT_VISIBLE_RATIO;
+    }
+
+    /**
+     * Companion bubbles extend away from the screen centre. The configured anchor is only a tie-breaker
+     * when the pill is effectively centred.
+     */
+    static int bubbleSideForCenter(float centerX, float screenWidth, int anchor) {
+        float displacement = centerX - (screenWidth / 2.0f);
+        if (displacement > 1.5f) {
+            return -1;
+        }
+        if (displacement < -1.5f) {
+            return 1;
+        }
+        return anchor == ModuleSettings.ANCHOR_RIGHT ? -1 : 1;
     }
 
     /** Vertical centre of the status bar contents (where the camera hole is), in screen pixels. */
@@ -410,7 +438,11 @@ final class IslandPlacement {
         if (window == null) {
             return;
         }
-        int height = Math.max(neededHeight, Math.round(pillCenterY() + density * WINDOW_EXTRA_HEIGHT_DP));
+        float centerY = portrait ? centerYPortrait : centerYLandscape;
+        if (centerY <= 0.0f) {
+            centerY = pillCenterY();
+        }
+        int height = Math.max(neededHeight, Math.round(centerY + density * WINDOW_EXTRA_HEIGHT_DP));
         if (view != null && view.isExpanded()) {
             height = Math.max(height, window.windowBounds().height());
         }
@@ -473,7 +505,6 @@ final class IslandPlacement {
         }
         window.invalidateTouchRegion();
         boolean hidden = view.isFullyHidden();
-        if (sleeping && hidden) window.stopBackdropSampling();
         window.setShown(true);
         if (!view.shadePulled()) {
             view.getCoverageBounds(scratch);

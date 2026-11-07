@@ -2,12 +2,6 @@ package dev.android.dynamicisland.xposed.hooks;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.RectF;
-import android.graphics.Path;
-import dev.android.dynamicisland.island.material.MaterialFrame;
-import dev.android.dynamicisland.island.material.FrostedSurface;
-import dev.android.dynamicisland.island.material.MaterialShape;
-import dev.android.dynamicisland.island.window.ShadeMaterialBackdrop;
 import android.os.SystemClock;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
@@ -21,7 +15,6 @@ import dev.android.dynamicisland.island.model.IslandItem;
 import dev.android.dynamicisland.island.view.IslandView;
 import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.xposed.Refl;
-import dev.android.dynamicisland.xposed.Diagnostics;
 import dev.android.dynamicisland.xposed.XLog;
 
 /**
@@ -42,12 +35,6 @@ final class LiveCardView extends FrameLayout {
     private final FramePacer framePacer = new FramePacer();
     private IslandItem current;
     private int desiredHeight;
-    private final ShadeMaterialAppearance materialAppearance=new ShadeMaterialAppearance();
-    private final FrostedSurface remoteMaterial=new FrostedSurface();
-    private final RectF materialLocal=new RectF(),materialScreen=new RectF();
-    private final Path remoteClip=new Path();
-    private boolean remoteFrosted;
-    private long geometryReportedAt = -5_000;
 
     /** Touch gesture: the item and position at ACTION_DOWN, whether it left the slop, whether we own it. */
     private IslandItem downItem;
@@ -64,7 +51,6 @@ final class LiveCardView extends FrameLayout {
         setWillNotDraw(false);
         remote = new RemoteCardContent(this);
         renderer = new IslandView(ctx, null);
-        materialAppearance.follow(this, () -> !owner.isRestored());
         slop = ViewConfiguration.get(ctx).getScaledTouchSlop();
         setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         setOnClickListener(v -> onTapped());
@@ -173,28 +159,16 @@ final class LiveCardView extends FrameLayout {
     protected void onDraw(Canvas canvas) {
         framePacer.allow(false, false, System.nanoTime());
         try {
-            MaterialFrame frame=ShadeMaterialBackdrop.frame(this);
-            materialLocal.set(0,0,getWidth(),getHeight());
-            ShadeMaterialBackdrop.screenBounds(this,materialLocal,materialScreen);
             IslandItem latest = ShadeLiveCards.item(key);
-            remoteFrosted=false;
             if (latest != null && latest.remoteView != null) {
-                float radius=ModuleSettings.customCardRoundness() ? renderer.dp(ModuleSettings.cardCornerRadiusDp()) : getWidth()*100f/1072;
-                radius=Math.min(radius,getHeight()/2f);
-                remoteFrosted=remoteMaterial.draw(canvas,frame,materialLocal,materialScreen,radius,1,null,IslandView.now());
-                if(remoteFrosted)MaterialShape.path(remoteClip,materialLocal,radius);
-                materialAppearance.sync(this,remoteFrosted);
                 if (latest != current) {
                     current = latest;
                     post(this::requestLayout);
                 }
             } else {
-                if (heightFor(Math.max(1, getWidth())) != getMeasuredHeight()) {
-                    requestLayout();
-                }
-                materialAppearance.sync(this,renderer.drawShadeCard(canvas,current,getWidth(),frame,materialScreen));
+                if (heightFor(Math.max(1, getWidth())) != getMeasuredHeight()) requestLayout();
+                renderer.drawShadeCard(canvas,current,getWidth());
             }
-            reportGeometry();
             setContentDescription(describe(current));
             scheduleRedraw();
         } catch (Throwable t) {
@@ -202,47 +176,9 @@ final class LiveCardView extends FrameLayout {
         }
     }
 
-    /** Geometry survives in diagnostics even when Samsung never invokes the optional custom-corner hook. */
-    private void reportGeometry() {
-        if (!FrostedSurface.requested()) return;
-        long now = SystemClock.uptimeMillis();
-        if (now - geometryReportedAt < 5_000) return;
-        geometryReportedAt = now;
-        try {
-            StringBuilder line = new StringBuilder("draw ").append(getWidth()).append('x').append(desiredHeight)
-                    .append("; measured ").append(getMeasuredWidth()).append('x').append(getMeasuredHeight());
-            int levels = 0;
-            for (View node = this; node != null && levels < 6; levels++) {
-                line.append(" [").append(node.getClass().getSimpleName()).append(' ')
-                        .append(node.getWidth()).append('x').append(node.getHeight())
-                        .append(" y=").append(node.getY()).append(" pad=").append(node.getPaddingTop()).append(',').append(node.getPaddingBottom());
-                if (node.getClipToOutline()) line.append(" outline");
-                if (node instanceof ViewGroup && ((ViewGroup) node).getClipChildren()) line.append(" clipChildren");
-                android.graphics.Rect clip = node.getClipBounds();
-                if (clip != null) line.append(" clip=").append(clip.toShortString());
-                for (String field : GEOMETRY_FIELDS) if (Refl.field(node.getClass(), field) != null)
-                    line.append(' ').append(field).append('=').append(Refl.get(node, field));
-                line.append(']');
-                android.view.ViewParent parent = node.getParent();
-                node = parent instanceof View ? (View) parent : null;
-            }
-            Diagnostics.fact("shade live card geometry", line.toString());
-        } catch (RuntimeException ignored) {
-            // A diagnostic must not interfere with notification drawing.
-        }
-    }
-
-    private static final String[] GEOMETRY_FIELDS = {"mActualHeight", "mUnrestrictedContentHeight", "mClipTopAmount", "mClipBottomAmount"};
-
     @Override
     protected void dispatchDraw(Canvas canvas) {
-        int save=canvas.save();
-        try {
-            if(remoteFrosted && remote.isShown())canvas.clipPath(remoteClip);
-            super.dispatchDraw(canvas);
-        } finally {
-            canvas.restoreToCount(save);
-        }
+        super.dispatchDraw(canvas);
     }
 
     private static String describe(IslandItem item) {
@@ -276,7 +212,7 @@ final class LiveCardView extends FrameLayout {
         // sweeping bars, stopwatch hundredths and rolling digits need every frame; a clock anywhere on
         // the card (trailing, title or secondary line) needs one redraw per second
         boolean everyFrame = item.progressIndeterminate || (item.chronoMillis && item.hasChronometer()) || renderer.shadeRolling()
-                || renderer.shadeMaterialAnimating() || remoteMaterial.animating(IslandView.now());
+               ;
         boolean everySecond = item.trailing == IslandItem.Trailing.CHRONOMETER
                 || item.kind == IslandItem.Kind.TIMER
                 || item.kind == IslandItem.Kind.RECORDING
@@ -298,7 +234,7 @@ final class LiveCardView extends FrameLayout {
     @Override
     protected void onDetachedFromWindow() {
         removeCallbacks(redraw);
-        ShadeMaterialBackdrop.release(this);materialAppearance.clear();remoteMaterial.clear();renderer.clearShadeMaterial();
+        remote.clear();
         super.onDetachedFromWindow();
     }
 

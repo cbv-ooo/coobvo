@@ -239,7 +239,7 @@ public class IModeTest {
             assertEquals("the page follows the finger without the stack's rubber offset",start.left-90,dragged.left,.01f);
             Card neighbour=f.scene.cards.stream().filter(c->c.iModePreview).findFirst().orElseThrow();
             assertTrue("a neighbouring full-size card is already entering",f.bounds(neighbour).left<440);
-            assertTrue("the expanded card's foreground blurs during the swipe",StackPainter.contentBlurAmount(old,IslandView.now(),1)>0);
+            assertEquals("the expanded card foreground remains crisp during the swipe",0f,StackPainter.contentBlurAmount(old,IslandView.now(),1),0f);
             RectF preview=f.bounds(neighbour);
             f.event(MotionEvent.ACTION_UP,start.centerX()-90,start.centerY());
             f.assertSingle("item1");assertEquals(dragged,f.bounds(old));assertEquals(preview,f.bounds(neighbour));
@@ -383,79 +383,20 @@ public class IModeTest {
         }
     }
 
-    @Test public void darkBackgroundOutlineIsSampledDuringTheWholeMorphAndChangesContinuously() {
-        try(Fixture f=new Fixture(3)) {
-            f.controller.visible();f.view.layout(0,0,440,400);
-            f.view.setPillBackgroundLuma(1f);f.step(16,80);assertEquals(0,f.scene.pillOutlineOpacity(),.001f);
-            f.scene.iMode.open("item0",true);
-            Rect stable=new Rect();assertTrue("sampling starts before the card has finished opening",f.view.pillBackgroundSamplingRegion(stable));
-            f.view.setPillBackgroundLuma(0f);f.step(16,3);
-            assertTrue("the dark-background rim is visible while moving",f.scene.pillOutlineOpacity()>.1f);
-            assertTrue("contrast changes fade rather than switching",f.scene.pillOutlineOpacity()<.99f);
-            for(int i=0;i<20;i++) {
-                Rect sample=new Rect();assertTrue(f.view.pillBackgroundSamplingRegion(sample));
-                assertEquals("the compositor listener is not re-registered for each moving frame",stable,sample);f.step(16,1);
-            }
-            f.view.collapse();assertTrue(f.view.pillBackgroundSamplingRegion(stable));
-            for(int i=0;i<25;i++) {
-                Rect sample=new Rect();assertTrue(f.view.pillBackgroundSamplingRegion(sample));assertEquals(stable,sample);f.step(16,1);
-                assertTrue(f.scene.pillOutlineOpacity()>.99f);
-            }
-            f.prefs.edit().putInt(ModuleSettings.KEY_PILL_OUTLINE,2).commit();ModuleSettings.configurePreview(f.prefs);
-            assertEquals("the user's never-show-outline option remains respected",0,f.scene.pillOutlineOpacity(),0);
+    @Test public void expandedCardSurfaceRemainsFullyOpaque() {
+        try (Fixture f = new Fixture(1)) {
+            StackPainter painter = ReflectionHelpers.getField(f.view, "stackPainter");
+            assertEquals(255, Color.alpha(painter.fillColor(0f)));
+            assertEquals(255, Color.alpha(painter.fillColor(0.5f)));
+            assertEquals(255, Color.alpha(painter.fillColor(1f)));
         }
     }
 
-    @Test public void automaticRimStaysOnTheMovingExteriorInClassicAndFrostedMaterials() {
-        for(int material:new int[]{ModuleSettings.MATERIAL_CLASSIC,ModuleSettings.MATERIAL_FROSTED}) try(Fixture f=new Fixture(1)) {
-            f.prefs.edit().putInt(ModuleSettings.KEY_MATERIAL_STYLE,material).commit();ModuleSettings.configurePreview(f.prefs);
-            f.view.setPillBackgroundLuma(0f);f.step(16,80);
-            f.scene.iMode.open("item0",true);Card card=f.active();
-            assertTrue("the first morph frame must retain the compact exterior rim; material="+material,
-                    exteriorAutomaticRimEnergy(f,card)>500);
-            if(material==ModuleSettings.MATERIAL_FROSTED)
-                assertNotNull("the frosted regression must use the actual GPU material",ReflectionHelpers.getField(card.material,"shader"));
-            f.step(16,6);
-            assertTrue("the material renderer must not swallow the automatic rim during unfolding; material="+material,
-                    exteriorAutomaticRimEnergy(f,card)>200);
-            f.step(16,80);f.view.collapse();f.step(16,12);
-            assertTrue(f.scene.cards.contains(card));
-            assertTrue("the rim must already exist before the moving card is replaced by the compact node; material="+material,
-                    exteriorAutomaticRimEnergy(f,card)>500);
-            f.step(16,80);f.view.setPillBackgroundLuma(1f);f.step(16,80);f.scene.iMode.open("item0",true);
-            assertEquals("automatic contrast still omits the pill rim on a bright background; material="+material,
-                    0,exteriorAutomaticRimEnergy(f,f.active()));
-        }
-    }
-    private static long exteriorAutomaticRimEnergy(Fixture f,Card card) {
-        RectF bounds=f.bounds(card);
-        f.prefs.edit().putInt(ModuleSettings.KEY_PILL_OUTLINE,ModuleSettings.PILL_OUTLINE_AUTO).commit();ModuleSettings.configurePreview(f.prefs);
-        Bitmap automatic=capture(f,"");
-        f.prefs.edit().putInt(ModuleSettings.KEY_PILL_OUTLINE,2).commit();ModuleSettings.configurePreview(f.prefs);
-        Bitmap none=capture(f,"");
-        long energy=0;
-        for(int y=Math.max(0,(int)bounds.top-2);y<Math.min(330,(int)Math.ceil(bounds.bottom)+2);y++)
-            for(int x=Math.max(0,(int)bounds.left-2);x<Math.min(440,(int)Math.ceil(bounds.right)+2);x++)
-                if(!bounds.contains(x+.5f,y+.5f)) energy+=Math.max(0,Color.red(automatic.getPixel(x,y))-Color.red(none.getPixel(x,y)));
-        automatic.recycle();none.recycle();
-        f.prefs.edit().putInt(ModuleSettings.KEY_PILL_OUTLINE,ModuleSettings.PILL_OUTLINE_AUTO).commit();ModuleSettings.configurePreview(f.prefs);
-        return energy;
-    }
-
-    @Test public void outlineSamplingIsReadyBeforeAnArrivalAndBeforeCameraHoleRestore() {
-        try(Fixture f=new Fixture(0)) {
-            f.controller.visible();f.view.layout(0,0,440,400);
-            Rect standby=new Rect();assertTrue("an empty iMotion row still prewarms automatic contrast",f.view.pillBackgroundSamplingRegion(standby));
-            f.view.setPillBackgroundLuma(1f);assertEquals(0,f.scene.pillOutlineOpacity(),.001f);
-            f.items.add(item("arrival",0));f.view.setItems(f.items);
-            Rect arriving=new Rect();assertTrue(f.view.pillBackgroundSamplingRegion(arriving));
-            assertEquals("an arrival does not restart sampling at another width",standby,arriving);
-            f.step(16,80);f.scene.iMode.hideByGesture();f.step(16,80);
-            f.view.setPillBackgroundLuma(0f);
-            assertEquals("contrast can settle while invisible instead of waiting for a future animation",1,f.scene.pillOutlineOpacity(),.001f);
-            f.scene.iMode.restoreByGesture();assertEquals(1,f.scene.pillOutlineOpacity(),.001f);
-            f.step(16,2);assertEquals("the restoring surface already has its dark-background rim",1,f.scene.pillOutlineOpacity(),.001f);
-        }
+    @Test public void automaticOutlineKeepsItsSafeFallbackWithoutBackdropSampling() {
+        PillOutlinePolicy policy = new PillOutlinePolicy();
+        assertTrue("unknown background keeps the pill discoverable", policy.visible(0, 0xFF000000, 0, 0, false, false));
+        assertTrue("always mode remains available", policy.visible(1, 0xFF000000, 0, 0, false, false));
+        assertFalse("never mode remains respected", policy.visible(2, 0xFF000000, 0, 0, false, false));
     }
 
     @Test public void quickPanelCollectsTheSecondaryPillAtTheCameraHoleBeforeItFades() {
@@ -633,7 +574,7 @@ public class IModeTest {
             assertEquals("moving custom content is painted inside the card, not above its siblings",View.GONE,moving.view.getVisibility());
             RenderNode capture=new RenderNode("moving custom notification");capture.setPosition(0,0,440,400);
             Canvas hardware=capture.beginRecording();f.view.drawCard(hardware,f.active(),IslandView.now());capture.endRecording();
-            assertNotNull(ReflectionHelpers.getField(f.active().contentBlur,"node"));capture.discardDisplayList();
+            assertEquals("remote content remains unfiltered",0f,ContentBlur.RADIUS_DP,0f);capture.discardDisplayList();
             f.step(16,66);
             assertEquals(View.VISIBLE,moving.view.getVisibility());
             assertTrue(f.active().body instanceof dev.android.dynamicisland.island.view.card.RemoteBody);
@@ -668,23 +609,22 @@ public class IModeTest {
         }
     }
 
-    @Test public void hardwareRecordingBlursEveryMovingForegroundAndKeepsTheOutlineSeparate() {
+    @Test public void hardwareRecordingKeepsMovingForegroundSharpAndOutlineSeparate() {
         try(Fixture f=new Fixture(3)) {
             f.scene.iMode.open("item0",true);f.step(16,4);
             Card c=f.active();
-            RenderNode node=new RenderNode("foreground verification");node.setPosition(0,0,440,400);
+            RenderNode node=new RenderNode("foreground clarity verification");node.setPosition(0,0,440,400);
             Canvas hardware=node.beginRecording();
             f.view.drawCard(hardware,c,IslandView.now());f.view.draw(hardware);node.endRecording();
-            assertNotNull(ReflectionHelpers.getField(c.contentBlur,"node"));
-            assertNotNull(ReflectionHelpers.getField(c.iModeCompactBlur,"node"));
-            assertFalse((boolean)ReflectionHelpers.getField(c.contentBlur,"failed"));
-            assertFalse((boolean)ReflectionHelpers.getField(c.iModeCompactBlur,"failed"));
-            assertTrue("all expanded contents share a foreground blur",StackPainter.contentBlurAmount(c,IslandView.now(),1)>.5f);
+            assertEquals("transition blur is disabled",0f,ContentBlur.RADIUS_DP,0f);
+            assertEquals("expanded content is never blur-filtered",0f,
+                    StackPainter.contentBlurAmount(c,IslandView.now(),1),0f);
+            assertEquals("the island view has no foreground blur",0f,ContentBlur.RADIUS_DP,0f);
             StackPainter painter=ReflectionHelpers.getField(f.view,"stackPainter");
             assertFalse((boolean)ReflectionHelpers.getField(painter,"drawFailureLogged"));
             node.discardDisplayList();
             f.step(16,80);
-            assertEquals(0,StackPainter.contentBlurAmount(c,IslandView.now(),1),.001f);
+            assertEquals(0f,StackPainter.contentBlurAmount(c,IslandView.now(),1),0f);
             IslandItem transientItem=item("transient",3);
             assertTrue(f.view.peek(transientItem,6000));f.assertSingle("transient");
             f.view.peek(transientItem,6000);f.assertSingle("transient");
