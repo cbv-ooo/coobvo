@@ -23,12 +23,16 @@ final class Scene {
     final List<IslandItem> minimized = new ArrayList<>();
     IslandItem primary;
     IslandItem secondary;
+    /** Third live item, shown in an independent companion bubble. */
+    IslandItem secondary2;
     IslandItem glowSession;
     boolean explicitGlowSession;
     Layer mainIn;
     Layer mainOut;
     Layer bubbleIn;
     Layer bubbleOut;
+    Layer bubble2In;
+    Layer bubble2Out;
     final List<Card> cards = new ArrayList<>();
     BlurSink blur;
     MaterialFrame materialFrame;
