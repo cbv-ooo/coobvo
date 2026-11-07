@@ -163,8 +163,21 @@ final class Director {
         scene.items.addAll(list);
         mediaFx.retainFor(scene.items, scene.minimized);
         scene.primary = list.isEmpty() ? null : list.get(0);
-        scene.secondary = list.size() > 1 ? list.get(1) : null;
-        scene.secondary2 = list.size() > 2 ? list.get(2) : null;
+        // Live companions take priority. Fill unused bubble slots with the newest items the user
+        // minimized, so the two companion bubbles remain useful instead of disappearing when an
+        // item is deliberately moved out of the main list.
+        List<IslandItem> companions = new ArrayList<>(2);
+        for (int i = 1; i < list.size() && companions.size() < 2; i++) {
+            companions.add(list.get(i));
+        }
+        for (int i = scene.minimized.size() - 1; i >= 0 && companions.size() < 2; i--) {
+            IslandItem minimized = scene.minimized.get(i);
+            if (minimized != null && (scene.primary == null || !minimized.key.equals(scene.primary.key))) {
+                companions.add(minimized);
+            }
+        }
+        scene.secondary = companions.isEmpty() ? null : companions.get(0);
+        scene.secondary2 = companions.size() > 1 ? companions.get(1) : null;
         IslandItem primary = scene.primary;
         if (primary == null) {
             if (scene.mode == Mode.EXPANDED) {

@@ -166,6 +166,8 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
     private final Footprint footprint;
     private final ShadeCards shadeCards;
     private final RectF pillRect = new RectF();
+    /** Dedicated bounds for expanded cards; card bodies use tmpRect internally while painting. */
+    private final RectF cardRect = new RectF();
     private final FramePacer framePacer = new FramePacer();
     private final dev.android.dynamicisland.island.graphics.FrameStats frameStats = new dev.android.dynamicisland.island.graphics.FrameStats();
     private boolean frameRateBoosted;
@@ -1089,13 +1091,29 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
             canvas.restoreToCount(save);
             return;
         }
+        long frameTime = now();
         stackPainter.drawGoo(canvas);
+        drawStackCards(canvas, frameTime);
         float scale = springs.press.value() * (springs.pulse.value() + 1.0f);
         int pillSave = canvas.save();
         canvas.scale(scale, scale, pillRect.centerX(), metrics.cy);
-        pillPainter.draw(canvas, pillRect, now());
+        pillPainter.draw(canvas, pillRect, frameTime);
         canvas.restoreToCount(pillSave);
         canvas.restoreToCount(save);
+    }
+
+    /**
+     * Paints the live card stack behind the pill. Keeping this in the actual View draw path is
+     * essential: the card painter alone does not schedule or attach itself to a Canvas.
+     */
+    private void drawStackCards(Canvas canvas, long frameTime) {
+        if (scene.cards.isEmpty()) return;
+        for (Card card : scene.cards) {
+            if (card == null || card.body == null) continue;
+            shapes.card(card, cardRect);
+            if (cardRect.width() <= MIN_VISIBLE_SIZE || cardRect.height() <= MIN_VISIBLE_SIZE) continue;
+            stackPainter.drawCard(canvas, card, cardRect, frameTime, shapes.expansion(card));
+        }
     }
 
     /** One UI "flip font" changes the system typeface at runtime; follow it. */

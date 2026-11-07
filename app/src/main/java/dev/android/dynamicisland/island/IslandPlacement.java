@@ -4,6 +4,8 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Handler;
+import android.os.Build;
+import android.view.Display;
 import android.view.DisplayCutout;
 import android.view.View;
 import dev.android.dynamicisland.island.feedback.AudioLevels;
@@ -15,7 +17,9 @@ import dev.android.dynamicisland.island.window.StatusBarIconFader;
 import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.xposed.Diagnostics;
 import dev.android.dynamicisland.xposed.XLog;
+import java.lang.reflect.Method;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -75,6 +79,7 @@ final class IslandPlacement {
     private int statusBarWindowState;
     private boolean landscapeSuppressed;
     private boolean portrait;
+    private boolean loggedS10eCutoutFallback;
     /** Unlock just happened: the island stays hidden until the reveal timer fires. */
     private boolean revealPending;
 
@@ -313,7 +318,7 @@ final class IslandPlacement {
         boolean manualHole = ModuleSettings.holeMode() == ModuleSettings.HOLE_MANUAL;
         float holeCenterX = (width / 2.0f) + (manualHole ? ModuleSettings.holeXDp() * density : 0.0f);
         float holeCenterY = statusBarCenterY() + (manualHole ? ModuleSettings.holeYDp() * density : 0.0f);
-        Rect automaticCutout = onHole && !manualHole ? cameraHoleBounds() : null;
+        Rect automaticCutout = onHole && !manualHole ? cameraHoleBounds(width, height) : null;
         if (onHole) {
             if (manualHole) {
                 centerX = holeCenterX;
@@ -382,13 +387,58 @@ final class IslandPlacement {
     }
 
     /** Reads the top camera cutout without assuming that it is at the horizontal screen centre. */
-    private Rect cameraHoleBounds() {
-        DisplayCutout cutout = window.cutout();
-        if (cutout == null) {
-            return null;
+    private Rect cameraHoleBounds(int screenWidth, int screenHeight) {
+        Rect bounds = cutoutTopBounds(window.cutout());
+        if (bounds != null) return bounds;
+
+        // Samsung sometimes exposes the device cutout through framework resource approximations
+        // before (or instead of) reporting it in the overlay window insets.
+        bounds = resourceCutoutBounds();
+        if (bounds != null) return bounds;
+
+        // The Galaxy S10e's Infinity-O camera is physically in the top-right corner. Some Samsung
+        // Android 15/One UI builds report no DisplayCutout at all, so provide a model-specific
+        // fallback rather than silently centring the island over the display.
+        if (isGalaxyS10e() && screenHeight > screenWidth) {
+            int diameter = Math.max(1, Math.round(density * 16.0f));
+            int rightInset = Math.round(density * 20.0f);
+            int centerX = Math.max(diameter / 2, screenWidth - rightInset);
+            int centerY = Math.round(statusBarCenterY());
+            if (!loggedS10eCutoutFallback) {
+                loggedS10eCutoutFallback = true;
+                XLog.event("Galaxy S10e cutout fallback: right camera anchor; bubble side left");
+            }
+            return new Rect(centerX - diameter / 2, centerY - diameter / 2,
+                    centerX + diameter / 2, centerY + diameter / 2);
         }
+        return null;
+    }
+
+    private static Rect cutoutTopBounds(DisplayCutout cutout) {
+        if (cutout == null) return null;
         Rect top = cutout.getBoundingRectTop();
         return top == null || top.isEmpty() ? null : new Rect(top);
+    }
+
+    /** Uses the framework's approximation resource where Samsung does not expose window insets. */
+    private Rect resourceCutoutBounds() {
+        try {
+            Display display = ctx.getDisplay();
+            if (display == null) return null;
+            Method method = DisplayCutout.class.getDeclaredMethod("fromResourcesRectApproximation",
+                    android.content.res.Resources.class, Display.class);
+            method.setAccessible(true);
+            DisplayCutout approximate = (DisplayCutout) method.invoke(null, ctx.getResources(), display);
+            return cutoutTopBounds(approximate);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isGalaxyS10e() {
+        String identity = (Build.MODEL + " " + Build.DEVICE + " " + Build.PRODUCT)
+                .toLowerCase(Locale.ROOT);
+        return identity.contains("sm-g970") || identity.contains("beyond0");
     }
 
     /** Visible camera-hole diameter from its bounding rectangle, independent of its screen position. */
