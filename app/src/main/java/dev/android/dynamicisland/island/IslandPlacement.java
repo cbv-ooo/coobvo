@@ -344,7 +344,8 @@ final class IslandPlacement {
         }
         view.setPillSize(ModuleSettings.pillHeightPercent(), ModuleSettings.pillMinWidthDp(), ModuleSettings.pillMaxWidthDp());
         view.setHoleTextPadding(ModuleSettings.holeTextPaddingDp());
-        view.setGeometry(width, centerX, centerY, holeD, tablet);
+        int bubbleSide = ModuleSettings.pillAnchor() == ModuleSettings.ANCHOR_RIGHT ? -1 : 1;
+        view.setGeometry(width, centerX, centerY, holeD, tablet, bubbleSide);
         // while the settings page is open the hole set by hand is drawn as a ring, to line it up with the real camera
         boolean marker = manualHole && ModuleSettings.placementPreviewActive();
         view.setHoleMarker(marker ? holeCenterX : -1.0f, holeCenterY, ModuleSettings.holeDiameterDp() * density);
