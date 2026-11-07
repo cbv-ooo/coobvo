@@ -18,8 +18,8 @@ final class ReleaseHighlights {
                     new Feature("flashlight-beam",R.string.recommend_torch_title,R.string.recommend_torch,Art.FLASHLIGHT,
                             SettingsSearchCatalog.Route.APPEARANCE,R.string.torch_style),
                     new Feature("settings-search",R.string.recommend_search_title,R.string.recommend_search,Art.SEARCH,
-                            SettingsSearchCatalog.Route.SEARCH,0),
-                    )) ,
+                            SettingsSearchCatalog.Route.SEARCH,0))),
+
             new Release("0.1.15",List.of(
                     new Feature("preview",R.string.recommend15_preview_title,R.string.recommend15_preview,Art.PREVIEW,
                             SettingsSearchCatalog.Route.APPEARANCE,R.string.anim_title),
