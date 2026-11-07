@@ -90,7 +90,6 @@ final class Director {
         scene.peekOpen=false; scene.held=false;
         boolean expanded=scene.mode==Mode.EXPANDED;
         for (Card card:scene.cards) {
-            if(scene.blur!=null) scene.blur.release(card);
         }
         if(scene.iMode!=null) scene.iMode.dispose();
         scene.cards.clear();
@@ -485,8 +484,6 @@ final class Director {
         view.removeCallbacks(fadePillBlob);
         boolean hadCards = !scene.cards.isEmpty();
         for (Card card : scene.cards) {
-            if (scene.blur != null) scene.blur.release(card);
-            card.material.clear();
         }
         scene.cards.clear();
         scene.mainOut = null;
@@ -901,10 +898,7 @@ final class Director {
                     && (pillShown() || t - c.leaveAt > PILL_SETTLE_TIMEOUT_MS));
             if (gone) {
                 scene.cards.remove(i);
-                if (scene.blur != null) {
-                    scene.blur.release(c);
-                }
-            } else if (c.leaving) {
+                } else if (c.leaving) {
                 active = true; // a leaving card has to reach "gone" even if its springs rest early
             }
         }

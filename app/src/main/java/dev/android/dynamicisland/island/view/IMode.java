@@ -591,8 +591,7 @@ final class IMode {
                 || !card.cx.isAtRest() || !card.cy.isAtRest() || !card.w.isAtRest() || !card.h.isAtRest());
     }
     private void release(Card card) {
-        if(scene.blur!=null) scene.blur.release(card);
-        card.material.clear();card.contentBlur.clear();card.iModeCompactBlur.clear();
+        card.contentBlur.clear();card.iModeCompactBlur.clear();
         scene.cards.remove(card);
     }
 

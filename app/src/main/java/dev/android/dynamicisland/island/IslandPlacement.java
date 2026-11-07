@@ -259,7 +259,6 @@ final class IslandPlacement {
         setSleeping(true);
         sleepFinished = true;
         if (view != null) view.finishSleeping();
-        if (window != null) window.stopBackdropSampling();
         onFrame();
     }
 
@@ -474,7 +473,6 @@ final class IslandPlacement {
         }
         window.invalidateTouchRegion();
         boolean hidden = view.isFullyHidden();
-        if (sleeping && hidden) window.stopBackdropSampling();
         window.setShown(true);
         if (!view.shadePulled()) {
             view.getCoverageBounds(scratch);

@@ -127,45 +127,6 @@ final class StackPainter {
         return Colors.blend(Colors.BLACK, Colors.CARD_SOLID, material);
     }
 
-    /** Blur callback: paints a card into its blur slot, whose canvas origin is the slot, not the view. */
-    void paintInBlurSlot(Object owner, Canvas canvas, float viewLeft, float viewTop) {
-        if (!(owner instanceof Card)) {
-            return;
-        }
-        Card c = (Card) owner;
-        shapes.card(c, slot);
-        int save = canvas.save();
-        canvas.translate(-viewLeft, -viewTop);
-        drawCard(canvas, c, slot, IslandView.now(), shapes.expansion(c));
-        canvas.restoreToCount(save);
-    }
-
-    /** Tells the blur layer where every card is for this frame. */
-    void placeBlurs() {
-        BlurSink blur = scene.blur;
-        if (blur == null) {
-            return;
-        }
-        blur.beginFrame();
-        float alpha = scene.visibleAlpha();
-        if (alpha > IslandView.MIN_VISIBLE_ALPHA) {
-            // back to front: the first card is the one nearest the pill, so it lies on top of the cards below it
-            boolean legacy = ModuleSettings.legacyAnimation();
-            for (int n = 0; n < scene.cards.size(); n++) {
-                Card c = scene.cards.get(legacy ? n : scene.cards.size() - 1 - n);
-                shapes.card(c, slot);
-                if (slot.width() >= 1.0f && slot.height() >= 1.0f) {
-                    float opening = visualOpening(c, shapes.expansion(c));
-                    boolean frosted = FrostedSurface.requested();
-                    blur.place(c, slot, c.iMode ? IMode.corner(c,slot,m.pillH,m.cardRadius)
-                                    : c.body.cornerRadius(m.cardRadius, slot.height()), alpha * (c.iMode ? clamp01(c.iModeOpacity.value()) : 1),
-                            frosted ? 0 : blurFraction(c, opening));
-                }
-            }
-        }
-        blur.endFrame();
-    }
-
     /** The neck of goo between two cards that are folding back into the pill one after the other. */
     void drawGoo(Canvas canvas) {
         if(scene.iMode!=null) return;

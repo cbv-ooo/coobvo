@@ -3,7 +3,6 @@ package dev.android.dynamicisland.island.window;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.PixelFormat;
-import android.graphics.Rect;
 import android.graphics.Region;
 import android.hardware.display.DisplayManager;
 import android.view.Display;
@@ -17,7 +16,6 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import dev.android.dynamicisland.island.view.IslandHost;
 import dev.android.dynamicisland.island.view.IslandView;
-import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.xposed.XLog;
 import java.lang.reflect.Field;
 
@@ -55,11 +53,6 @@ public final class IslandWindow {
     private final Region touchRegion = new Region();
     private final Region latestRegion = new Region();
     private final SurfaceFader surfaceFader = new SurfaceFader();
-    private final Rect pillSamplingRegion = new Rect();
-    private PillBackgroundSampler pillSampler;
-    private MaterialCapture materialCapture;
-    private final Rect materialRegion = new Rect();
-    private boolean pillSamplingRequested;
     /** Whether the root view has been added to the WindowManager. */
     private boolean added;
     private boolean watchingOutside;
@@ -77,23 +70,18 @@ public final class IslandWindow {
         windowManager = context.getSystemService(WindowManager.class);
 
         view = new IslandView(context, host);
-        view.setMaterialCaptureRefresh(()->{if(materialCapture!=null)materialCapture.refresh();});
-        BlurLayer blur = new BlurLayer(context);
-        view.setBlurSink(blur);
         FrameLayout remoteLayer = new ActivityRemoteLayer(context,view);
         remoteLayer.setClipChildren(false);
         view.setRemoteLayer(remoteLayer);
 
         root = new Root(context, listener);
         root.setClipChildren(false);
-        root.addView(blur, matchParent());
         root.addView(view, matchParent());
         root.addView(remoteLayer, matchParent());
 
         params = createLayoutParams();
         TouchableRegionHook.install(root, touchRegion);
         root.getViewTreeObserver().addOnPreDrawListener(this::onPreDraw);
-        view.setPillSamplingStateChanged(this::updatePillBackgroundSampling);
     }
 
     // TYPE_STATUS_BAR_SUB_PANEL is a hidden framework window type used only inside SystemUI.
@@ -149,12 +137,6 @@ public final class IslandWindow {
     }
 
     void detach() {
-        if (materialCapture != null) { materialCapture.destroy(); materialCapture = null; }
-        if (pillSampler != null) {
-            pillSampler.destroy();
-            pillSampler = null;
-            pillSamplingRequested = false;
-        }
         if (!added) {
             return;
         }
@@ -174,23 +156,7 @@ public final class IslandWindow {
         int visibility = shown ? View.VISIBLE : View.GONE;
         if (root.getVisibility() != visibility) {
             root.setVisibility(visibility);
-            if (!shown && pillSampler != null) {
-                pillSamplingRequested = false;
-                pillSampler.update(null, false);
-            }
-            if (!shown && materialCapture != null) materialCapture.stop();
-            if (!shown) view.clearMaterialBackdrop();
         }
-    }
-
-    /** Also stop workers when the display stops producing frames before a final pre-draw can run. */
-    public void stopBackdropSampling() {
-        if (materialCapture != null) materialCapture.stop();
-        if (pillSampler != null && pillSamplingRequested) {
-            pillSamplingRequested = false;
-            pillSampler.update(null, false);
-        }
-        view.clearMaterialBackdrop();
     }
 
     // ---- window geometry and touch -------------------------------------------------------------
@@ -301,11 +267,6 @@ public final class IslandWindow {
      *
      * @return false if the surface transaction is unavailable (the caller should fade another way)
      */
-    /** For the diagnostics report: how much the frosted-glass backdrop filter reused its arrays. */
-    public static String materialBufferStats() {
-        return "backdrop filter: " + MaterialCapture.bufferStats();
-    }
-
     public boolean setSurfaceFade(float alpha, float scale, float px, float py) {
         if (surfaceFader.set(alpha, scale, px, py)) {
             applySurfaceFade();
@@ -321,32 +282,8 @@ public final class IslandWindow {
 
     /** Re-applies the surface fade before each frame: the surface can be recreated and lose it. */
     public boolean onPreDraw() {
-        updatePillBackgroundSampling();
-        try {
-            boolean material = root.isHardwareAccelerated() && view.materialBackdropRegion(materialRegion);
-            if (material && materialCapture == null) materialCapture = new MaterialCapture(view, view::setMaterialBackdrop);
-            if (materialCapture != null) materialCapture.update(materialRegion, material, view.materialBackdropPrewarming());
-        } catch (Throwable t) {
-            if (materialCapture != null) materialCapture.stop();
-            XLog.once("material capture placement", t);
-        }
-        if (!surfaceFader.isNeutral()) {
-            applySurfaceFade();
-        }
+        if (!surfaceFader.isNeutral()) applySurfaceFade();
         return true;
-    }
-
-    private void updatePillBackgroundSampling() {
-        boolean sample = ModuleSettings.pillOutlineMode() == ModuleSettings.PILL_OUTLINE_AUTO
-                && view.pillBackgroundSamplingRegion(pillSamplingRegion);
-        if (sample) {
-            if (pillSampler == null) pillSampler = new PillBackgroundSampler(view, view::setPillBackgroundLuma);
-            pillSamplingRequested = true;
-            pillSampler.update(pillSamplingRegion, true);
-        } else if (pillSampler != null && pillSamplingRequested) {
-            pillSamplingRequested = false;
-            pillSampler.update(null, false);
-        }
     }
 
     // ---- display info --------------------------------------------------------------------------

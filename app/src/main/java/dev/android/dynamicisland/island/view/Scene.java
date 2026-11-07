@@ -33,7 +33,6 @@ final class Scene {
     Layer bubble2In;
     Layer bubble2Out;
     final List<Card> cards = new ArrayList<>();
-    BlurSink blur;
 
     boolean suppressed;
     /** The display is entering sleep; the visual gate owns the exit, input stops immediately. */

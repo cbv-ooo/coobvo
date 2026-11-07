@@ -1,7 +1,5 @@
 package dev.android.dynamicisland.island.view;
 
-import dev.android.dynamicisland.island.material.FrostedSurface;
-import dev.android.dynamicisland.island.material.MaterialFrame;
 import android.content.Context;
 import android.graphics.Camera;
 import android.graphics.Canvas;
@@ -168,21 +166,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
     private final Footprint footprint;
     private final ShadeCards shadeCards;
     private final RectF pillRect = new RectF();
-    private final RectF samplingPill = new RectF();
-    private final RectF samplingBubble = new RectF();
-    private final RectF samplingBubble2 = new RectF();
-    private final int[] samplingLocation = new int[2];
-    private final int[] materialLocation = new int[2];
-    private Runnable pillSamplingStateChanged;
-
-    public void setPillSamplingStateChanged(Runnable listener) {
-        pillSamplingStateChanged = listener;
-    }
-
-    private void notifyPillSamplingVisibility() {
-        if (pillSamplingStateChanged != null) pillSamplingStateChanged.run();
-    }
-
     private final FramePacer framePacer = new FramePacer();
     private final dev.android.dynamicisland.island.graphics.FrameStats frameStats = new dev.android.dynamicisland.island.graphics.FrameStats();
     private boolean frameRateBoosted;
@@ -364,51 +347,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
     }
 
     // ---- configuration -------------------------------------------------------------------------------------------
-
-    public void setBlurSink(BlurSink sink) {
-        scene.blur = sink;
-        sink.setPainter(stackPainter::paintInBlurSlot);
-    }
-
-    /** Already-filtered compositor pixels excluding this entire window; foreground is never part of it. */
-    public void setMaterialBackdrop(MaterialFrame frame) {
-        if (scene.materialFrame == frame) return;
-        scene.materialFrame = frame;
-        invalidate();
-        scheduleFrame();
-    }
-
-    /** Hard reset only when the host is actually hidden/detached, never on a missed readback. */
-    public void clearMaterialBackdrop() {
-        scene.materialFrame=null;
-        for(Card card:scene.cards)card.material.clear();
-    }
-
-    /** Capture the target stack extent up front, so opening does not chase a growing crop. */
-    public boolean materialBackdropRegion(Rect out) {
-        out.setEmpty();
-        if (!FrostedSurface.requested() || renderingPaused
-                || scene.visibleAlpha() <= MIN_VISIBLE_ALPHA || scene.frozenByShade()) return false;
-        if(scene.cards.isEmpty()) {
-            if(scene.mode!=Mode.COMPACT||scene.primary==null)return false;
-            // MaterialCapture clips this to the physical display. Prime the
-            // background before a tap; do not wait for an expanded card to exist.
-            out.set(0,0,metrics.screenW,Math.max(getResources().getDisplayMetrics().heightPixels,getHeight()));
-            return !out.isEmpty();
-        }
-        float bottom = 0;
-        for (Card card : scene.cards) {
-            bottom = Math.max(bottom, Math.max(card.cy.value() + card.h.value() / 2f,
-                    card.targetCy + card.body.h / 2f));
-        }
-        getLocationOnScreen(materialLocation);
-        out.set(0, 0, metrics.screenW, (int)Math.ceil((bottom + materialLocation[1] + dp(64)) / 128f) * 128);
-        return !out.isEmpty();
-    }
-
-    public boolean materialBackdropPrewarming() { return scene.cards.isEmpty(); }
-    private Runnable materialCaptureRefresh;
-    public void setMaterialCaptureRefresh(Runnable refresh) { materialCaptureRefresh=refresh; }
 
     public boolean iModeGestureEnabled() {
         return scene.iMode!=null && !scene.held && !isSuppressedNow();
@@ -607,7 +545,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         springs.shadeGate.snapTo(0);
         applyShadeFade();
         director.finishSleeping();
-        stackPainter.placeBlurs();
         remote.sync();
         ticker.cancel();
         scheduleFrame();
@@ -945,7 +882,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
             lastFrameNanos = 0L;
             if (scene.sleeping && isFullyHidden()) {
                 director.finishSleeping();
-                stackPainter.placeBlurs();
                 remote.sync();
             }
             ticker.cancel();
@@ -1110,7 +1046,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        clearMaterialBackdrop();
         choreographer.removeFrameCallback(this);
         frameScheduled = false;
         lastFrameNanos = 0L;
@@ -1123,13 +1058,11 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
     @Override protected void onVisibilityChanged(View changedView, int visibility) {
         super.onVisibilityChanged(changedView, visibility);
         updateRenderingVisibility();
-        notifyPillSamplingVisibility();
     }
 
     @Override protected void onWindowVisibilityChanged(int visibility) {
         super.onWindowVisibilityChanged(visibility);
         updateRenderingVisibility();
-        notifyPillSamplingVisibility();
     }
 
     private void updateRenderingVisibility() {
@@ -1330,7 +1263,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
     public boolean onTouchEvent(MotionEvent e) {
         try {
             if (scene.sleeping) return false;
-            if(e.getActionMasked()==MotionEvent.ACTION_DOWN&&materialCaptureRefresh!=null)materialCaptureRefresh.run();
             touchFrame();
             return touch.handle(e);
         } catch (Throwable t) {
