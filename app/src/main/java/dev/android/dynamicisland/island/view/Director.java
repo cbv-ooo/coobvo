@@ -350,7 +350,7 @@ final class Director {
         if (m.holeD > 0.0f) {
             sp.visibility.snapTo(1.0f);
         } else {
-            sp.visibility.animateTo(1.0f, 0.22f, 1.0f);
+            sp.visibility.animateTo(1.0f, Motion.EFFECTS_SLOW);
         }
         sp.offsetX.snapTo(0.0f);
         if (fromLeft) {
@@ -371,7 +371,7 @@ final class Director {
         scene.peekOpen = false;
         peekKey = null;
         if (wasPeek) host.onPeekClosed(closedPeek);
-        sp.pillBlob.animateTo(1.0f, 0.1f, 1.0f);
+        sp.pillBlob.animateTo(1.0f, Motion.EFFECTS_FAST);
         boolean wasExpanded = scene.mode == Mode.EXPANDED;
         if (scene.mode == Mode.HIDDEN) {
             settleResting();
@@ -410,9 +410,9 @@ final class Director {
         sp.width.animateTo(end, Motion.PILL_SHRINK);
         sp.height.animateTo(empty ? m.pillH : Math.min(end, m.pillH), Motion.PILL_SHRINK);
         if (empty) {
-            sp.visibility.animateTo(1.0f, 0.22f, 1.0f);
+            sp.visibility.animateTo(1.0f, Motion.EFFECTS_SLOW);
         } else if (m.holeD <= 0.0f) {
-            sp.visibility.animateTo(0.0f, 0.22f, 1.0f);
+            sp.visibility.animateTo(0.0f, Motion.EFFECTS_SLOW);
         }
     }
 
@@ -692,7 +692,7 @@ final class Director {
         cancelAutoCollapse();
         view.removeCallbacks(fadePillBlob);
         if (legacy() || scene.cards.isEmpty()) {
-            sp.pillBlob.animateTo(1.0f, 0.1f, 1.0f);
+            sp.pillBlob.animateTo(1.0f, Motion.EFFECTS_FAST);
         }
         // The compact and expanded contents share one crossfade; neither waits for an empty shape to finish folding.
         view.scheduleFrame();
@@ -742,7 +742,7 @@ final class Director {
         if (scene.mode != Mode.EXPANDED) {
             return;
         }
-        sp.pillBlob.animateTo(0.0f, 0.22f, 1.0f);
+        sp.pillBlob.animateTo(0.0f, Motion.EFFECTS_SLOW);
         view.scheduleFrame();
     }
 
@@ -815,8 +815,8 @@ final class Director {
     /** Sends every staying card back into the pill; the top one goes slightly later so they peel off in turn. */
     void collapseCards(boolean animate) {
         long t = IslandView.now();
-        sp.stackDx.animateTo(0.0f, 0.3f, 0.9f);
-        sp.stackDy.animateTo(0.0f, 0.3f, 0.9f);
+        sp.stackDx.animateTo(0.0f, Motion.SPATIAL_DEFAULT);
+        sp.stackDy.animateTo(0.0f, Motion.SPATIAL_DEFAULT);
         int staying = 0;
         for (Card c : scene.cards) {
             if (!c.leaving) {
@@ -896,7 +896,7 @@ final class Director {
             }
         }
         if (scene.mode == Mode.COMPACT && sp.pillBlob.target() < 1.0f && cardsArrived()) {
-            sp.pillBlob.animateTo(1.0f, 0.08f, 1.0f);
+            sp.pillBlob.animateTo(1.0f, Motion.EFFECTS_FAST.faster(1.25f));
             active = true;
         }
         if (scene.cards.isEmpty() && scene.mode != Mode.EXPANDED) {
