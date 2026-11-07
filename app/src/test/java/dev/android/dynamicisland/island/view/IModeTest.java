@@ -239,7 +239,7 @@ public class IModeTest {
             assertEquals("the page follows the finger without the stack's rubber offset",start.left-90,dragged.left,.01f);
             Card neighbour=f.scene.cards.stream().filter(c->c.iModePreview).findFirst().orElseThrow();
             assertTrue("a neighbouring full-size card is already entering",f.bounds(neighbour).left<440);
-            assertTrue("the expanded card's foreground blurs during the swipe",StackPainter.contentBlurAmount(old,IslandView.now(),1)>0);
+            assertEquals("the expanded card foreground remains crisp during the swipe",0f,StackPainter.contentBlurAmount(old,IslandView.now(),1),0f);
             RectF preview=f.bounds(neighbour);
             f.event(MotionEvent.ACTION_UP,start.centerX()-90,start.centerY());
             f.assertSingle("item1");assertEquals(dragged,f.bounds(old));assertEquals(preview,f.bounds(neighbour));
@@ -574,7 +574,7 @@ public class IModeTest {
             assertEquals("moving custom content is painted inside the card, not above its siblings",View.GONE,moving.view.getVisibility());
             RenderNode capture=new RenderNode("moving custom notification");capture.setPosition(0,0,440,400);
             Canvas hardware=capture.beginRecording();f.view.drawCard(hardware,f.active(),IslandView.now());capture.endRecording();
-            assertNotNull(ReflectionHelpers.getField(f.active().contentBlur,"node"));capture.discardDisplayList();
+            assertNull("remote content receives no transition RenderEffect",moving.view.getRenderEffect());capture.discardDisplayList();
             f.step(16,66);
             assertEquals(View.VISIBLE,moving.view.getVisibility());
             assertTrue(f.active().body instanceof dev.android.dynamicisland.island.view.card.RemoteBody);
@@ -609,23 +609,22 @@ public class IModeTest {
         }
     }
 
-    @Test public void hardwareRecordingBlursEveryMovingForegroundAndKeepsTheOutlineSeparate() {
+    @Test public void hardwareRecordingKeepsMovingForegroundSharpAndOutlineSeparate() {
         try(Fixture f=new Fixture(3)) {
             f.scene.iMode.open("item0",true);f.step(16,4);
             Card c=f.active();
-            RenderNode node=new RenderNode("foreground verification");node.setPosition(0,0,440,400);
+            RenderNode node=new RenderNode("foreground clarity verification");node.setPosition(0,0,440,400);
             Canvas hardware=node.beginRecording();
             f.view.drawCard(hardware,c,IslandView.now());f.view.draw(hardware);node.endRecording();
-            assertNotNull(ReflectionHelpers.getField(c.contentBlur,"node"));
-            assertNotNull(ReflectionHelpers.getField(c.iModeCompactBlur,"node"));
-            assertFalse((boolean)ReflectionHelpers.getField(c.contentBlur,"failed"));
-            assertFalse((boolean)ReflectionHelpers.getField(c.iModeCompactBlur,"failed"));
-            assertTrue("all expanded contents share a foreground blur",StackPainter.contentBlurAmount(c,IslandView.now(),1)>.5f);
+            assertEquals("transition blur is disabled",0f,ContentBlur.RADIUS_DP,0f);
+            assertEquals("expanded content is never blur-filtered",0f,
+                    StackPainter.contentBlurAmount(c,IslandView.now(),1),0f);
+            assertNull("the island view has no RenderEffect",f.view.getRenderEffect());
             StackPainter painter=ReflectionHelpers.getField(f.view,"stackPainter");
             assertFalse((boolean)ReflectionHelpers.getField(painter,"drawFailureLogged"));
             node.discardDisplayList();
             f.step(16,80);
-            assertEquals(0,StackPainter.contentBlurAmount(c,IslandView.now(),1),.001f);
+            assertEquals(0f,StackPainter.contentBlurAmount(c,IslandView.now(),1),0f);
             IslandItem transientItem=item("transient",3);
             assertTrue(f.view.peek(transientItem,6000));f.assertSingle("transient");
             f.view.peek(transientItem,6000);f.assertSingle("transient");
