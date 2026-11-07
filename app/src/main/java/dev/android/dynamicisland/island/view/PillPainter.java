@@ -92,7 +92,7 @@ final class PillPainter {
         float bubbleY = 0.0f;
         float bubbleRadius = 0.0f;
         if (hasBubble) {
-            shapes.bubble(pill, split, bubble);
+            shapes.bubble(pill, split, 0, bubble);
             bubbleRadius = bubble.width() / 2.0f;
             bubbleX = bubble.centerX();
             bubbleY = bubble.centerY();
