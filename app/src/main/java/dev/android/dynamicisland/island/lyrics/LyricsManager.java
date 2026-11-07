@@ -28,6 +28,8 @@ public final class LyricsManager {
     private static final long READY_TTL_MS = 12L * 60L * 60L * 1000L;
     private static final long MISS_TTL_MS = 3L * 60L * 1000L;
     private static final long MAX_RETRY_AFTER_MS = 60L * 1000L;
+    /** Serial requests are additionally spaced to avoid bursts while tracks change quickly. */
+    private static final long MIN_REQUEST_INTERVAL_MS = 350L;
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "coobvo-lyrics");
         t.setDaemon(true);
@@ -36,6 +38,7 @@ public final class LyricsManager {
     private static final Map<String, Entry> CACHE = new HashMap<>();
     private static final Map<String, List<Runnable>> WAITERS = new HashMap<>();
     private static volatile long retryAfterUptime;
+    private static volatile long lastRequestUptime;
 
     private LyricsManager() { }
 
@@ -89,8 +92,11 @@ public final class LyricsManager {
         MediaLyrics result=null;
         long ttl=MISS_TTL_MS;
         try {
-            long pause=retryAfterUptime-android.os.SystemClock.uptimeMillis();
+            long now=android.os.SystemClock.uptimeMillis();
+            long earliest=Math.max(retryAfterUptime,lastRequestUptime+MIN_REQUEST_INTERVAL_MS);
+            long pause=earliest-now;
             if(pause>0) Thread.sleep(Math.min(pause,MAX_RETRY_AFTER_MS));
+            lastRequestUptime=android.os.SystemClock.uptimeMillis();
             String exact=Uri.parse(API+"/get").buildUpon()
                     .appendQueryParameter("track_name",title)
                     .appendQueryParameter("artist_name",artist)

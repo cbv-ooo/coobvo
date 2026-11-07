@@ -60,6 +60,9 @@ public final class MediaBody extends CardBody {
     /** "Device . 80%" line shown under the artist when playing on another output. */
     final StaticLayout output;
     private final Paint glowPaint;
+    /** Lyrics use dedicated paints so their sizes/alignments cannot mutate the shared title layouts. */
+    private final TextPaint lyricsCurrentPaint;
+    private final TextPaint lyricsNextPaint;
     final float pad;
     final float seekTop;
     final float lyricsTop;
@@ -72,6 +75,8 @@ public final class MediaBody extends CardBody {
 
     public MediaBody(IslandView owner, IslandItem item, float w) {
         super(owner, item, w);
+        lyricsCurrentPaint = new TextPaint(owner.mediaTitlePaint());
+        lyricsNextPaint = new TextPaint(owner.mediaArtistPaint());
         pad = owner.dp(18.0f);
         art = owner.dp(56.0f);
         tile = owner.dp(32.0f);
@@ -178,8 +183,8 @@ public final class MediaBody extends CardBody {
         String titleText = item.title == null ? "" : item.title.toString();
         String artistText = item.subtitle == null ? "" : item.subtitle.toString();
         MediaLyrics data = LyricsManager.get(titleText, artistText);
-        TextPaint current = owner.mediaTitlePaint();
-        TextPaint next = owner.mediaArtistPaint();
+        TextPaint current = lyricsCurrentPaint;
+        TextPaint next = lyricsNextPaint;
         current.setTextSize(owner.dp(12.0f));
         next.setTextSize(owner.dp(10.5f));
         current.setTextAlign(Paint.Align.LEFT);
