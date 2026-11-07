@@ -181,12 +181,12 @@ public final class MediaBody extends CardBody {
                 + (output != null ? gap + output.getHeight() : 0.0f);
         float lineY = y + pad + dy + ((art - textHeight) / 2.0f);
         if (title != null) {
-            owner.mediaTitlePaint().setColor(Colors.withAlpha(Colors.WHITE, alpha));
+            owner.mediaTitlePaint().setColor(Colors.withAlpha(Colors.ON_SURFACE, alpha));
             IslandView.drawLayout(c, title, textX, lineY);
             lineY += title.getHeight() + gap;
         }
         if (artist != null) {
-            owner.mediaArtistPaint().setColor(Colors.withAlpha(Colors.TEXT_ARTIST, alpha));
+            owner.mediaArtistPaint().setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.55f * alpha));
             IslandView.drawLayout(c, artist, textX, lineY);
             lineY += artist.getHeight() + gap;
         }
@@ -209,7 +209,7 @@ public final class MediaBody extends CardBody {
         float tileTop = y + pad + dy;
         if (item.appGlyph != null) {
             owner.tmpRect.set(tileLeft, tileTop, tile + tileLeft, tile + tileTop);
-            owner.fillPaint.setColor(Colors.withAlpha(Colors.TRACK, alpha));
+            owner.fillPaint.setColor(Colors.withAlpha(Colors.SURFACE_CONTAINER_LOW, alpha));
             c.drawRoundRect(owner.tmpRect, owner.dp(TILE_CORNER_DP), owner.dp(TILE_CORNER_DP), owner.fillPaint);
             float glyphSize = tile * 1.25f;
             owner.drawDrawable(c, item.appGlyph, false, Colors.WHITE, ((tile - glyphSize) / 2.0f) + tileLeft, ((tile - glyphSize) / 2.0f) + tileTop, glyphSize, alpha, 0.0f);
