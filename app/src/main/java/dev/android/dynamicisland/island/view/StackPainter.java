@@ -174,15 +174,6 @@ final class StackPainter {
         finally { canvas.restoreToCount(save); }
     }
 
-    /** Draws one card whose rectangle `r` was already computed. */
-    void drawCard(Canvas canvas, Card c, RectF r, long t, float opening) {
-        int save=canvas.save();
-        if(c.iMode && c.iModeOpacity.value()<.995f)
-            canvas.saveLayerAlpha(r,Math.round(255*clamp01(c.iModeOpacity.value())));
-        try { drawCardSurface(canvas,c,r,t,opening); }
-        finally { canvas.restoreToCount(save); }
-    }
-
     private void drawCardSurface(Canvas canvas, Card c, RectF r, long t, float opening) {
         float corner = c.iMode ? IMode.corner(c,r,m.pillH,m.cardRadius) : c.body.cornerRadius(m.cardRadius, r.height());
         float rimSettled = c.iMode ? Easing.easeInOut(clamp01(opening)) : clamp01((opening - 0.82f) / 0.18f);

@@ -2,6 +2,7 @@ package dev.android.dynamicisland.xposed.hooks;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.os.SystemClock;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;

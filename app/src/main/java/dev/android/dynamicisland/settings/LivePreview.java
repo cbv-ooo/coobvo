@@ -16,8 +16,6 @@ import dev.android.dynamicisland.R;
 import dev.android.dynamicisland.island.graphics.ArtworkPalette;
 import dev.android.dynamicisland.island.graphics.GlyphIcon;
 import dev.android.dynamicisland.island.model.IslandItem;
-import dev.android.dynamicisland.island.view.BlurSink;
-import dev.android.dynamicisland.island.view.CardPainter;
 import dev.android.dynamicisland.island.view.IslandHost;
 import dev.android.dynamicisland.island.view.IslandView;
 import java.util.ArrayList;
@@ -65,11 +63,8 @@ final class LivePreview extends FrameLayout {
         this.prefs = prefs;
         setClipChildren(true);
         setBackgroundColor(0xFF0B0B0D);
-        Backdrops backdrops = new Backdrops();
-        addView(backdrops, new FrameLayout.LayoutParams(-1, -1));
         island = new IslandView(activity, IslandHost.NONE);
         island.setHapticFeedbackEnabled(false);
-        island.setBlurSink(backdrops);
         addView(island, new FrameLayout.LayoutParams(-1, -1));
         buildSamples();
     }
@@ -198,18 +193,5 @@ final class LivePreview extends FrameLayout {
         return false;
     }
 
-    private final class Backdrops extends View implements BlurSink {
-        private final List<Object> slots = new ArrayList<>();
-        private CardPainter painter;
-        Backdrops() { super(activity); }
-        public boolean available() { return false; }
-        public void beginFrame() { slots.clear(); }
-        public void endFrame() { invalidate(); }
-        public void place(Object key, RectF bounds, float radius, float alpha) { slots.add(key); }
-        public void release(Object key) { slots.remove(key); }
-        public void setPainter(CardPainter painter) { this.painter = painter; }
-        @Override protected void onDraw(Canvas canvas) {
-            if (painter != null) for (Object key : slots) painter.paintCard(key, canvas, 0, 0);
-        }
-    }
+
 }

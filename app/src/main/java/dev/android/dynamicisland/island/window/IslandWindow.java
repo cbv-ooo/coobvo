@@ -3,6 +3,7 @@ package dev.android.dynamicisland.island.window;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.graphics.Region;
 import android.hardware.display.DisplayManager;
 import android.view.Display;

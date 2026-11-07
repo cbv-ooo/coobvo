@@ -311,40 +311,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         }
     }
 
-    /** A thin bottom-edge band avoids sampling the physical camera hole in the pill's centre. */
-    public boolean pillBackgroundSamplingRegion(Rect out) {
-        out.setEmpty();
-        boolean iMotion=scene.iMode!=null;
-        if (!isAttachedToWindow() || !isShown() || getWindowVisibility() != VISIBLE
-                || scene.shadePulled()
-                || (iMotion ? scene.sleeping || scene.suppressed
-                    : scene.mode != Mode.COMPACT || scene.visibleAlpha() <= MIN_VISIBLE_ALPHA)) {
-            return false;
-        }
-        if(iMotion) scene.iMode.outlineSamplingBounds(samplingPill);else shapes.paintedMain(samplingPill);
-        if (samplingPill.width() < 2f || samplingPill.height() < 2f) return false;
-        float left = samplingPill.left;
-        float right = samplingPill.right;
-        if (!iMotion && springs.split.value() > 0.003f) {
-            shapes.bubble(samplingPill, samplingBubble);
-            left = Math.min(left, samplingBubble.left);
-            right = Math.max(right, samplingBubble.right);
-            if (scene.secondary2 != null || scene.bubble2In != null || scene.bubble2Out != null) {
-                shapes.bubble(samplingPill, springs.split.value(), 1, samplingBubble2);
-                left = Math.min(left, samplingBubble2.left);
-                right = Math.max(right, samplingBubble2.right);
-            }
-        }
-        getLocationOnScreen(samplingLocation);
-        float band = Math.max(1f, Math.min(metrics.dp(3f), samplingPill.height() * 0.12f));
-        out.set((int) Math.floor(left + samplingLocation[0]),
-                (int) Math.floor(samplingPill.bottom - band + samplingLocation[1]),
-                (int) Math.ceil(right + samplingLocation[0]),
-                (int) Math.ceil(samplingPill.bottom + samplingLocation[1]));
-        return out.intersect(samplingLocation[0], samplingLocation[1],
-                samplingLocation[0] + getWidth(), samplingLocation[1] + getHeight()) && !out.isEmpty();
-    }
-
     // ---- configuration -------------------------------------------------------------------------------------------
 
     public boolean iModeGestureEnabled() {
