@@ -5,6 +5,7 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import dev.android.dynamicisland.BuildConfig;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
@@ -14,7 +15,7 @@ import java.util.Set;
  * applied by the framework). Read-only: {@code call("all")} returns every stored value with its type.
  */
 public final class SettingsProvider extends ContentProvider {
-    public static final String AUTHORITY = "dev.android.dynamicisland.settings";
+    public static final String AUTHORITY = BuildConfig.APPLICATION_ID + ".settings";
     public static final String METHOD_ALL = "all";
     /** Notified whenever a setting is written, so that System UI reads the settings then and not on a timer. */
     public static final Uri CHANGED_URI = Uri.parse("content://" + AUTHORITY + "/changed");
