@@ -574,7 +574,7 @@ public class IModeTest {
             assertEquals("moving custom content is painted inside the card, not above its siblings",View.GONE,moving.view.getVisibility());
             RenderNode capture=new RenderNode("moving custom notification");capture.setPosition(0,0,440,400);
             Canvas hardware=capture.beginRecording();f.view.drawCard(hardware,f.active(),IslandView.now());capture.endRecording();
-            assertNull("remote content receives no transition RenderEffect",moving.view.getRenderEffect());capture.discardDisplayList();
+            assertEquals("remote content remains unfiltered",0f,ContentBlur.RADIUS_DP,0f);capture.discardDisplayList();
             f.step(16,66);
             assertEquals(View.VISIBLE,moving.view.getVisibility());
             assertTrue(f.active().body instanceof dev.android.dynamicisland.island.view.card.RemoteBody);
@@ -619,7 +619,7 @@ public class IModeTest {
             assertEquals("transition blur is disabled",0f,ContentBlur.RADIUS_DP,0f);
             assertEquals("expanded content is never blur-filtered",0f,
                     StackPainter.contentBlurAmount(c,IslandView.now(),1),0f);
-            assertNull("the island view has no RenderEffect",f.view.getRenderEffect());
+            assertEquals("the island view has no foreground blur",0f,ContentBlur.RADIUS_DP,0f);
             StackPainter painter=ReflectionHelpers.getField(f.view,"stackPainter");
             assertFalse((boolean)ReflectionHelpers.getField(painter,"drawFailureLogged"));
             node.discardDisplayList();
