@@ -185,6 +185,9 @@ public final class GlyphIcon extends Drawable {
         }
         paint.setXfermode(null);
         paint.setColor((color & 0x00FFFFFF) | (effectiveAlpha << 24));
+        // Keep the non-Lottie fallback in the same rounded M3 Expressive icon family.
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStrokeJoin(Paint.Join.ROUND);
         switch (kind) {
             case BATTERY:
             case BATTERY_CHARGING:
