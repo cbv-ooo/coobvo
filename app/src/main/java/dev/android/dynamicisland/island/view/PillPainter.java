@@ -50,6 +50,7 @@ final class PillPainter {
     private final RectF bubble = new RectF();
     /** Second companion icon, deliberately detached from the first bubble. */
     private final RectF bubble2 = new RectF();
+    private final RectF bubble2OutlineRect = new RectF();
     private final RectF outlineRect = new RectF();
     private final RectF shrunk = new RectF();
     private final Path notchBody = new Path();
@@ -280,9 +281,10 @@ final class PillPainter {
         }
         if (hasBubble2) {
             paint.setColor(Colors.withAlpha(Colors.PILL_OUTLINE, fade));
-            RectF secondRim = new RectF(secondBubble);
-            secondRim.inset(-m.outlineW, -m.outlineW);
-            canvas.drawRoundRect(secondRim, secondRim.width() / 2.0f, secondRim.height() / 2.0f, paint);
+            bubble2OutlineRect.set(secondBubble);
+            bubble2OutlineRect.inset(-m.outlineW, -m.outlineW);
+            canvas.drawRoundRect(bubble2OutlineRect, bubble2OutlineRect.width() / 2.0f,
+                    bubble2OutlineRect.height() / 2.0f, paint);
         }
         canvas.restoreToCount(save);
     }
