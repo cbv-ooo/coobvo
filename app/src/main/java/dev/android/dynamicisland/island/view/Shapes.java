@@ -77,6 +77,11 @@ final class Shapes {
         bubble(main, sp.split.value(), 0, out);
     }
 
+    /** Backwards-compatible first-bubble overload for existing render tests and callers. */
+    void bubble(RectF main, float s, RectF out) {
+        bubble(main, s, 0, out);
+    }
+
     /**
      * Bubble geometry for an explicit split.
      * @param index 0 = first companion bubble, 1 = second companion bubble (further out)
