@@ -13,6 +13,11 @@ public final class BatteryGauge {
 
     public void setColorFilter(ColorFilter filter) { stroke.setColorFilter(filter); text.setColorFilter(filter); }
 
+    /** Semantic battery tint shared by compact, notification and expanded presentations. */
+    public static int colorFor(int percent, boolean charging) {
+        return charging ? 0xFF34C759 : percent >= 0 && percent <= 20 ? Colors.DESTRUCTIVE_RED : Colors.WHITE;
+    }
+
     public void draw(Canvas canvas, float cx, float cy, float diameter, int percent, int colour,
                      float alpha, boolean number, boolean bolt) {
         if (diameter <= 0) return;
