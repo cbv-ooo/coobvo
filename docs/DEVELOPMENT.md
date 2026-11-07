@@ -96,12 +96,26 @@ The settings app edits the user's own rule file through `UserRules` (apps, patte
 
 ## Build and release
 
+Build and test the debug variant:
+
 ```bash
-./gradlew assembleRelease
-KEYSTORE_PASSWORD=... scripts/sign.sh   # -> release/DynamicIsland-<versionName>.apk
+./gradlew --no-daemon testDebugUnitTest assembleDebug
 ```
 
-`scripts/sign.sh` takes the keystore password from `KEYSTORE_PASSWORD` and creates a self-signed key in `release-keys/` on first run (git-ignored); keep it, updates must use the same key. To release: bump `versionCode` / `versionName` in `app/build.gradle` and `CrashGuard.BUILD`, run the tests, sign.
+The installable APK is `app/build/outputs/apk/debug/app-debug.apk`. It is the Android
+debug build, not a minified or release-signed build. CI uploads this APK as its only
+workflow artifact. The release workflow publishes the same debug APK as the only
+GitHub Release asset; it does not create a checksum or require release-keystore secrets.
+
+To publish a version, bump `versionCode` / `versionName` in `app/build.gradle` and
+`CrashGuard.BUILD`, then push a tag named `v<versionName>`, or start the Release
+workflow manually from the commit to publish.
+
+**Signing note:** GitHub-hosted runners use the Android debug signing key available on
+that runner. A debug APK from a later runner is not guaranteed to have the same signing
+certificate. Android may require uninstalling an earlier test build before installing
+a newly downloaded APK. Use a separately managed, persistent signing key when in-place
+updates across builds are required.
 
 ## Optional device data
 

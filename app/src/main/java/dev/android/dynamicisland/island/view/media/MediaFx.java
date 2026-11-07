@@ -122,7 +122,6 @@ public final class MediaFx {
                 flipStart = now;
             }
             artKey = key;
-            blurCur = makeBlur(item.art);
         }
         artCur = item.cardImage;
     }
