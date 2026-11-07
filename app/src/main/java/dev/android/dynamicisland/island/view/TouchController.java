@@ -314,7 +314,7 @@ final class TouchController {
             bubble2.inset(-margin, -margin);
             downOnBubble2 = bubble2.contains(downX, downY);
         }
-        if (downOnPill || downOnBubble || downOnBubble2 || downOnBubble2) {
+        if (downOnPill || downOnBubble || downOnBubble2) {
             sp.press.animateTo(0.94f, Motion.PRESS_DOWN);
             view.scheduleFrame();
         }
