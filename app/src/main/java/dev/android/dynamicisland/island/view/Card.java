@@ -17,11 +17,9 @@ public final class Card {
     final ContentBlur iModeCompactBlur = new ContentBlur();
     final Spring cx = new Spring(0, .36f, .92f).setValueThreshold(.15f);
     final Spring iModeOpacity = new Spring(1, .24f, 1).setValueThreshold(.002f);
-    float leaveContentBlur;
     float leaveContentAlpha = 1;
     ContentHandoff handoff;
     float handoffScale = 1;
-    long blurOnAt;
     CardBody body;
     long contentStart;
     IslandItem item;

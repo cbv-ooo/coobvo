@@ -28,8 +28,6 @@ final class Director {
     private static final long CARD_STAGGER_MS = 70;
     /** Delay before the content of a freshly opened card fades in, after the card started growing. */
     private static final long CARD_CONTENT_DELAY_MS = 230;
-    /** How long a card's backdrop blur keeps the frame loop alive after it was switched on. */
-    private static final long BLUR_SETTLE_MS = 320;
     private static final long IN_DELAY_MS = 60;
     private static final long LEGACY_IN_DELAY_MS = 115;
     private static final long FIRST_CONTENT_IN_MS = 60;
@@ -838,7 +836,6 @@ final class Director {
     }
 
     private void startLeaving(Card c, long at) {
-        c.leaveContentBlur = StackPainter.contentBlurAmount(c, IslandView.now(), shapes.expansion(c));
         c.leaveContentAlpha = StackPainter.contentAlpha(c, IslandView.now(), shapes.expansion(c));
         c.handoff = null;
         c.leaving = true;
@@ -886,11 +883,7 @@ final class Director {
             }
             // non-short-circuit on purpose: every spring must be stepped
             boolean moving = !c.launched | c.cy.step(dt) | c.w.step(dt) | c.h.step(dt) | c.dx.step(dt);
-            if (moving) {
-                c.blurOnAt = t;
-            }
-            // frames go on a little after the last movement so the blur window catches up with the card
-            active |= moving || t - c.blurOnAt < BLUR_SETTLE_MS;
+            active |= moving;
             boolean gone = c.leaving && c.launched && Math.abs(c.cy.value() - c.targetCy) < m.dp(4.0f)
                     && (legacy() ? c.h.value() < m.pillH * 0.95f
                     : Math.abs(c.h.value() - c.targetH) < m.dp(3.0f) && Math.abs(c.w.value() - c.targetW) < m.dp(6.0f)

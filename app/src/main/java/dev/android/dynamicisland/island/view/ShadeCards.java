@@ -1,48 +1,28 @@
 package dev.android.dynamicisland.island.view;
 
 import android.graphics.Canvas;
-import android.graphics.RectF;
 import android.graphics.Path;
-import dev.android.dynamicisland.island.material.MaterialFrame;
-import dev.android.dynamicisland.island.material.FrostedSurface;
-import dev.android.dynamicisland.island.material.MaterialShape;
 import dev.android.dynamicisland.island.IslandController;
 import dev.android.dynamicisland.island.model.IslandItem;
 import dev.android.dynamicisland.island.view.card.Btn;
 import dev.android.dynamicisland.island.view.card.CardBody;
 import dev.android.dynamicisland.island.view.card.MediaBody;
 
-/**
- * The island's card renderer lent to the notification shade: lays out, draws and hit-tests one card at a time
- * (the one the shade currently asks about) and runs the media seek bar for it.
- */
+/** Renders and hit-tests an opaque island card in the notification shade. */
 final class ShadeCards {
-    /** Content of a card in the shade is always fully faded in. */
     private static final long SETTLED_ELAPSED_MS = 290;
-
     private final IslandView view;
     private final StackPainter painter;
     private CardBody body;
     private IslandItem item;
     private float width;
-    private final FrostedSurface material = new FrostedSurface();
-    private final Path materialClip = new Path();
 
     ShadeCards(IslandView view, StackPainter painter) {
         this.view = view;
         this.painter = painter;
     }
 
-    /** Throws the cached layout away, e.g. after the system font changed. */
-    void forget() {
-        body = null;
-    }
-    void clearMaterial() { material.clear(); }
-    float materialResponse() { return material.responseMean(); }
-    float materialResponseMax() { return material.responseMaxNow(); }
-    float materialLive() { return material.liveNow(); }
-    boolean materialBlending() { return material.blendingNow(); }
-    boolean materialAnimating() { return material.animating(IslandView.now()) || body != null && body.animating(IslandView.now()); }
+    void forget() { body = null; }
 
     private CardBody bodyFor(IslandItem wanted, float w) {
         view.followFont();
@@ -59,22 +39,19 @@ final class ShadeCards {
     }
 
     void draw(Canvas canvas, IslandItem wanted, float w) {
-        draw(canvas,wanted,w,null,null);
-    }
-
-    boolean draw(Canvas canvas, IslandItem wanted, float w, MaterialFrame backdrop, RectF screenBounds) {
         CardBody b = bodyFor(wanted, w);
         view.tmpRect.set(0.0f, 0.0f, b.w, b.h);
-        float corner=b.cornerRadius(view.dp(28),b.h);
-        dev.android.dynamicisland.island.view.media.MediaFx music=wanted.isMedia ? b.materialMusic() : null;
-        long now=IslandView.now();if(music!=null)music.advance(now);
-        boolean frosted=screenBounds!=null&&material.draw(canvas,backdrop,view.tmpRect,screenBounds,corner,1,music,now);
-        int save=canvas.save();
-        if(frosted){MaterialShape.path(materialClip,view.tmpRect,corner);canvas.clipPath(materialClip);}
-        if(!frosted||!wanted.isMedia)painter.drawBackground(b, canvas, view.tmpRect, 1.0f);
-        painter.drawBody(b, canvas, 0.0f, 0.0f, 1.0f, SETTLED_ELAPSED_MS);
-        canvas.restoreToCount(save);
-        return frosted;
+        float corner = b.cornerRadius(view.dp(28), b.h);
+        int save = canvas.save();
+        try {
+            Path clip = new Path();
+            clip.addRoundRect(view.tmpRect, corner, corner, Path.Direction.CW);
+            canvas.clipPath(clip);
+            painter.drawBackground(b, canvas, view.tmpRect, 1.0f);
+            painter.drawBody(b, canvas, 0.0f, 0.0f, 1.0f, SETTLED_ELAPSED_MS);
+        } finally {
+            canvas.restoreToCount(save);
+        }
     }
 
     boolean hasButtonAt(IslandItem wanted, float w, float x, float y) {
@@ -83,26 +60,20 @@ final class ShadeCards {
 
     boolean buttonDown(IslandItem wanted, float w, float x, float y) {
         Btn b = bodyFor(wanted, w).hit(x, y);
-        if (b != null) {
-            view.buttons().press(b, wanted);
-        }
+        if (b != null) view.buttons().press(b, wanted);
         return b != null;
     }
 
     boolean seekStart(IslandItem wanted, float w, float x, float y) {
         CardBody b = bodyFor(wanted, w);
-        if (!(b instanceof MediaBody) || !((MediaBody) b).onSeekBar(x, y)) {
-            return false;
-        }
+        if (!(b instanceof MediaBody) || !((MediaBody) b).onSeekBar(x, y)) return false;
         view.seekBody = (MediaBody) b;
         view.seekFraction = view.seekBody.fractionAt(x);
         return true;
     }
 
     void seekMove(float x) {
-        if (view.seekBody != null) {
-            view.seekFraction = view.seekBody.fractionAt(x);
-        }
+        if (view.seekBody != null) view.seekFraction = view.seekBody.fractionAt(x);
     }
 
     void seekEnd(boolean commit) {
@@ -113,23 +84,16 @@ final class ShadeCards {
         }
     }
 
-    /** Runs the button under the point; true when there was one (even one without an effect). */
     boolean tap(IslandItem wanted, float w, float x, float y) {
         Btn b = bodyFor(wanted, w).hit(x, y);
-        if (b == null) {
-            return false;
-        }
+        if (b == null) return false;
         if (b.run != null) {
             b.run.run();
             return true;
         }
-        if (b.action == null) {
-            return true;
-        }
+        if (b.action == null) return true;
         IslandController controller = IslandController.get();
-        if (controller == null) {
-            return false;
-        }
+        if (controller == null) return false;
         controller.onItemAction(wanted, b.action);
         return true;
     }

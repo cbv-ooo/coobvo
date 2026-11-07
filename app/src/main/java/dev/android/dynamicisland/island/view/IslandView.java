@@ -918,7 +918,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         active |= scene.bubble2In != null && !scene.bubble2In.settled(t);
         active |= hasContinuousMotion(dt);
         if (scene.sleeping && isFullyHidden()) director.finishSleeping();
-        stackPainter.placeBlurs();
         remote.sync();
         if (isFullyHidden()) ticker.cancel(); else scheduleTick();
         invalidate();
@@ -980,7 +979,7 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
             Card c = scene.cards.get(i);
             need |= c.item.pulsingDot || c.item.progressIndeterminate || runningStopwatch(c.item) || iconPlaying(c.item)
                     || c.body.animating(now())
-                    || c.material.animating(now()) || (scene.mode == Mode.EXPANDED && c.item.isMedia && !ModuleSettings.stillMusicEffects());
+                    || (scene.mode == Mode.EXPANDED && c.item.isMedia && !ModuleSettings.stillMusicEffects());
         }
         if(scene.iMode!=null) {
             waveItem=null;
@@ -1193,16 +1192,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
     public void drawShadeCard(Canvas canvas, IslandItem item, float width) {
         shadeCards.draw(canvas, item, width);
     }
-
-    public boolean drawShadeCard(Canvas canvas, IslandItem item, float width, MaterialFrame backdrop, RectF screenBounds) {
-        return shadeCards.draw(canvas, item, width, backdrop, screenBounds);
-    }
-    public void clearShadeMaterial() { shadeCards.clearMaterial(); }
-    public boolean shadeMaterialAnimating() { return shadeCards.materialAnimating(); }
-    public float shadeMaterialResponse() { return shadeCards.materialResponse(); }
-    public float shadeMaterialResponseMax() { return shadeCards.materialResponseMax(); }
-    public float shadeMaterialLive() { return shadeCards.materialLive(); }
-    public boolean shadeMaterialBlending() { return shadeCards.materialBlending(); }
 
     public boolean shadeCardHasButton(IslandItem item, float width, float x, float y) {
         return shadeCards.hasButtonAt(item, width, x, y);

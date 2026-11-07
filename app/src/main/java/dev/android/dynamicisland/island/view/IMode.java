@@ -562,7 +562,7 @@ final class IMode {
         c.iModeOpacity.animateTo(n.slot>=0 && !n.removed && scene.mode!=Mode.HIDDEN ? 1 : 0,.24f,1);
     }
     private void trimDepartures() {
-        // Repeated taps cannot accumulate expensive RemoteViews, GPU materials or native blur windows.
+        // Repeated taps cannot accumulate expensive RemoteViews or oversized card state.
         while(scene.cards.size()>3) {
             Card oldest=null;
             for(Card card:scene.cards) if(card.leaving && !card.iModePreview && card!=swipeCard
@@ -695,7 +695,7 @@ final class IMode {
         for(int i=scene.cards.size()-1;i>=0;i--) {
             Card c=scene.cards.get(i);
             boolean moving=c.cx.step(dt)|c.cy.step(dt)|c.w.step(dt)|c.h.step(dt)|c.dx.step(dt)|c.iModeOpacity.step(dt)|c.iModeRole.step(dt);
-            active|=moving || c.handoff!=null && !c.handoff.finished(time) || c.material.animating(time);
+            active|=moving || c.handoff!=null && !c.handoff.finished(time);
             if(c.iModePaging && !c.iModePreview && c!=swipeCard && c.dx.isAtRest()) {
                 if(c.leaving) release(c);else c.iModePaging=false;
             } else if(c.leaving && !c.iModePreview && !c.iModePaging && !moving && (c.handoff==null || c.handoff.finished(time))) release(c);
@@ -965,9 +965,7 @@ final class IMode {
             float opacity=IslandView.clamp01(card.iModeOpacity.value());
             if(!card.iMode || opacity<.003f) continue;
             float corner=corner(card,outlineBounds,m.pillH,m.cardRadius);
-            boolean frosted=dev.android.dynamicisland.island.material.FrostedSurface.requested();
-            if(frosted) dev.android.dynamicisland.island.material.MaterialShape.path(outlineSurface,outlineBounds,corner,materialPower(card,m.pillH));
-            else { outlineSurface.reset();outlineSurface.addRoundRect(outlineBounds,corner,corner,Path.Direction.CW); }
+            outlineSurface.reset();outlineSurface.addRoundRect(outlineBounds,corner,corner,Path.Direction.CW);
             float opening=IslandView.clamp01((card.h.value()-m.pillH)/Math.max(1,card.body.h-m.pillH));
             // A material's intrinsic rim is separate from this pill contrast outline. Keep the
             // latter on the same exterior contour before, during and after the native card slot.
