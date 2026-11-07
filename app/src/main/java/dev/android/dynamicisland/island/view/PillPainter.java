@@ -318,11 +318,10 @@ final class PillPainter {
         int save = canvas.save();
         canvas.translate(layer.offset(t) * m.dp(LAYER_SLIDE_DP), 0.0f);
         canvas.scale(scale, scale, shape.centerX(), shape.centerY());
-        Canvas content = layer.contentBlur.begin(canvas, shape, layer.blurAmount(t), m.dp(ContentBlur.RADIUS_DP));
+        Canvas content = canvas;
         try {
             layer.content.draw(content, shape, alpha, layer.elapsedIn(t));
         } finally {
-            layer.contentBlur.end(canvas, content);
             canvas.restoreToCount(save);
         }
     }
@@ -334,12 +333,10 @@ final class PillPainter {
         float alpha = layer.alpha(t) * extraAlpha;
         if (alpha > IslandView.MIN_VISIBLE_ALPHA) {
             float merging = 1 - clamp01(sp.split.value());
-            float blur = Math.max(layer.blurAmount(t), merging);
-            Canvas content = layer.contentBlur.begin(canvas, shape, blur, m.dp(ContentBlur.RADIUS_DP));
+            Canvas content = canvas;
             try {
                 layer.content.draw(content, shape, alpha, layer.elapsedIn(t));
             } finally {
-                layer.contentBlur.end(canvas, content);
             }
         }
     }

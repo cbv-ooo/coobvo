@@ -91,7 +91,6 @@ final class Director {
         boolean expanded=scene.mode==Mode.EXPANDED;
         for (Card card:scene.cards) {
             if(scene.blur!=null) scene.blur.release(card);
-            card.material.clear();
         }
         if(scene.iMode!=null) scene.iMode.dispose();
         scene.cards.clear();

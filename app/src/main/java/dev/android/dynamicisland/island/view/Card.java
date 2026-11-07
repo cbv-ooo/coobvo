@@ -1,6 +1,5 @@
 package dev.android.dynamicisland.island.view;
 
-import dev.android.dynamicisland.island.material.FrostedSurface;
 import dev.android.dynamicisland.island.graphics.LiquidBridge;
 import dev.android.dynamicisland.island.graphics.Spring;
 import dev.android.dynamicisland.island.model.IslandItem;
@@ -12,7 +11,6 @@ import dev.android.dynamicisland.island.view.card.CardBody;
  */
 public final class Card {
     final ContentBlur contentBlur = new ContentBlur();
-    final FrostedSurface material = new FrostedSurface();
     boolean iMode;
     boolean iModePreview, iModePaging;
     final Spring iModeRole = new Spring(0, .28f, 1).setValueThreshold(.002f);

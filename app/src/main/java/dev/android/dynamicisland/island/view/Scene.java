@@ -1,6 +1,5 @@
 package dev.android.dynamicisland.island.view;
 
-import dev.android.dynamicisland.island.material.MaterialFrame;
 import dev.android.dynamicisland.island.model.IslandItem;
 import dev.android.dynamicisland.settings.ModuleSettings;
 import java.util.ArrayList;
@@ -35,7 +34,6 @@ final class Scene {
     Layer bubble2Out;
     final List<Card> cards = new ArrayList<>();
     BlurSink blur;
-    MaterialFrame materialFrame;
 
     boolean suppressed;
     /** The display is entering sleep; the visual gate owns the exit, input stops immediately. */
