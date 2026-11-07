@@ -5,10 +5,14 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.SystemClock;
 import android.text.StaticLayout;
+import android.text.TextUtils;
 import dev.android.dynamicisland.island.graphics.Colors;
 import dev.android.dynamicisland.island.graphics.Glyphs;
+import dev.android.dynamicisland.island.lyrics.LyricsManager;
+import dev.android.dynamicisland.island.lyrics.MediaLyrics;
 import dev.android.dynamicisland.island.model.IslandItem;
 import dev.android.dynamicisland.island.view.IslandView;
+import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.island.view.media.MediaFx;
 
 /**
@@ -43,6 +47,7 @@ public final class MediaBody extends CardBody {
     private static final float SIDE_BUTTON_RATIO = 0.84f;
     /** Slide-up distance of a row while it fades in. */
     private static final float ROW_SLIDE_DP = 8.0f;
+    private static final float LYRICS_ROW_DP = 38.0f;
     private static final String NO_DURATION = "--:--";
 
     final float art;
@@ -56,6 +61,7 @@ public final class MediaBody extends CardBody {
     private final Paint glowPaint;
     final float pad;
     final float seekTop;
+    final float lyricsTop;
     /** Size of the app tile at the top right. */
     final float tile;
     final StaticLayout title;
@@ -82,6 +88,7 @@ public final class MediaBody extends CardBody {
                 : IslandView.layout(outputText, owner.smallPaint, Math.max(1, textWidth - Math.round(owner.dp(18.0f))), 1);
         seekTop = pad + art + owner.dp(16.0f);
         controlsTop = seekTop + owner.dp(14.0f) + owner.dp(10.0f);
+        lyricsTop = controlsTop + controlH + owner.dp(5.0f);
         String totalText = item.mediaDuration > 0 ? IslandView.formatTimePadded(item.mediaDuration) : NO_DURATION;
         barLeft = pad + owner.smallPaint.measureText("00:00") + owner.dp(10.0f);
         barRight = ((w - pad) - owner.smallPaint.measureText(totalText)) - owner.dp(10.0f);
@@ -95,7 +102,11 @@ public final class MediaBody extends CardBody {
         if (item.mediaCustom.size() > 1) {
             addCustom(item.mediaCustom.get(1), pad + (CUSTOM_RIGHT_AT * span));
         }
-        h = controlsTop + controlH + owner.dp(14.0f);
+        h = lyricsTop + (ModuleSettings.mediaLyricsEnabled() ? owner.dp(LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
+        if (ModuleSettings.mediaLyricsEnabled() && item.title != null && item.subtitle != null) {
+            LyricsManager.request(owner.getContext(), item.title.toString(), item.subtitle.toString(),
+                    item.mediaDuration, owner::postInvalidateOnAnimation);
+        }
     }
 
     /** Whether ({@code lx}, {@code ly}) in body coordinates is on the seek bar and the item can seek. */
@@ -155,6 +166,48 @@ public final class MediaBody extends CardBody {
         drawSeekRow(c, x, y + seekTop + ((1.0f - seekRowProgress) * owner.dp(ROW_SLIDE_DP)) + owner.dp(7.0f), alpha * seekRowProgress, fx, now);
         float controlsRowProgress = rowAlpha(elapsed, 2);
         drawButtons(c, x, y + ((1.0f - controlsRowProgress) * owner.dp(ROW_SLIDE_DP)), alpha * controlsRowProgress);
+        if (ModuleSettings.mediaLyricsEnabled()) {
+            drawLyrics(c, x + pad, y + lyricsTop, w - pad * 2, alpha * controlsRowProgress,
+                    fx.shownPosition(item, SystemClock.elapsedRealtime()));
+        }
+    }
+
+    /** Current and next line of synced lyrics, using the playback clock shared with the seek row. */
+    private void drawLyrics(Canvas canvas, float left, float top, float width, float alpha, long positionMs) {
+        String titleText = item.title == null ? "" : item.title.toString();
+        String artistText = item.subtitle == null ? "" : item.subtitle.toString();
+        MediaLyrics data = LyricsManager.get(titleText, artistText);
+        Paint current = owner.mediaTitlePaint();
+        Paint next = owner.mediaArtistPaint();
+        current.setTextSize(owner.dp(12.0f));
+        next.setTextSize(owner.dp(10.5f));
+        current.setTextAlign(Paint.Align.LEFT);
+        next.setTextAlign(Paint.Align.LEFT);
+        Paint.FontMetrics fm = current.getFontMetrics();
+        float baseline = top + owner.dp(5.0f) - fm.ascent;
+        if (data == null || data.isEmpty()) {
+            String status = LyricsManager.isLoading(titleText, artistText)
+                    ? "Finding synced lyrics…" : "No synced lyrics found";
+            current.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
+            canvas.drawText(TextUtils.ellipsize(status, current, width, TextUtils.TruncateAt.END).toString(),
+                    left, baseline, current);
+            return;
+        }
+        int index = data.currentIndex(Math.max(0L, positionMs));
+        if (index < 0) {
+            current.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
+            canvas.drawText("♪", left, baseline, current);
+            return;
+        }
+        MediaLyrics.Line line = data.line(index);
+        current.setColor(Colors.withAlpha(Colors.ON_SURFACE, alpha));
+        canvas.drawText(TextUtils.ellipsize(line.text, current, width, TextUtils.TruncateAt.END).toString(),
+                left, baseline, current);
+        if (index + 1 < data.size()) {
+            next.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.70f * alpha));
+            canvas.drawText(TextUtils.ellipsize(data.line(index + 1).text, next, width, TextUtils.TruncateAt.END).toString(),
+                    left, baseline + owner.dp(14.0f), next);
+        }
     }
 
     /** The glow, stretched to the card's current shape so it always fills the card edge to edge. */

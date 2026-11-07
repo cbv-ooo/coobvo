@@ -27,6 +27,7 @@ public final class ModuleSettings {
     public static final String KEY_COLOR_ICONS = "compact_color_icons";
     /** The island's music card in place of the stock music player of the notification shade. */
     public static final String KEY_SHADE_MEDIA = "shade_media_player";
+    public static final String KEY_MEDIA_LYRICS = "media_lyrics_enabled";
     public static final String KEY_EVENT_CHARGING = "event_charging";
     public static final String KEY_STOCK_CHARGING_ANIMATION = "stock_charging_animation";
     /** Experimental concurrent input; opt-in because vendor recording policies differ. */
@@ -193,6 +194,7 @@ public final class ModuleSettings {
     private static volatile boolean visualizer = true;
     private static volatile boolean colorIcons;
     private static volatile boolean shadeMedia = true;
+    private static volatile boolean mediaLyrics = true;
     private static volatile boolean eventCharging = true;
     private static volatile boolean stockChargingAnimation;
     private static volatile boolean concurrentRecordingInput;
@@ -627,6 +629,7 @@ public final class ModuleSettings {
             visualizer = source.getBoolean(KEY_VISUALIZER, true);
             colorIcons = source.getBoolean(KEY_COLOR_ICONS, false);
             shadeMedia = source.getBoolean(KEY_SHADE_MEDIA, true);
+            mediaLyrics = source.getBoolean(KEY_MEDIA_LYRICS, true);
             eventCharging = source.getBoolean(KEY_EVENT_CHARGING, true);
             readOptionalDeviceSettings(source);
             eventRinger = source.getBoolean(KEY_EVENT_RINGER, true);
@@ -956,6 +959,12 @@ public final class ModuleSettings {
     public static boolean shadeMediaPlayer() {
         ensureStarted();
         return shadeMedia;
+    }
+
+    /** Fetch and display line-synced lyrics below the media card controls. */
+    public static boolean mediaLyricsEnabled() {
+        ensureStarted();
+        return mediaLyrics;
     }
 
     /** Keep the real colours of an app's icon or a team's logo in the small pill, instead of a grey version of it. */

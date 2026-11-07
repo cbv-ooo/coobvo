@@ -341,7 +341,6 @@ public final class SettingsActivity extends Activity {
         ui.linkRow(main, "Smart Island", "Selected feature ports and integration status", () -> open(this::smartIslandPage));
         ui.linkRow(main, "Dynamic App Settings", "Choose which apps can appear and how they behave", () -> open(this::appsPage));
         ui.linkRow(main, "Material 3 Expressive", "Icon, motion and solid-surface design system", () -> open(this::expressivePage));
-        ui.linkRow(main, "Prism", "System UI hook integration status", () -> open(this::prismPage));
         ui.linkRow(main, getString(R.string.ui_notifications), getString(R.string.ui_notifications_summary), () -> open(this::notificationsPage));
         ui.linkRow(main, getString(R.string.ui_appearance), getString(R.string.ui_appearance_summary), () -> open(this::displayPage));
         ui.linkRow(main, getString(R.string.ui_behavior), getString(R.string.ui_behavior_summary), () -> open(this::behaviorPage));
@@ -354,32 +353,27 @@ public final class SettingsActivity extends Activity {
         ui.note(page, getString(R.string.ui_language_scope));
     }
 
-    /** A single place to inspect and reach the feature areas being adapted from Smart Island. */
+    /** Functional overview of the Smart Island-derived features currently available in this runtime. */
     private void smartIslandPage() {
         subPage("Smart Island");
-        ui.category(page, "Integration status", "The Dynamic Island Java/Canvas runtime remains the base.");
-        LinearLayout status = ui.card(page);
-        ui.actionRow(status, "Smart Island source", "The uploaded reference uses Kotlin, Compose, Hilt and its own overlay/service stack. Those UI and service layers are not copied into System UI. Feature logic is being reimplemented individually in Java before it is enabled.", null);
-        ui.actionRow(status, "Not yet integrated", "Idle widget rotation, weather/network/calendar widgets, dedicated timer and stopwatch modes, notification history, and inline reply still need their own Java ports and device checks.", null);
-        ui.category(page, "Available controls", "These are the existing coobvo entry points that can already be used.");
+        ui.category(page, "Active integrations", "Features already implemented by coobvo's Java/Canvas runtime.");
+        LinearLayout active = ui.card(page);
+        ui.actionRow(active, "Live notifications and activities", "Heads-up cards, ongoing activities, progress, media sessions, calls and system events.", null);
+        ui.actionRow(active, "Smart activity rules", "Classifies delivery, ride, route and device notifications into staged cards.", null);
+        ui.actionRow(active, "Timers and playback", "Timer/chronometer cards, media controls, seeking and playback-aware lyrics.", null);
+        ui.category(page, "Feature controls");
+        LinearLayout controls = ui.card(page);
+        toggle(controls, R.string.setting_smart_rules, R.string.setting_smart_rules_desc, ModuleSettings.KEY_SMART_RULES, true);
+        toggle(controls, R.string.auto_open_cards, R.string.auto_open_cards_desc, ModuleSettings.KEY_AUTO_OPEN_CARDS, false);
+        toggle(controls, R.string.setting_progress, R.string.setting_progress_desc, ModuleSettings.KEY_PROGRESS_NOTIFICATIONS, true);
+        toggle(controls, "LyricSync · synced lyrics", "Fetch current and next line-synced lyrics below media controls using LRCLIB.", ModuleSettings.KEY_MEDIA_LYRICS, true);
+        ui.category(page, "Manage");
         LinearLayout links = ui.card(page);
         ui.linkRow(links, getString(R.string.ui_notifications), getString(R.string.ui_notifications_summary), () -> open(this::notificationsPage));
         ui.linkRow(links, getString(R.string.hub_events), getString(R.string.hub_events_sum), () -> open(this::eventsPage));
         ui.linkRow(links, "Dynamic App Settings", "Per-app include and exclude lists", () -> open(this::appsPage));
         ui.linkRow(links, getString(R.string.rules_title), getString(R.string.hub_rules_sum), () -> open(rules::advancedPage));
-        ui.category(page, "Prism");
-        LinearLayout prism = ui.card(page);
-        ui.actionRow(prism, "Prism hooks not merged", "No Prism source/API has been identified in the supplied archives. I found a separate public Samsung customisation project under another author; I have not assumed it is your intended Prism or copied unrelated system hooks.", null);
-    }
-
-    /** Keeps the external Prism scope explicit until its intended source is confirmed. */
-    private void prismPage() {
-        subPage("Prism");
-        ui.category(page, "Integration status", "Prism has not been merged into this module.");
-        LinearLayout state = ui.card(page);
-        ui.actionRow(state, "Source not confirmed", "The uploaded source archives do not contain Prism. A public Samsung One UI Xposed project named hongducdev/prism exists, but I have not assumed it is your intended source or copied its broad System UI, system_server and Samsung-app hooks.", null);
-        ui.actionRow(state, "Compatibility and licensing review needed", "Before selected hooks are ported, their exact targets, supported One UI versions, failure isolation and licence obligations must be reviewed. Its Compose settings app and unrelated hooks will not be pulled into coobvo.", null);
-        ui.note(page, "Provide the exact Prism repository URL or source archive to continue with the intended implementation.");
+        ui.note(page, "Still to port: notification history, rotating idle widgets and dedicated quick-launch controls. These are not marked as completed.");
     }
 
     /** Documents the shared M3 Expressive treatment now used by the Canvas island. */
