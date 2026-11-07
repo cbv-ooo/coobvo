@@ -236,8 +236,10 @@ final class PillPainter {
     }
 
     /** Only the outer rim is white. Filling underneath a fading black body produces a grey pill. */
-    private void drawOutline(Canvas canvas, RectF pill, float r, boolean pillVisible, boolean notch, float bodyAlpha, boolean hasBubble, boolean hasNeck,
-                             float neckAlpha, float bubbleX, float bubbleY, float bubbleRadius) {
+    private void drawOutline(Canvas canvas, RectF pill, float r, boolean pillVisible, boolean notch,
+                             float bodyAlpha, boolean hasBubble, boolean hasNeck, float neckAlpha,
+                             float bubbleX, float bubbleY, float bubbleRadius,
+                             boolean hasBubble2, RectF secondBubble) {
         int save = canvas.save();
         outlineCutout.reset();
         if (pillVisible) {
@@ -245,6 +247,8 @@ final class PillPainter {
             else outlineCutout.addRoundRect(pill, r, r, Path.Direction.CW);
         }
         if (hasBubble) outlineCutout.addCircle(bubbleX, bubbleY, bubbleRadius, Path.Direction.CW);
+        if (hasBubble2) outlineCutout.addRoundRect(secondBubble, secondBubble.width() / 2.0f,
+                secondBubble.height() / 2.0f, Path.Direction.CW);
         canvas.clipOutPath(outlineCutout);
         if (hasNeck) canvas.clipOutPath(neck);
         float fade = clamp01(sp.outlineFade.value());
@@ -273,6 +277,12 @@ final class PillPainter {
                 canvas.drawPath(neck, paint);
                 paint.setStyle(Paint.Style.FILL);
             }
+        }
+        if (hasBubble2) {
+            paint.setColor(Colors.withAlpha(Colors.PILL_OUTLINE, fade));
+            RectF secondRim = new RectF(secondBubble);
+            secondRim.inset(-m.outlineW, -m.outlineW);
+            canvas.drawRoundRect(secondRim, secondRim.width() / 2.0f, secondRim.height() / 2.0f, paint);
         }
         canvas.restoreToCount(save);
     }
@@ -315,7 +325,7 @@ final class PillPainter {
         }
     }
 
-    private void drawBubbleLayer(Canvas canvas, Layer layer, long t, float extraAlpha) {
+    private void drawBubbleLayer(Canvas canvas, Layer layer, RectF shape, long t, float extraAlpha) {
         if (layer == null) {
             return;
         }
@@ -323,9 +333,9 @@ final class PillPainter {
         if (alpha > IslandView.MIN_VISIBLE_ALPHA) {
             float merging = 1 - clamp01(sp.split.value());
             float blur = Math.max(layer.blurAmount(t), merging);
-            Canvas content = layer.contentBlur.begin(canvas, bubble, blur, m.dp(ContentBlur.RADIUS_DP));
+            Canvas content = layer.contentBlur.begin(canvas, shape, blur, m.dp(ContentBlur.RADIUS_DP));
             try {
-                layer.content.draw(content, bubble, alpha, layer.elapsedIn(t));
+                layer.content.draw(content, shape, alpha, layer.elapsedIn(t));
             } finally {
                 layer.contentBlur.end(canvas, content);
             }
