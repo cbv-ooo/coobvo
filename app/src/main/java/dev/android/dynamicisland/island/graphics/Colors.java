@@ -26,6 +26,14 @@ public final class Colors {
     public static final int DESTRUCTIVE_RED = 0xFFFF3B30;
     public static final int CARD_GLASS = 0xFF0E0E10;
     public static final int CARD_SOLID = 0xFF141416;
+
+    // Opaque Material-style roles used by Canvas surfaces and content.
+    public static final int SURFACE = BLACK;
+    public static final int SURFACE_CONTAINER = CARD_SOLID;
+    public static final int SURFACE_CONTAINER_LOW = CARD_GLASS;
+    public static final int ON_SURFACE = WHITE;
+    public static final int ON_SURFACE_VARIANT = 0xFFBDBDBD;
+    public static final int ON_PRIMARY_CONTAINER = WHITE;
     /** Marks a button without a fill (the glyph is drawn alone). */
     public static final int TRANSPARENT_MARK = 0x00FFFFFF;
     public static final int SEGMENT_UNREACHED = 0xFF9B9F9F;
@@ -35,6 +43,14 @@ public final class Colors {
     private static final float LIFT_STEP = 0.12f;
 
     private Colors() {
+    }
+
+    /**
+     * Builds an opaque primary container from a dynamic artwork accent. Darkening keeps the
+     * accent recognisable while retaining a white on-container glyph across bright album colours.
+     */
+    public static int primaryContainer(int accent) {
+        return blend(accent | BLACK, SURFACE, 0.56f) | BLACK;
     }
 
     /** Relative luminance (WCAG weights) of an sRGB colour, 0..1; alpha is ignored. */
