@@ -56,6 +56,7 @@ final class TouchController {
     private boolean dragging;
     private boolean downOnPill;
     private boolean downOnBubble;
+    private boolean downOnBubble2;
     /** Touch started on the empty hole while an item is minimized there. */
     private boolean downOnHole;
     private Card downCard;
@@ -179,7 +180,7 @@ final class TouchController {
         } else if (action == MotionEvent.ACTION_MOVE) {
             traceMoves++;
         } else if ((action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) && traceMoves > 0
-                && (downOnPill || downOnBubble)) {
+                && (downOnPill || downOnBubble || downOnBubble2)) {
             dev.android.dynamicisland.xposed.Diagnostics.event("pill touch ended by " + (action == MotionEvent.ACTION_UP ? "UP" : "CANCEL")
                     + " after " + (e.getEventTime() - traceStart) + " ms, " + traceMoves + " moves, dy "
                     + Math.round(y(e) - downY) + " px, dx " + Math.round(x(e) - downX) + " px, "
@@ -213,6 +214,7 @@ final class TouchController {
         dragging = false;
         downOnPill = false;
         downOnBubble = false;
+        downOnBubble2 = false;
         downCard = null;
         downActivity = null;
         downOnHole = false;
@@ -306,7 +308,13 @@ final class TouchController {
             bubble.inset(-margin, -margin);
             downOnBubble = bubble.contains(downX, downY);
         }
-        if (downOnPill || downOnBubble) {
+        if (!downOnPill && !downOnBubble && scene.secondary2 != null && sp.split.value() > 0.6f) {
+            RectF bubble2 = new RectF();
+            shapes.bubble(slot, sp.split.value(), 1, bubble2);
+            bubble2.inset(-margin, -margin);
+            downOnBubble2 = bubble2.contains(downX, downY);
+        }
+        if (downOnPill || downOnBubble || downOnBubble2 || downOnBubble2) {
             sp.press.animateTo(0.94f, Motion.PRESS_DOWN);
             view.scheduleFrame();
         }
@@ -353,7 +361,7 @@ final class TouchController {
         if (!dragging) {
             return;
         }
-        boolean onIsland = downOnPill || downOnBubble;
+        boolean onIsland = downOnPill || downOnBubble || downOnBubble2;
         if(scene.iMode!=null && downActivity!=null) {
             // Status-row paging owns horizontal drags; downward drags still open the system shade.
             if(scene.iMode.hasCompactDrag() && dy>touchSlop*2 && dy>Math.abs(dx)*PULL_DOWN_DOMINANCE) {
@@ -580,8 +588,9 @@ final class TouchController {
         if (scene.mode == Mode.COMPACT && horizontal) {
             Haptics.perform(view, HAPTIC_CONFIRM);
             if (dx < 0.0f) {
-                boolean bubbleSwiped = downOnBubble && scene.secondary != null;
-                host.onMinimize(bubbleSwiped ? scene.secondary : scene.primary);
+                IslandItem minimize = downOnBubble2 && scene.secondary2 != null ? scene.secondary2
+                        : downOnBubble && scene.secondary != null ? scene.secondary : scene.primary;
+                host.onMinimize(minimize);
             } else if (host.hasMinimized()) {
                 host.onRestore();
             } else {
@@ -644,7 +653,7 @@ final class TouchController {
 
     /** A clear start of a pull down on the small pill that the system cancelled before it was a pull of ours. */
     private boolean cutShortPullDown(MotionEvent e) {
-        if (scene.iMode != null || scene.mode != Mode.COMPACT || !(downOnPill || downOnBubble) || forwardingShade
+        if (scene.iMode != null || scene.mode != Mode.COMPACT || !(downOnPill || downOnBubble || downOnBubble2) || forwardingShade
                 || !ModuleSettings.swipeDownOpens() || ignoreGesture) {
             return false;
         }
