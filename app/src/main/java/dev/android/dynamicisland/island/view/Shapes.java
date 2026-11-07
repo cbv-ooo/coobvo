@@ -72,18 +72,24 @@ final class Shapes {
         out.set(cx - width / 2.0f, cy - height / 2.0f, cx + width / 2.0f, cy + height / 2.0f);
     }
 
-    /** The bubble: a circle that grows out of the pill's right end as the split progresses. */
+    /** The first bubble (index 0). Grows from the preferred side of the pill. */
     void bubble(RectF main, RectF out) {
-        bubble(main, sp.split.value(), out);
+        bubble(main, sp.split.value(), 0, out);
     }
 
-    /** The bubble for an explicit split (the shade gate merges it back into the pill before the pill shrinks). */
-    void bubble(RectF main, float s, RectF out) {
+    /**
+     * Bubble geometry for an explicit split.
+     * @param index 0 = first companion bubble, 1 = second companion bubble (further out)
+     */
+    void bubble(RectF main, float s, int index, RectF out) {
         if (scene.iMode != null) { scene.iMode.bubbleBounds(out);scene.iMode.shadeBounds(out,out); return; }
         float pillRadius = main.height() / 2.0f;
         float radius = lerp(IslandView.PAUSED_GLOW * pillRadius, m.bubbleR, IslandView.clamp01(s));
-        float restDistance = m.bubbleGap + pillRadius + m.bubbleR;
-        float centerX = (restDistance * s) + (main.right - pillRadius);
+        // spacing grows with index so the second bubble sits further from the pill
+        float restDistance = (m.bubbleGap + pillRadius + m.bubbleR) * (1.0f + index * 1.85f);
+        float side = m.bubbleSide >= 0 ? 1.0f : -1.0f;
+        float edgeX = side > 0 ? (main.right - pillRadius) : (main.left + pillRadius);
+        float centerX = edgeX + (side * restDistance * s);
         float centerY = main.centerY();
         out.set(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
     }
