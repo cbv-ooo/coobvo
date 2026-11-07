@@ -113,7 +113,7 @@ public final class MediaBody extends CardBody {
         Btn b = new Btn();
         b.glyph = glyph;
         b.circle = circle;
-        b.bg = Colors.CONTROL_FILL;
+        b.bg = circle ? Colors.primaryContainer(item.accent) : Colors.CONTROL_FILL;
         b.run = onTap;
         float size = controlH;
         if (!circle) {
