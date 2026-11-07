@@ -393,7 +393,7 @@ final class IslandPlacement {
 
         // Samsung sometimes exposes the device cutout through framework resource approximations
         // before (or instead of) reporting it in the overlay window insets.
-        bounds = resourceCutoutBounds();
+        bounds = resourceCutoutBounds(screenWidth, screenHeight);
         if (bounds != null) return bounds;
 
         // The Galaxy S10e's Infinity-O camera is physically in the top-right corner. Some Samsung
@@ -417,18 +417,45 @@ final class IslandPlacement {
     private static Rect cutoutTopBounds(DisplayCutout cutout) {
         if (cutout == null) return null;
         Rect top = cutout.getBoundingRectTop();
-        return top == null || top.isEmpty() ? null : new Rect(top);
+        if (top != null && !top.isEmpty()) return new Rect(top);
+        // Some vendor builds expose the hole in the full bounding list but not the top convenience getter.
+        Rect firstTop = null;
+        for (Rect candidate : cutout.getBoundingRects()) {
+            if (candidate == null || candidate.isEmpty()) continue;
+            if (firstTop == null || candidate.top < firstTop.top) firstTop = candidate;
+        }
+        return firstTop == null ? null : new Rect(firstTop);
     }
 
-    /** Uses the framework's approximation resource where Samsung does not expose window insets. */
-    private Rect resourceCutoutBounds() {
+    /** Uses DisplayCutout's resource approximation API with its actual framework signature. */
+    private Rect resourceCutoutBounds(int screenWidth, int screenHeight) {
+        Display display = ctx.getDisplay();
+        if (display == null) return null;
+        String uniqueId = "local:0";
         try {
-            Display display = ctx.getDisplay();
-            if (display == null) return null;
+            Method getUniqueId = Display.class.getDeclaredMethod("getUniqueId");
+            getUniqueId.setAccessible(true);
+            Object value = getUniqueId.invoke(display);
+            if (value instanceof String && !((String) value).isEmpty()) uniqueId = (String) value;
+        } catch (Throwable ignored) { }
+        try {
+            Display.Mode mode = display.getMode();
+            int physicalWidth = mode == null ? screenWidth : mode.getPhysicalWidth();
+            int physicalHeight = mode == null ? screenHeight : mode.getPhysicalHeight();
             Method method = DisplayCutout.class.getDeclaredMethod("fromResourcesRectApproximation",
-                    android.content.res.Resources.class, Display.class);
+                    android.content.res.Resources.class, String.class, int.class, int.class, int.class, int.class);
             method.setAccessible(true);
-            DisplayCutout approximate = (DisplayCutout) method.invoke(null, ctx.getResources(), display);
+            DisplayCutout approximate = (DisplayCutout) method.invoke(null, ctx.getResources(), uniqueId,
+                    physicalWidth, physicalHeight, screenWidth, screenHeight);
+            Rect bounds = cutoutTopBounds(approximate);
+            if (bounds != null) return bounds;
+        } catch (Throwable ignored) { }
+        // Compatibility with platform builds that still expose the older 3-argument overload.
+        try {
+            Method legacy = DisplayCutout.class.getDeclaredMethod("fromResourcesRectApproximation",
+                    android.content.res.Resources.class, int.class, int.class);
+            legacy.setAccessible(true);
+            DisplayCutout approximate = (DisplayCutout) legacy.invoke(null, ctx.getResources(), screenWidth, screenHeight);
             return cutoutTopBounds(approximate);
         } catch (Throwable ignored) {
             return null;
