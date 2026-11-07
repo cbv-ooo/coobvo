@@ -133,7 +133,7 @@ public abstract class CardBody {
         float contentSize = owner.tmpRect.height() * (b.bg == Colors.TRANSPARENT_MARK ? 0.5f : 0.44f);
         if (b.glyph != 0) {
             // a white fill gets a black glyph, anything else a white one
-            owner.fillPaint.setColor(Colors.withAlpha(b.bg == Colors.WHITE ? Colors.BLACK : Colors.WHITE, alpha));
+            owner.fillPaint.setColor(Colors.withAlpha(b.bg == Colors.WHITE ? Colors.BLACK : Colors.ON_PRIMARY_CONTAINER, alpha));
             if (b.glyph == Glyphs.PLAY || b.glyph == Glyphs.PAUSE) {
                 contentSize = owner.tmpRect.height() * 0.4f;
             }
