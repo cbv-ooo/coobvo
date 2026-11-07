@@ -31,6 +31,8 @@ public final class Colors {
     public static final int SURFACE = BLACK;
     public static final int SURFACE_CONTAINER = CARD_SOLID;
     public static final int SURFACE_CONTAINER_LOW = CARD_GLASS;
+    /** Opaque Material outline variant for card edges. */
+    public static final int OUTLINE_VARIANT = 0xFF37373C;
     public static final int ON_SURFACE = WHITE;
     public static final int ON_SURFACE_VARIANT = 0xFFBDBDBD;
     public static final int ON_PRIMARY_CONTAINER = WHITE;

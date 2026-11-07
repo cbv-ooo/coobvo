@@ -454,8 +454,10 @@ final class LottiePlayer {
         if (s.type.equals("st")) {
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(s.b.at(frame)[0]);
-            paint.setStrokeCap(s.cap == 1 ? Paint.Cap.BUTT : s.cap == 3 ? Paint.Cap.SQUARE : Paint.Cap.ROUND);
-            paint.setStrokeJoin(s.join == 1 ? Paint.Join.MITER : s.join == 3 ? Paint.Join.BEVEL : Paint.Join.ROUND);
+            // Treat every embedded Lottie as one monochrome M3 Expressive icon family:
+            // consistent rounded terminals/joins and the caller's semantic tint.
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStrokeJoin(Paint.Join.ROUND);
         } else {
             paint.setStyle(Paint.Style.FILL);
         }

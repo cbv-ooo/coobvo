@@ -48,6 +48,9 @@ public final class Glyphs {
     /** Draws {@code glyph} (one of the constants above) centred at (cx, cy); unknown ids draw nothing. */
     public static void draw(Canvas canvas, int glyph, float cx, float cy, float size, Paint paint) {
         PATH.reset();
+        // Material 3 Expressive glyphs share rounded terminals and joins across controls.
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStrokeJoin(Paint.Join.ROUND);
         switch (glyph) {
             case PLAY:
                 play(canvas, cx, cy, size, paint);

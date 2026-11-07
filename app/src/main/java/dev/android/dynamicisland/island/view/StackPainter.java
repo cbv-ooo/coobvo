@@ -5,10 +5,8 @@ import static dev.android.dynamicisland.island.graphics.Easing.lerp;
 import static dev.android.dynamicisland.island.view.IslandView.clamp01;
 
 import android.graphics.Canvas;
-import android.graphics.LinearGradient;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.graphics.Shader;
 import dev.android.dynamicisland.island.graphics.Colors;
 import dev.android.dynamicisland.island.graphics.Easing;
 import dev.android.dynamicisland.island.graphics.Metaball;
@@ -32,14 +30,6 @@ final class StackPainter {
     private static final float OPEN_FADE_TO = 0.25f;
     /** A card that is leaving reports this "elapsed" time so its content is fully shown while it fades. */
     private static final long LEAVING_CONTENT_ELAPSED_MS = 2305843009213693951L;
-    /** Opening fraction from which a card turns from the pill's black into its own colour and glass. */
-    private static final float CARD_MATERIAL_FROM = 0.35f;
-    private static final float GLASS_FROM = 0.1f;
-    /** The captured material has no lagging native surface to hide during a fold. */
-    private static final float FROSTED_FULL_AT = 0.65f;
-    /** Stop the native backdrop well before the compact pill takes over; its compositor can lag a frame. */
-    private static final float FOLD_BLUR_FADE_FROM = 0.1f;
-    private static final float FOLD_BLUR_FADE_TO = 0.55f;
     /** Necks thinner than this are not drawn; they reach full opacity this much wider. */
     private static final float NECK_FADE_FROM_DP = 4.0f;
     private static final float NECK_FADE_RANGE_DP = 6.0f;
@@ -55,14 +45,6 @@ final class StackPainter {
     private final RectF gooLower = new RectF();
     private final Path gooPath = new Path();
 
-    /** Outline of a card that is still changing shape: brighter than the pill's, so the motion shows on a black screen. */
-    private static final int MORPH_OUTLINE = 0x70FFFFFF;
-    private Shader rim;
-    private float rimHeight = -1.0f;
-    private float rimTop = Float.NaN;
-    private float rimAlpha = -1.0f;
-    private float rimSettle = -1.0f;
-    private int rimBase;
     private boolean drawFailureLogged;
 
     StackPainter(Metrics m, Paints paints, Scene scene, Shapes shapes) {
@@ -120,10 +102,9 @@ final class StackPainter {
         return opening;
     }
 
-    /** Card surfaces stay fully opaque while retaining the black-to-card-colour morph. */
+    /** Expanded cards use one fully opaque Material surface; no glass, fade-through or gradient fill. */
     int fillColor(float opening) {
-        float material = Easing.easeInOut(clamp01((opening - 0.35f) / 0.65f));
-        return Colors.blend(Colors.SURFACE, Colors.SURFACE_CONTAINER, material);
+        return Colors.SURFACE_CONTAINER;
     }
 
     /** The neck of goo between two cards that are folding back into the pill one after the other. */
@@ -175,16 +156,12 @@ final class StackPainter {
 
     private void drawCardSurface(Canvas canvas, Card c, RectF r, long t, float opening) {
         float corner = c.iMode ? IMode.corner(c,r,m.pillH,m.cardRadius) : c.body.cornerRadius(m.cardRadius, r.height());
-        float rimSettled = c.iMode ? Easing.easeInOut(clamp01(opening)) : clamp01((opening - 0.82f) / 0.18f);
         opening = visualOpening(c, opening);
 
         paints.card.setColor(fillColor(opening));
         canvas.drawRoundRect(r, corner, corner, paints.card);
-        int morphOutline = c.iMode ? 0x00FFFFFF
-                : Colors.withAlpha(c.leaving ? Colors.PILL_OUTLINE : MORPH_OUTLINE, scene.pillOutlineOpacity());
-        paints.cardStroke.setShader(ModuleSettings.legacyAnimation()
-                ? rimShader(r, rimSettled, 1.0f, MORPH_OUTLINE)
-                : rimShader(r, 1.0f, rimSettled, morphOutline));
+        paints.cardStroke.setShader(null);
+        paints.cardStroke.setColor(Colors.OUTLINE_VARIANT);
         inner.set(r);
         inner.inset(m.outlineW / 2.0f, m.outlineW / 2.0f);
         canvas.drawRoundRect(inner, corner, corner, paints.cardStroke);
@@ -233,29 +210,6 @@ final class StackPainter {
         } finally {
             canvas.restoreToCount(save);
         }
-    }
-
-    /** The light rim gradient of a card; rebuilt only when the card moved or changed height noticeably. */
-    private Shader rimShader(RectF r, float alpha, float settle, int base) {
-        boolean stale = rim == null || Math.abs(rimHeight - r.height()) > 1.0f || Math.abs(rimTop - r.top) > 1.0f
-                || Math.abs(rimAlpha - alpha) > 0.02f || Math.abs(rimSettle - settle) > 0.02f || rimBase != base;
-        if (stale) {
-            rimHeight = r.height();
-            rimTop = r.top;
-            rimAlpha = alpha;
-            rimSettle = settle;
-            rimBase = base;
-            rim = new LinearGradient(0.0f, r.top, 0.0f, r.bottom,
-                    Colors.withAlpha(whiteMix(base, Colors.RIM_TOP, settle), alpha),
-                    Colors.withAlpha(whiteMix(base, Colors.RIM_BOTTOM, settle), alpha), Shader.TileMode.CLAMP);
-        }
-        return rim;
-    }
-
-    /** Between two white colours that differ only in alpha. */
-    private static int whiteMix(int from, int to, float t) {
-        int a = Math.round((from >>> 24) + (((to >>> 24) - (from >>> 24)) * t));
-        return (a << 24) | 0x00FFFFFF;
     }
 
     void drawBackground(CardBody body, Canvas canvas, RectF frame, float alpha) {
