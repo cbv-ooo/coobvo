@@ -8,6 +8,8 @@ package dev.android.dynamicisland.island.view;
 final class Metrics {
     /** Gap in dp between a window's content and its bottom edge. */
     private static final float WINDOW_MARGIN_DP = 40.0f;
+    /** Expressive default for expanded card corners; the custom roundness setting still overrides it. */
+    private static final float EXPRESSIVE_CARD_RADIUS_DP = 32.0f;
 
     private final float density;
 
@@ -58,7 +60,7 @@ final class Metrics {
         waveBarW = dp(3.8f);
         waveGap = dp(2.6f);
         outlineW = Math.max(1.5f, dp(0.7f));
-        cardRadius = dp(28.0f);
+        cardRadius = dp(EXPRESSIVE_CARD_RADIUS_DP);
         cardGap = dp(8.0f);
         cardMargin = dp(12.0f);
         cardMaxW = dp(420.0f);
