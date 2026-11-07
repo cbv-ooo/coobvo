@@ -7,6 +7,7 @@ import android.graphics.RectF;
 import android.view.HapticFeedbackConstants;
 import dev.android.dynamicisland.island.feedback.Haptics;
 import dev.android.dynamicisland.island.graphics.Colors;
+import dev.android.dynamicisland.island.graphics.Motion;
 import dev.android.dynamicisland.island.graphics.Spring;
 import dev.android.dynamicisland.island.model.IslandItem;
 import dev.android.dynamicisland.island.view.card.CardBody;
@@ -22,8 +23,6 @@ import java.util.Map;
  * source priority, notification dismissal and the normal stack renderer remain independent.
  */
 final class IMode {
-    // The reference resolves its content in about 250 ms and its geometry in about 350 ms.
-    static final float RESPONSE = .34f, DAMPING = .90f;
     private final IslandView view;
     private final IslandHost host;
     private final Metrics m;
@@ -56,7 +55,7 @@ final class IMode {
     private float swipeStart;
     private CompactPage compactPage;
     private boolean gestureHidden;
-    private final Spring outline=new Spring(1,.22f,1).setValueThreshold(.001f);
+    private final Spring outline=new Spring(1, Motion.EFFECTS_SLOW).setValueThreshold(.001f);
 
     /** Compact paging keeps one outline per slot; contents move inside it instead of crossing bodies. */
     private final class CompactPage {
@@ -66,9 +65,9 @@ final class IMode {
         final boolean header;
         final RectF fromMain=new RectF(),fromBubble=new RectF(),toMain=new RectF(),toBubble=new RectF();
         final RectF main=new RectF(),bubble=new RectF();
-        final Spring progress=new Spring(0,.30f,.9f).setValueThreshold(.001f);
-        final Spring pull=new Spring(0,.36f,.78f).setValueThreshold(.015f);
-        final Spring load=new Spring(0,.34f,.82f).setValueThreshold(.001f);
+        final Spring progress=new Spring(0, Motion.SPATIAL_DEFAULT).setValueThreshold(.001f);
+        final Spring pull=new Spring(0, Motion.SPATIAL_DEFAULT).setValueThreshold(.015f);
+        final Spring load=new Spring(0, Motion.SPATIAL_DEFAULT).setValueThreshold(.001f);
         final ContentBlur[] blur={new ContentBlur(),new ContentBlur(),new ContentBlur(),new ContentBlur()};
         boolean released, commit;
         CompactPage(int direction) {
@@ -110,11 +109,11 @@ final class IMode {
         CompactContent compact;
         BubbleContent bubble;
         final Spring x = geometry(), y = geometry(), w = geometry(), h = geometry();
-        final Spring alpha = new Spring(0, .30f, 1).setValueThreshold(.002f);
-        final Spring presence = new Spring(0,.38f,.92f).setValueThreshold(.001f);
-        final Spring press = new Spring(1,.18f,.9f).setValueThreshold(.0005f);
+        final Spring alpha = new Spring(0, Motion.EFFECTS_SLOW).setValueThreshold(.002f);
+        final Spring presence = new Spring(0, Motion.EFFECTS_SLOW).setValueThreshold(.001f);
+        final Spring press = new Spring(1, Motion.SPATIAL_FAST).setValueThreshold(.0005f);
         /** 0 = long pill content; 1 = icon-only bubble content. */
-        final Spring iconOnly = new Spring(0, .28f, 1).setValueThreshold(.002f);
+        final Spring iconOnly = new Spring(0, Motion.EFFECTS_SLOW).setValueThreshold(.002f);
         final ContentBlur blur = new ContentBlur();
         final RectF target = new RectF();
         int slot = -1;
@@ -140,7 +139,7 @@ final class IMode {
     }
 
     private static Spring geometry() {
-        return new Spring(0, RESPONSE, DAMPING).setValueThreshold(.15f);
+        return new Spring(0, Motion.SPATIAL_DEFAULT).setValueThreshold(.15f);
     }
 
     IMode(IslandView view, IslandHost host, Metrics metrics, Scene scene, BodyFactory bodies, Director director) {
@@ -195,10 +194,10 @@ final class IMode {
             director.cancelAutoCollapse();
             closeCards();
             layout();
-            scene.springs.visibility.animateTo(keepsIdle() ? 1 : 0,.36f,1);
+            scene.springs.visibility.animateTo(keepsIdle() ? 1 : 0, Motion.EFFECTS_SLOW);
         } else {
             if (scene.mode==Mode.HIDDEN && !gestureHidden) scene.mode=Mode.COMPACT;
-            scene.springs.visibility.animateTo(gestureHidden ? 0 : 1,.30f,1);
+            scene.springs.visibility.animateTo(gestureHidden ? 0 : 1, Motion.EFFECTS_SLOW);
             if (selected!=null && (nodes.get(selected)==null || nodes.get(selected).removed)) {
                 if (scene.peekOpen) collapse();
                 else {
@@ -372,10 +371,10 @@ final class IMode {
             incoming.leaving=false;
             incoming.handoff=ContentHandoff.iMode(incoming.handoff,true,IslandView.now());
         }
-        incoming.iModeOpacity.animateTo(1,.16f,1);
+        incoming.iModeOpacity.animateTo(1, Motion.EFFECTS_DEFAULT);
         incoming.startAt=IslandView.now(); incoming.contentStart=incoming.startAt;
         incoming.launched=true;
-        incoming.dx.animateTo(0,.2f,1);
+        incoming.dx.animateTo(0, Motion.SPATIAL_DEFAULT);
         view.seekBody=null;
         if(view.sliderBody!=null) view.sliderBody.onSliderEnd();
         view.sliderBody=null;
@@ -516,7 +515,7 @@ final class IMode {
         director.cancelAutoCollapse();closeCards();layout();
         scene.springs.stackDx.animateTo(0);scene.springs.stackDy.animateTo(0);
         float hurry=Math.max(0,Math.min(1,upwardSpeed/m.dp(2500)));
-        scene.springs.visibility.animateTo(0,.36f-.14f*hurry,1);
+        scene.springs.visibility.animateTo(0, Motion.EFFECTS_SLOW.faster(1.0f + hurry));
         if(expanded) host.onExpandedChanged(false);
         Haptics.perform(view,HapticFeedbackConstants.CONTEXT_CLICK);changed();
     }
@@ -525,7 +524,7 @@ final class IMode {
         syncOutlineTarget();
         gestureHidden=false;selected=null;
         scene.mode=scene.items.isEmpty() ? Mode.HIDDEN : Mode.COMPACT;
-        layout(true);scene.springs.visibility.animateTo(scene.items.isEmpty() && !keepsIdle() ? 0 : 1,.30f,1);
+        layout(true);scene.springs.visibility.animateTo(scene.items.isEmpty() && !keepsIdle() ? 0 : 1, Motion.EFFECTS_SLOW);
         resizeWindow();Haptics.perform(view,HapticFeedbackConstants.CONTEXT_CLICK);changed();
     }
 
@@ -545,21 +544,21 @@ final class IMode {
     private void targetExpanded(Card c) {
         float width=m.cardWidth();
         c.targetW=width; c.targetH=c.body.h; c.targetCy=m.stackTop()+c.body.h/2;
-        c.cx.animateTo(m.centredLeft(width)+width/2,.36f,.90f);
-        c.cy.animateTo(c.targetCy,.42f,.88f);
-        c.w.animateTo(width,.42f,.90f);
+        c.cx.animateTo(m.centredLeft(width)+width/2, Motion.SPATIAL_DEFAULT);
+        c.cy.animateTo(c.targetCy, Motion.SPATIAL_SLOW);
+        c.w.animateTo(width, Motion.SPATIAL_SLOW);
         // The reference's height settles with a small rebound while its width barely overshoots.
-        c.h.animateTo(c.targetH,.39f,.76f);
+        c.h.animateTo(c.targetH, Motion.SPATIAL_SLOW);
     }
     private void targetCompact(Card c) {
         Node n=nodes.get(c.item.key);
         if(n==null) return;
         RectF end=n.target;
         c.targetW=end.width(); c.targetH=end.height(); c.targetCy=end.centerY();
-        c.cx.animateTo(end.centerX(),.36f,.90f); c.cy.animateTo(end.centerY(),.36f,.90f);
-        c.w.animateTo(end.width(),.36f,.90f); c.h.animateTo(end.height(),.34f,.86f);
+        c.cx.animateTo(end.centerX(), Motion.SPATIAL_DEFAULT); c.cy.animateTo(end.centerY(), Motion.SPATIAL_DEFAULT);
+        c.w.animateTo(end.width(), Motion.SPATIAL_DEFAULT); c.h.animateTo(end.height(), Motion.SPATIAL_DEFAULT);
         c.iModeRole.animateTo(n.slot==0 ? 0 : 1);
-        c.iModeOpacity.animateTo(n.slot>=0 && !n.removed && scene.mode!=Mode.HIDDEN ? 1 : 0,.24f,1);
+        c.iModeOpacity.animateTo(n.slot>=0 && !n.removed && scene.mode!=Mode.HIDDEN ? 1 : 0, Motion.EFFECTS_SLOW);
     }
     private void trimDepartures() {
         // Repeated taps cannot accumulate expensive RemoteViews or oversized card state.
@@ -656,7 +655,7 @@ final class IMode {
             compactPage.released=true;compactPage.commit=commit;
             float normalized=-speed*swipeDirection/(m.cardWidth()+m.dp(12));
             compactPage.progress.impulse(normalized-compactPage.progress.velocity());
-            compactPage.progress.animateTo(commit ? 1 : 0,.34f,.9f);
+            compactPage.progress.animateTo(commit ? 1 : 0, Motion.SPATIAL_DEFAULT);
             compactPage.pull.animateTo(0);compactPage.load.animateTo(0);
         }
         if(commit) {
@@ -665,20 +664,20 @@ final class IMode {
             selected=next.item.key;
             old.leaving=true;old.leaveAt=IslandView.now();old.iModePaging=true;
             next.leaving=false;next.iModePreview=false;next.iModePaging=true;
-            old.dx.animateTo(-swipeDirection*(m.cardWidth()+m.dp(12)),.34f,.9f);
-            next.dx.animateTo(0,.34f,.9f);
+            old.dx.animateTo(-swipeDirection*(m.cardWidth()+m.dp(12)), Motion.SPATIAL_DEFAULT);
+            next.dx.animateTo(0, Motion.SPATIAL_DEFAULT);
             layout();
             Haptics.perform(view,HapticFeedbackConstants.CONTEXT_CLICK);
         } else {
-            old.dx.animateTo(0,.3f,.9f);
+            old.dx.animateTo(0, Motion.SPATIAL_DEFAULT);
             next.iModePreview=false;next.leaveAt=IslandView.now();
-            next.dx.animateTo(swipeDirection*(m.cardWidth()+m.dp(12)),.3f,.9f);
+            next.dx.animateTo(swipeDirection*(m.cardWidth()+m.dp(12)), Motion.SPATIAL_DEFAULT);
         }
         director.scheduleAutoCollapse(ModuleSettings.autoCollapseMs());changed();
     }
 
     void abortSwipe() {
-        if(swipeCard!=null) swipeCard.dx.animateTo(0,.3f,.9f);
+        if(swipeCard!=null) swipeCard.dx.animateTo(0, Motion.SPATIAL_DEFAULT);
         if(swipePreview!=null) release(swipePreview);
         swipeCard=null;swipePreview=null;
     }
@@ -722,11 +721,11 @@ final class IMode {
         return false;
     }
     void press(String key) {
-        for(Node node:nodes.values()) node.press.animateTo(node.item.key.equals(key) ? .965f : 1,.18f,.9f);
+        for(Node node:nodes.values()) node.press.animateTo(node.item.key.equals(key) ? .965f : 1, Motion.SPATIAL_FAST);
         changed();
     }
     void releasePress() {
-        for(Node node:nodes.values()) node.press.animateTo(1,.26f,.88f);
+        for(Node node:nodes.values()) node.press.animateTo(1, Motion.SPATIAL_FAST);
     }
     void relayout() {
         finishCompactInteraction();
@@ -755,7 +754,7 @@ final class IMode {
         // An invisible island has no contrast transition to animate. Do not leave a half-finished
         // outline spring parked until the next appearance or camera-hole restore.
         if(scene.visibleAlpha()<=IslandView.MIN_VISIBLE_ALPHA) outline.snapTo(target);
-        else outline.animateTo(target,target>outline.value() ? .10f : .22f,1);
+        else outline.animateTo(target, target > outline.value() ? Motion.EFFECTS_FAST : Motion.EFFECTS_SLOW);
     }
     /** Keep one sampling registration, including when empty, ready for every possible compact slot. */
     void outlineSamplingBounds(RectF out) {
