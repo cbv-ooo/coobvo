@@ -35,7 +35,9 @@ Last updated: 2026-11-08
 - `Debug APK` run #17 succeeded for documentation commit `50de53b2d7f2b67fba909ea3f22f2a5a807bfe7f`.
 - Run #18 succeeded for `90b97b1433f23d745cf52cac066bb88e309b7c36` (expanded-card render path, two bubble slots and S10e cutout fallback).
 - Run #19 succeeded for `64010ff0e6745719cb32a8544b6423cf65d96a58` (opaque M3 Expressive card surfaces and rounded monochrome glyph/Lottie strokes).
-- Run #20 succeeded for `8ddeaf6db97a8b048ceab1f077583b74ea37a005` (settings hub, integration-status pages and dual-bubble preview). The Debug APK build and artifact upload passed. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42401969214/artifacts/13584809625).
+- Run #20 succeeded for `8ddeaf6db97a8b048ceab1f077583b74ea37a005` (settings hub, integration-status pages and dual-bubble preview). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42401969214/artifacts/13584809625).
+- Run #21 succeeded for `390ca8a414247eaf729477a53fc550d56f102f0f` (Prism status page and handoff update). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42402079480/artifacts/13586250716).
+- Run #22 succeeded for `64c5fcc4707f595302c92034c0e117ba5fa85854` (rounded M3 Expressive Canvas fallback glyph strokes). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42402123464/artifacts/13586275823).
 - A successful workflow proves compilation, packaging and artifact upload only. It does not verify the S10e's visible cutout alignment, second-bubble gestures/position or notification card rendering on-device.
 
 ## Remaining backlog
