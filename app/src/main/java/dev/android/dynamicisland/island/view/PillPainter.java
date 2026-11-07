@@ -48,6 +48,8 @@ final class PillPainter {
     private final Path outlineCutout = new Path();
     private final Path neck = new Path();
     private final RectF bubble = new RectF();
+    /** Second companion icon, deliberately detached from the first bubble. */
+    private final RectF bubble2 = new RectF();
     private final RectF outlineRect = new RectF();
     private final RectF shrunk = new RectF();
     private final Path notchBody = new Path();
@@ -82,6 +84,7 @@ final class PillPainter {
         float r = pill.height() / 2.0f;
         // the bubble also stays while a stack opens: it merges back into the pill instead of vanishing in one frame
         boolean hasBubble = split > 0.003f && (scene.mode != Mode.EXPANDED || !legacyMerge());
+        boolean hasBubble2 = hasBubble && (scene.secondary2 != null || scene.bubble2In != null || scene.bubble2Out != null);
         boolean hasNeck = false;
         float neckAlpha = 0.0f;
         float bubbleX = 0.0f;
@@ -92,23 +95,32 @@ final class PillPainter {
             bubbleRadius = bubble.width() / 2.0f;
             bubbleX = bubble.centerX();
             bubbleY = bubble.centerY();
-            float pillX = pill.right - r;
+            float side = m.bubbleSide >= 0 ? 1.0f : -1.0f;
+            float pillX = side > 0.0f ? pill.right - r : pill.left + r;
             float pillY = pill.centerY();
-            float distance = bubbleX - pillX;
+            float distance = (bubbleX - pillX) * side;
             float touching = r + bubbleRadius;
             float rest = r + m.bubbleGap + m.bubbleR;
             float spread = distance <= touching
                     ? MAX_NECK_SPREAD
                     : (1.0f - clamp01((distance - touching) / Math.max(1.0f, (rest - touching) - m.dp(0.5f)))) * MAX_NECK_SPREAD;
             neck.reset();
-            neckAlpha = spread > 0.01f ? stack.neckAlpha(Metaball.neck(pillX, pillY, r, bubbleX, bubbleY, bubbleRadius, spread, neck)) : 0.0f;
+            if (spread > 0.01f) {
+                float waist = side > 0.0f
+                        ? Metaball.neck(pillX, pillY, r, bubbleX, bubbleY, bubbleRadius, spread, neck)
+                        : Metaball.neck(bubbleX, bubbleY, bubbleRadius, pillX, pillY, r, spread, neck);
+                neckAlpha = stack.neckAlpha(waist);
+            }
             hasNeck = neckAlpha > 0.0f;
+        }
+        if (hasBubble2) {
+            shapes.bubble(pill, split, 1, bubble2);
         }
         LiquidBridge cardBridge = bridge.update(t, pill, r);
         boolean pillVisible = pill.width() > IslandView.MIN_VISIBLE_SIZE && pill.height() > IslandView.MIN_VISIBLE_SIZE;
         // the notch shape only holds while the pill rests as the pill: while it merges with a bubble, a card or the
         // shade it is the usual capsule, which those transitions are built on
-        boolean notch = pillVisible && !hasBubble && !hasNeck && cardBridge == null && gate >= 0.999f
+        boolean notch = pillVisible && !hasBubble && !hasBubble2 && !hasNeck && cardBridge == null && gate >= 0.999f
                 && (scene.mode == Mode.COMPACT || scene.restingShown()) && ModuleSettings.notchStyle();
         if (notch) {
             NotchShape.body(notchBody, pill, r, m.dp(NOTCH_OVERREACH_DP));
