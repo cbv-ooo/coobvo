@@ -209,7 +209,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         remote = new RemoteCards(this, shapes, scene);
         bodies = new BodyFactory(this, remote);
         stackPainter = new StackPainter(metrics, paints, scene, shapes);
-        stackPainter.setMaterialFrameRequester(this::scheduleFrame);
         CardBridge bridge = new CardBridge(this, metrics, paints, scene, shapes, stackPainter);
         pillPainter = new PillPainter(metrics, paints, scene, shapes, stackPainter, bridge);
         director = new Director(this, this.host, metrics, scene, shapes, bodies, mediaFx);
