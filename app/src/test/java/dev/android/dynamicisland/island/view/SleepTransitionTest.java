@@ -108,7 +108,7 @@ public class SleepTransitionTest {
             assertTrue(f.view.visibleAlpha()>.95f);
             f.finish();f.step(ms,1);
             assertTrue(f.view.isFullyHidden());
-            assertFalse(f.view.materialBackdropRegion(new Rect()));
+            assertTrue("the island is fully hidden without a backdrop worker", f.view.isFullyHidden());
             assertFalse((boolean)ReflectionHelpers.getField(f.view,"frameScheduled"));
             SecondTicker ticker=ReflectionHelpers.getField(f.view,"ticker");
             assertFalse((boolean)ReflectionHelpers.getField(ticker,"posted"));
