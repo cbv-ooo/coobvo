@@ -44,6 +44,11 @@ public final class Spring {
         setParams(response, dampingRatio);
     }
 
+    /** Creates a spring from one of the shared motion tokens. */
+    public Spring(float initial, Motion motion) {
+        this(initial, motion.response, motion.damping);
+    }
+
     /** Changes stiffness and damping without touching the current value or velocity. */
     public Spring setParams(float response, float dampingRatio) {
         omega = 2.0d * Math.PI / Math.max(MIN_RESPONSE, response);
