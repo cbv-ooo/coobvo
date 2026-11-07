@@ -83,8 +83,11 @@ final class Scene {
     }
 
     float pillOutlineTarget() {
-        boolean bubble = springs.split.value() > 0.003f;
-        return pillOutline.visible(ModuleSettings.pillOutlineMode(), pillBodyColor(mainIn), pillBodyColor(bubbleIn), bubble) ? 1f : 0f;
+        boolean split = springs.split.value() > 0.003f;
+        boolean bubble = split && (secondary != null || bubbleIn != null || bubbleOut != null);
+        boolean bubble2 = split && (secondary2 != null || bubble2In != null || bubble2Out != null);
+        return pillOutline.visible(ModuleSettings.pillOutlineMode(), pillBodyColor(mainIn),
+                pillBodyColor(bubbleIn), pillBodyColor(bubble2In), bubble, bubble2) ? 1f : 0f;
     }
 
     /** The shade is down far enough that the island has been sent away (it comes back only when the shade is nearly shut). */
