@@ -170,6 +170,7 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
     private final RectF pillRect = new RectF();
     private final RectF samplingPill = new RectF();
     private final RectF samplingBubble = new RectF();
+    private final RectF samplingBubble2 = new RectF();
     private final int[] samplingLocation = new int[2];
     private final int[] materialLocation = new int[2];
     private Runnable pillSamplingStateChanged;
@@ -267,7 +268,7 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         long t = now();
         if (scene.iMode != null && scene.iMode.animating()) return true;
         if (t < touchActiveUntil || springs.animating() || buttons.animating() || seekBody != null || sliderBody != null
-                || scene.mainOut != null || scene.bubbleOut != null
+                || scene.mainOut != null || scene.bubbleOut != null || scene.bubble2Out != null
                 || scene.contentHandoff != null && !scene.contentHandoff.finished(t)) return true;
         for (int i = 0, n = scene.cards.size(); i < n; i++) {
             Card c = scene.cards.get(i);
@@ -346,6 +347,11 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
             shapes.bubble(samplingPill, samplingBubble);
             left = Math.min(left, samplingBubble.left);
             right = Math.max(right, samplingBubble.right);
+            if (scene.secondary2 != null || scene.bubble2In != null || scene.bubble2Out != null) {
+                shapes.bubble(samplingPill, springs.split.value(), 1, samplingBubble2);
+                left = Math.min(left, samplingBubble2.left);
+                right = Math.max(right, samplingBubble2.right);
+            }
         }
         getLocationOnScreen(samplingLocation);
         float band = Math.max(1f, Math.min(metrics.dp(3f), samplingPill.height() * 0.12f));
@@ -493,7 +499,7 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         } else if (scene.mode == Mode.EXPANDED) {
             collapse();
         }
-        if (scene.secondary != null) {
+        if (scene.secondary != null || scene.secondary2 != null) {
             director.refreshBubble();
         }
         invalidate();
@@ -801,7 +807,8 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
                         && !ModuleSettings.staticWaveform()) return true;
             return false;
         }
-        return needsAudio(scene.mainIn) || (springs.split.value() > .003f && needsAudio(scene.bubbleIn));
+        return needsAudio(scene.mainIn) || (springs.split.value() > .003f
+                && (needsAudio(scene.bubbleIn) || needsAudio(scene.bubble2In)));
     }
 
     public boolean hasRecordingWaveform(IslandItem item) {
@@ -824,6 +831,7 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         if (scene.mode == Mode.COMPACT) {
             if (scene.mainIn != null && capturesRecording(scene.mainIn.content.item)) return scene.mainIn.content.item.key;
             if (scene.bubbleIn != null && springs.split.value() > .05f && capturesRecording(scene.bubbleIn.content.item)) return scene.bubbleIn.content.item.key;
+            if (scene.bubble2In != null && springs.split.value() > .05f && capturesRecording(scene.bubble2In.content.item)) return scene.bubble2In.content.item.key;
         }
         return null;
     }
@@ -965,9 +973,13 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         if (scene.bubbleOut != null && scene.bubbleOut.finished(t)) {
             scene.bubbleOut = null;
         }
-        active |= scene.mainOut != null || scene.bubbleOut != null;
+        if (scene.bubble2Out != null && scene.bubble2Out.finished(t)) {
+            scene.bubble2Out = null;
+        }
+        active |= scene.mainOut != null || scene.bubbleOut != null || scene.bubble2Out != null;
         active |= scene.mainIn != null && !scene.mainIn.settled(t);
         active |= scene.bubbleIn != null && !scene.bubbleIn.settled(t);
+        active |= scene.bubble2In != null && !scene.bubble2In.settled(t);
         active |= hasContinuousMotion(dt);
         if (scene.sleeping && isFullyHidden()) director.finishSleeping();
         stackPainter.placeBlurs();
@@ -993,6 +1005,7 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         }
         Layer main = scene.mainIn;
         Layer bubble = scene.bubbleIn;
+        Layer bubble2 = scene.bubble2In;
         boolean need = false;
         if(scene.iMode!=null) {
             List<IslandItem> shown=scene.iMode.visibleItems();
@@ -1017,6 +1030,12 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         if (bubble != null) {
             IslandItem it = bubble.content.item;
             need |= it.pulsingDot || runningStopwatch(it) || (it.isMedia && mediaFx.animating(it)) || iconPlaying(it);
+            if (waveItem == null && it.trailing == IslandItem.Trailing.WAVEFORM) waveItem = it;
+        }
+        if (bubble2 != null) {
+            IslandItem it = bubble2.content.item;
+            need |= it.pulsingDot || runningStopwatch(it) || (it.isMedia && mediaFx.animating(it)) || iconPlaying(it);
+            if (waveItem == null && it.trailing == IslandItem.Trailing.WAVEFORM) waveItem = it;
         }
         if (sliderSettleKey != null) {
             need |= now() - sliderSettleStart < SliderBody.SETTLE_MS;
