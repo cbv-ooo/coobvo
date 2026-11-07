@@ -284,9 +284,14 @@ final class IMode {
         float width=row.isEmpty() ? m.minPillW : scene.pillWidthFor(row.get(0).compact);
         float extra=row.size()>1 ? m.bubbleGap+diameter : 0;
         float margin=m.dp(8);
+        float side=m.bubbleSide>=0 ? 1.0f : -1.0f;
+        float leftExtra=side<0 ? extra : 0.0f;
+        float rightExtra=side>0 ? extra : 0.0f;
         width=Math.min(width,Math.max(m.pillH,m.screenW-2*margin-extra));
-        float cx=Math.max(margin+width/2,Math.min(m.cx,m.screenW-margin-extra-width/2));
-        float bubbleX=cx+width/2+m.bubbleGap+diameter/2;
+        float minCenter=margin+leftExtra+width/2;
+        float maxCenter=m.screenW-margin-rightExtra-width/2;
+        float cx=Math.max(minCenter,Math.min(m.cx,maxCenter));
+        float bubbleX=cx+(side*(width/2+m.bubbleGap+diameter/2));
         main.set(cx-width/2,m.cy-m.pillH/2,cx+width/2,m.cy+m.pillH/2);
         bubble.set(bubbleX-diameter/2,m.cy-diameter/2,bubbleX+diameter/2,m.cy+diameter/2);
     }
@@ -830,6 +835,13 @@ final class IMode {
 
     void draw(Canvas canvas,long time) {
         if(scene.restingShown()) drawIdle(canvas);
+        // iMode has a separate render branch from PillPainter/StackPainter. Draw its expanded
+        // notification cards here as well; otherwise only the compact activity nodes are visible.
+        if(scene.mode==Mode.EXPANDED) {
+            for(Card card:scene.cards) {
+                if(card!=null && card.body!=null) view.drawCard(canvas,card,time);
+            }
+        }
         drawMovingGlows(canvas);
         drawMovingOutlines(canvas);
         if(activities.size()>3 && scene.mode==Mode.EXPANDED && selected!=null) {

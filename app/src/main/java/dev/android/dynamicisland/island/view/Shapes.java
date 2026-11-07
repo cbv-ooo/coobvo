@@ -90,8 +90,11 @@ final class Shapes {
         if (scene.iMode != null) { scene.iMode.bubbleBounds(out);scene.iMode.shadeBounds(out,out); return; }
         float pillRadius = main.height() / 2.0f;
         float radius = lerp(IslandView.PAUSED_GLOW * pillRadius, m.bubbleR, IslandView.clamp01(s));
-        // spacing grows with index so the second bubble sits further from the pill
-        float restDistance = (m.bubbleGap + pillRadius + m.bubbleR) * (1.0f + index * 1.85f);
+        // Keep every companion gap identical: first gap is between pill and bubble 1;
+        // subsequent gaps are measured edge-to-edge between equal-size bubbles.
+        float firstOffset = pillRadius + m.bubbleGap + m.bubbleR;
+        float followingOffset = (m.bubbleR * 2.0f) + m.bubbleGap;
+        float restDistance = firstOffset + (Math.max(0, index) * followingOffset);
         float side = m.bubbleSide >= 0 ? 1.0f : -1.0f;
         float edgeX = side > 0 ? (main.right - pillRadius) : (main.left + pillRadius);
         float centerX = edgeX + (side * restDistance * s);
