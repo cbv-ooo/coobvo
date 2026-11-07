@@ -341,6 +341,7 @@ public final class SettingsActivity extends Activity {
         ui.linkRow(main, "Smart Island", "Selected feature ports and integration status", () -> open(this::smartIslandPage));
         ui.linkRow(main, "Dynamic App Settings", "Choose which apps can appear and how they behave", () -> open(this::appsPage));
         ui.linkRow(main, "Material 3 Expressive", "Icon, motion and solid-surface design system", () -> open(this::expressivePage));
+        ui.linkRow(main, "Prism", "System UI hook integration status", () -> open(this::prismPage));
         ui.linkRow(main, getString(R.string.ui_notifications), getString(R.string.ui_notifications_summary), () -> open(this::notificationsPage));
         ui.linkRow(main, getString(R.string.ui_appearance), getString(R.string.ui_appearance_summary), () -> open(this::displayPage));
         ui.linkRow(main, getString(R.string.ui_behavior), getString(R.string.ui_behavior_summary), () -> open(this::behaviorPage));
@@ -369,6 +370,16 @@ public final class SettingsActivity extends Activity {
         ui.category(page, "Prism");
         LinearLayout prism = ui.card(page);
         ui.actionRow(prism, "Prism hooks not merged", "No Prism source/API has been identified in the supplied archives. I found a separate public Samsung customisation project under another author; I have not assumed it is your intended Prism or copied unrelated system hooks.", null);
+    }
+
+    /** Keeps the external Prism scope explicit until its intended source is confirmed. */
+    private void prismPage() {
+        subPage("Prism");
+        ui.category(page, "Integration status", "Prism has not been merged into this module.");
+        LinearLayout state = ui.card(page);
+        ui.actionRow(state, "Source not confirmed", "The uploaded source archives do not contain Prism. A public Samsung One UI Xposed project named hongducdev/prism exists, but I have not assumed it is your intended source or copied its broad System UI, system_server and Samsung-app hooks.", null);
+        ui.actionRow(state, "Compatibility and licensing review needed", "Before selected hooks are ported, their exact targets, supported One UI versions, failure isolation and licence obligations must be reviewed. Its Compose settings app and unrelated hooks will not be pulled into coobvo.", null);
+        ui.note(page, "Provide the exact Prism repository URL or source archive to continue with the intended implementation.");
     }
 
     /** Documents the shared M3 Expressive treatment now used by the Canvas island. */
