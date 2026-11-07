@@ -6,6 +6,7 @@ import android.graphics.RectF;
 import android.os.SystemClock;
 import android.text.StaticLayout;
 import android.text.TextUtils;
+import android.text.TextPaint;
 import dev.android.dynamicisland.island.graphics.Colors;
 import dev.android.dynamicisland.island.graphics.Glyphs;
 import dev.android.dynamicisland.island.lyrics.LyricsManager;
@@ -177,8 +178,8 @@ public final class MediaBody extends CardBody {
         String titleText = item.title == null ? "" : item.title.toString();
         String artistText = item.subtitle == null ? "" : item.subtitle.toString();
         MediaLyrics data = LyricsManager.get(titleText, artistText);
-        Paint current = owner.mediaTitlePaint();
-        Paint next = owner.mediaArtistPaint();
+        TextPaint current = owner.mediaTitlePaint();
+        TextPaint next = owner.mediaArtistPaint();
         current.setTextSize(owner.dp(12.0f));
         next.setTextSize(owner.dp(10.5f));
         current.setTextAlign(Paint.Align.LEFT);
