@@ -338,6 +338,9 @@ public final class SettingsActivity extends Activity {
         statusHandler.post(statusPoll);
         ui.category(page, getString(R.string.hub_settings));
         LinearLayout main = ui.card(page);
+        ui.linkRow(main, "Smart Island", "Selected feature ports and integration status", () -> open(this::smartIslandPage));
+        ui.linkRow(main, "Dynamic App Settings", "Choose which apps can appear and how they behave", () -> open(this::appsPage));
+        ui.linkRow(main, "Material 3 Expressive", "Icon, motion and solid-surface design system", () -> open(this::expressivePage));
         ui.linkRow(main, getString(R.string.ui_notifications), getString(R.string.ui_notifications_summary), () -> open(this::notificationsPage));
         ui.linkRow(main, getString(R.string.ui_appearance), getString(R.string.ui_appearance_summary), () -> open(this::displayPage));
         ui.linkRow(main, getString(R.string.ui_behavior), getString(R.string.ui_behavior_summary), () -> open(this::behaviorPage));
@@ -348,6 +351,39 @@ public final class SettingsActivity extends Activity {
         ui.valueRow(restart, getString(R.string.ui_settings_language), languageLabel(), this::openLanguageSettings);
         ui.actionRow(restart, getString(R.string.restart_systemui), getString(R.string.restart_systemui_sum), this::confirmRestart);
         ui.note(page, getString(R.string.ui_language_scope));
+    }
+
+    /** A single place to inspect and reach the feature areas being adapted from Smart Island. */
+    private void smartIslandPage() {
+        subPage("Smart Island");
+        ui.category(page, "Integration status", "The Dynamic Island Java/Canvas runtime remains the base.");
+        LinearLayout status = ui.card(page);
+        ui.actionRow(status, "Smart Island source", "The uploaded reference uses Kotlin, Compose, Hilt and its own overlay/service stack. Those UI and service layers are not copied into System UI. Feature logic is being reimplemented individually in Java before it is enabled.", null);
+        ui.actionRow(status, "Not yet integrated", "Idle widget rotation, weather/network/calendar widgets, dedicated timer and stopwatch modes, notification history, and inline reply still need their own Java ports and device checks.", null);
+        ui.category(page, "Available controls", "These are the existing coobvo entry points that can already be used.");
+        LinearLayout links = ui.card(page);
+        ui.linkRow(links, getString(R.string.ui_notifications), getString(R.string.ui_notifications_summary), () -> open(this::notificationsPage));
+        ui.linkRow(links, getString(R.string.hub_events), getString(R.string.hub_events_sum), () -> open(this::eventsPage));
+        ui.linkRow(links, "Dynamic App Settings", "Per-app include and exclude lists", () -> open(this::appsPage));
+        ui.linkRow(links, getString(R.string.rules_title), getString(R.string.hub_rules_sum), () -> open(rules::advancedPage));
+        ui.category(page, "Prism");
+        LinearLayout prism = ui.card(page);
+        ui.actionRow(prism, "Prism hooks not merged", "No Prism source/API has been identified in the supplied archives. I found a separate public Samsung customisation project under another author; I have not assumed it is your intended Prism or copied unrelated system hooks.", null);
+    }
+
+    /** Documents the shared M3 Expressive treatment now used by the Canvas island. */
+    private void expressivePage() {
+        subPage("Material 3 Expressive");
+        showPreview();
+        ui.category(page, "Design system", "Shared visual roles for the compact pill and expanded cards.");
+        LinearLayout design = ui.card(page);
+        ui.actionRow(design, "Monochrome glyphs", "Module-drawn glyphs use one semantic tint with rounded stroke caps and joins.", null);
+        ui.actionRow(design, "Lottie icons", "Embedded Lottie shapes ignore source colours and use the same single tint and rounded stroke treatment.", null);
+        ui.actionRow(design, "Solid surfaces", "Expanded cards use opaque surface-container fills and solid outline-variant edges. No frosted or gradient card rim.", null);
+        ui.actionRow(design, "Expressive motion", "Shared spatial and effects spring tokens drive pill, bubble, card and page transitions.", null);
+        ui.note(page, "Notification app icons and album artwork remain original content from their apps. Only the island's own system glyphs and action icons are restyled.");
+        LinearLayout appearanceLink = ui.card(page);
+        ui.linkRow(appearanceLink, getString(R.string.ui_appearance), getString(R.string.ui_appearance_summary), () -> open(this::displayPage));
     }
 
     private void openLanguageSettings() {

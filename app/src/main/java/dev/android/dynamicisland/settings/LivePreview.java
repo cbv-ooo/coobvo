@@ -36,6 +36,7 @@ final class LivePreview extends FrameLayout {
     private final SharedPreferences prefs;
     private final IslandView island;
     private final List<IslandItem> samples = new ArrayList<>();
+    private final List<IslandItem> bubbleSamples = new ArrayList<>();
     private int next;
     private int shown;
     /** After a setting changed, the sample that shows it is replayed until the preview is tapped. */
@@ -44,13 +45,19 @@ final class LivePreview extends FrameLayout {
     private final Runnable cycle = new Runnable() {
         @Override public void run() {
             if (!running || !isAttachedToWindow()) return;
-            shown = holding ? shown : next++ % samples.size();
-            IslandItem sample = samples.get(shown);
-            if (ModuleSettings.iMode()) {
-                island.peek(sample, SAMPLE_MS);
+            shown = holding ? shown : next++ % (samples.size() + 1);
+            if (shown == BUBBLES) {
+                // Deliberately place the sample on the right with both bubbles to its left,
+                // matching the S10e's right-side camera layout.
+                island.setItems(bubbleSamples);
             } else {
-                island.setItems(Collections.singletonList(sample));
-                island.peek(sample, SAMPLE_MS);
+                IslandItem sample = samples.get(shown);
+                if (ModuleSettings.iMode()) {
+                    island.peek(sample, SAMPLE_MS);
+                } else {
+                    island.setItems(Collections.singletonList(sample));
+                    island.peek(sample, SAMPLE_MS);
+                }
             }
             postDelayed(this, SAMPLE_MS + GAP_MS);
         }
@@ -128,6 +135,24 @@ final class LivePreview extends FrameLayout {
         torch.trailingText = "60%";
         torch.actions.add(new IslandItem.Action(activity.getString(R.string.island_turn_off), null, null, () -> { }, false));
         samples.add(torch);
+
+        IslandItem bubbleMain = previewEvent("preview:bubbles:main", "Main activity", GlyphIcon.Kind.CAMERA, 0xFFB5C7FF);
+        IslandItem bubbleFirst = previewEvent("preview:bubbles:first", "First companion", GlyphIcon.Kind.HEADPHONES, 0xFFC5E1A5);
+        IslandItem bubbleSecond = previewEvent("preview:bubbles:second", "Second companion", GlyphIcon.Kind.BELL, 0xFFFFCC80);
+        bubbleSamples.add(bubbleMain);
+        bubbleSamples.add(bubbleFirst);
+        bubbleSamples.add(bubbleSecond);
+    }
+
+    private IslandItem previewEvent(String key, String title, GlyphIcon.Kind icon, int accent) {
+        IslandItem item = new IslandItem(key);
+        item.kind = IslandItem.Kind.EVENT;
+        item.eventLayout = IslandItem.EventLayout.STATUS;
+        item.title = title;
+        item.subtitle = activity.getString(R.string.app_name);
+        item.icon = GlyphIcon.of(icon);
+        item.accent = accent;
+        return item;
     }
 
     private static Bitmap albumArt() {
@@ -146,17 +171,21 @@ final class LivePreview extends FrameLayout {
         return pixels;
     }
 
-    static final int RING = 0, CHARGING = 1, MUSIC = 2, TORCH = 3, KEEP = -1;
+    static final int RING = 0, CHARGING = 1, MUSIC = 2, TORCH = 3, BUBBLES = 4, KEEP = -1;
 
     /** Re-reads the saved settings and plays {@code sample} (or the current one for KEEP) again from the start. */
     void refresh(int sample) {
-        if (sample >= 0 && sample < samples.size()) {
+        if (sample >= 0 && sample <= BUBBLES) {
             shown = sample;
             holding = true;
         }
         ModuleSettings.configurePreview(prefs);
         island.collapse();
-        island.setItems(ModuleSettings.iMode() ? new ArrayList<>(samples) : Collections.singletonList(samples.get(shown)));
+        if (shown == BUBBLES) {
+            island.setItems(bubbleSamples);
+        } else {
+            island.setItems(ModuleSettings.iMode() ? new ArrayList<>(samples) : Collections.singletonList(samples.get(shown)));
+        }
         next = shown;
         removeCallbacks(cycle);
         if (running) postDelayed(cycle, 350);
@@ -175,7 +204,7 @@ final class LivePreview extends FrameLayout {
 
     @Override protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        island.setGeometry(w, w / 2f, ui.dp(24), ui.dp(14), false);
+        island.setGeometry(w, w * 0.72f, ui.dp(24), ui.dp(14), false, -1);
         island.setHoleTextPadding(ModuleSettings.holeTextPaddingDp());
     }
 
