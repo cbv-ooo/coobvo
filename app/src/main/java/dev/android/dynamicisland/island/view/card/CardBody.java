@@ -46,10 +46,9 @@ public abstract class CardBody {
     /** Draws the body with its top-left corner at ({@code x}, {@code y}); {@code elapsed} is ms since it appeared. */
     public abstract void draw(Canvas canvas, float x, float y, float alpha, long elapsed);
 
-    /** One shape policy for the card fill, blur surface and connecting bridge. */
+    /** One consistent corner policy for the opaque card and connecting bridge. */
     public final float cornerRadius(float maximum, float height) {
-        if (!ModuleSettings.customCardRoundness()) return Math.min(height / 2f,
-                ModuleSettings.frostedMaterial() && !ModuleSettings.lowPerformance() ? w * (100f / 1072f) : maximum);
+        if (!ModuleSettings.customCardRoundness()) return Math.min(height / 2f, maximum);
         // Limit tall cards so the rounding cannot cut into their first and last rows.
         return Math.min(height / 2f, owner.dp(ModuleSettings.cardCornerRadiusDp()));
     }

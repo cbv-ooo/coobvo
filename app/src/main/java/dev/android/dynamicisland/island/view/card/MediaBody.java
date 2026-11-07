@@ -1,6 +1,5 @@
 package dev.android.dynamicisland.island.view.card;
 
-import android.graphics.BlurMaskFilter;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
@@ -72,7 +71,6 @@ public final class MediaBody extends CardBody {
         controlH = owner.dp(52.0f);
         glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         glowRect = new RectF();
-        glowPaint.setMaskFilter(new BlurMaskFilter(owner.dp(5.0f), BlurMaskFilter.Blur.NORMAL));
         int textWidth = Math.max(1, Math.round(((((w - (pad * 2.0f)) - art) - owner.dp(ART_TEXT_GAP_DP)) - tile) - owner.dp(10.0f)));
         title = item.title == null ? null : IslandView.layout(item.title, owner.mediaTitlePaint(), textWidth, 1);
         artist = item.subtitle != null ? IslandView.layout(item.subtitle, owner.mediaArtistPaint(), textWidth, 1) : null;
@@ -222,7 +220,7 @@ public final class MediaBody extends CardBody {
 
     /**
      * Elapsed time, seek bar and total time, vertically centred on {@code centerY}. The bar thickens while dragged and
-     * ends in a glowing head whose brightness follows the playback state.
+     * ends in a crisp highlight whose brightness follows the playback state.
      */
     private void drawSeekRow(Canvas c, float x, float centerY, float alpha, MediaFx fx, long now) {
         long position = fx.shownPosition(item, SystemClock.elapsedRealtime());

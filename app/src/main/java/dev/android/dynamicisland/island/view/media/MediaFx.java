@@ -1,9 +1,7 @@
 package dev.android.dynamicisland.island.view.media;
 
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import dev.android.dynamicisland.island.graphics.Colors;
@@ -14,7 +12,7 @@ import dev.android.dynamicisland.settings.ModuleSettings;
 
 /**
  * Animation state of one media item's card: the colourful glow behind the music card (three drifting blobs
- * over a tinted base, recoloured when the accent changes), the cover art flip with its blurred ghost on a
+ * over a tinted base, recoloured when the accent changes), the cover art flip on a
  * track change, the speed / brightness easing between playing and paused, and the smoothed playback position.
  * One instance per media item key, owned by {@code IslandView}; main thread only.
  */
@@ -22,10 +20,6 @@ public final class MediaFx {
     /** Duration of the accent cross-fade and of the flip animation (see {@code IslandView.FLIP_MS}). */
     private static final float ACCENT_FADE_MS = 500.0f;
     private static final float FLIP_DURATION_MS = 340.0f;
-    /** The blurred ghost of the art is built from a tiny copy of this size. */
-    private static final int BLUR_SIZE = 24;
-    private static final int BLUR_RADIUS = 3;
-    private static final int BLUR_PASSES = 2;
     /** Largest time step per frame, so a stall does not make the glow jump. */
     private static final float MAX_FRAME_DT_S = 0.05f;
     /** Speed of the seek bar glow pulse in radians per second (about 2.6 s per cycle). */
@@ -50,9 +44,6 @@ public final class MediaFx {
     Drawable artPrev;
     final Paint basePaint;
     final Paint blobPaint;
-    /** Blurred ghost of the current / previous art, cross-faded during the flip. */
-    Drawable blurCur;
-    Drawable blurPrev;
     long flipStart;
     /** Glow brightness easing between paused and playing. */
     final Tween glow;
@@ -115,7 +106,6 @@ public final class MediaFx {
             accentStart = now - IslandView.FX_COLOR_MS;
             artKey = artKeyOf(item);
             artCur = item.cardImage;
-            blurCur = makeBlur(item.art);
             return;
         }
         speed.set(targetSpeed, now);
@@ -129,7 +119,6 @@ public final class MediaFx {
         if (key != artKey) {
             if (artCur != null && key != null) {
                 artPrev = artCur;
-                blurPrev = blurCur;
                 flipStart = now;
             }
             artKey = key;
@@ -148,71 +137,6 @@ public final class MediaFx {
         return iconKey;
     }
 
-    /**
-     * Builds a very soft version of the art: centre square, scaled down to 24x24 and box-blurred twice in
-     * both directions. Returns null when the art is missing or cannot be processed.
-     */
-    private Drawable makeBlur(Bitmap art) {
-        if (art == null || ModuleSettings.stillMusicEffects()) {
-            return null;
-        }
-        try {
-            Bitmap source = art;
-            if (source.getConfig() == Bitmap.Config.HARDWARE) {
-                // hardware bitmaps cannot be read back
-                source = source.copy(Bitmap.Config.ARGB_8888, false);
-            }
-            int side = Math.min(source.getWidth(), source.getHeight());
-            Bitmap square = Bitmap.createBitmap(source, (source.getWidth() - side) / 2, (source.getHeight() - side) / 2, side, side);
-            Bitmap tiny = Bitmap.createScaledBitmap(square, BLUR_SIZE, BLUR_SIZE, true);
-            int[] pixels = new int[BLUR_SIZE * BLUR_SIZE];
-            tiny.getPixels(pixels, 0, BLUR_SIZE, 0, 0, BLUR_SIZE, BLUR_SIZE);
-            int[] scratch = new int[BLUR_SIZE * BLUR_SIZE];
-            for (int pass = 0; pass < BLUR_PASSES; pass++) {
-                boxBlur(pixels, scratch, BLUR_SIZE, BLUR_RADIUS, true);
-                boxBlur(scratch, pixels, BLUR_SIZE, BLUR_RADIUS, false);
-            }
-            Bitmap soft = Bitmap.createBitmap(pixels, BLUR_SIZE, BLUR_SIZE, Bitmap.Config.ARGB_8888);
-            BitmapDrawable drawable = new BitmapDrawable(owner.getResources(), soft);
-            drawable.setFilterBitmap(true);
-            return drawable;
-        } catch (Throwable t) {
-            return null;
-        }
-    }
-
-    /**
-     * One box-blur pass over a square ARGB image of {@code size} x {@code size} pixels, along rows
-     * ({@code horizontal}) or columns, clamping at the edges.
-     */
-    private void boxBlur(int[] in, int[] out, int size, int radius, boolean horizontal) {
-        for (int line = 0; line < size; line++) {
-            for (int pos = 0; pos < size; pos++) {
-                int sumAlpha = 0;
-                int sumRed = 0;
-                int sumGreen = 0;
-                int sumBlue = 0;
-                int count = 0;
-                for (int offset = -radius; offset <= radius; offset++) {
-                    int sample = Math.max(0, Math.min(size - 1, pos + offset));
-                    int argb = horizontal ? in[(line * size) + sample] : in[(sample * size) + line];
-                    sumAlpha += argb >>> 24;
-                    sumRed += (argb >> 16) & 255;
-                    sumGreen += (argb >> 8) & 255;
-                    sumBlue += argb & 255;
-                    count++;
-                }
-                int averaged = ((sumAlpha / count) << 24) | ((sumRed / count) << 16) | ((sumGreen / count) << 8) | (sumBlue / count);
-                if (horizontal) {
-                    out[(line * size) + pos] = averaged;
-                } else {
-                    out[(pos * size) + line] = averaged;
-                }
-            }
-        }
-    }
-
-    /** The glow accent, cross-fading to the item's latest accent colour. */
     public int accent(long now) {
         if (ModuleSettings.stillMusicEffects()) return accentTo;
         return Colors.blend(accentFrom, accentTo, IslandView.easeInOut((now - accentStart) / ACCENT_FADE_MS));
@@ -351,7 +275,7 @@ public final class MediaFx {
 
     /**
      * Draws the cover art at ({@code left}, {@code top}). During a track change the old art rotates about
-     * the vertical axis and is replaced halfway by the new one, each with its blurred ghost fading in and out.
+     * the vertical axis and is replaced halfway by the new one.
      */
     public void drawArt(Canvas c, float left, float top, float size, float alpha, float corner, long now) {
         if (ModuleSettings.stillMusicEffects()) {
@@ -365,10 +289,8 @@ public final class MediaFx {
             float angle = eased * 180.0f;
             boolean firstHalf = angle < 90.0f;
             Drawable art = firstHalf ? artPrev : artCur;
-            Drawable ghost = firstHalf ? blurPrev : blurCur;
             // the second half starts mirrored and rotates into place
             float rotation = firstHalf ? angle : angle - 180.0f;
-            float ghostAlpha = Math.min(1.0f, ((float) Math.sin(IslandView.clamp01(t) * 3.141592653589793d)) * 1.3f);
             float pivotX = left + (size / 2.0f);
             float pivotY = top + (size / 2.0f);
             owner.flipCamera.save();
@@ -382,14 +304,10 @@ public final class MediaFx {
             if (art != null) {
                 owner.drawDrawable(c, art, true, 0, left, top, size, alpha, corner);
             }
-            if (ghost != null && ghostAlpha > 0.01f) {
-                owner.drawDrawable(c, ghost, true, 0, left, top, size, alpha * ghostAlpha, corner);
-            }
             c.restoreToCount(save);
             return;
         }
         artPrev = null;
-        blurPrev = null;
         if (artCur != null) {
             owner.drawDrawable(c, artCur, true, 0, left, top, size, alpha, corner);
         }

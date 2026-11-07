@@ -18,8 +18,7 @@ import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.xposed.XLog;
 
 /**
- * Draws the expanded cards: card surface with its glass and rim, the content on top, the metaball neck between
- * cards that are being swallowed, and the blur backdrops placed behind the cards.
+ * Draws expanded opaque cards, their content, and the metaball neck between cards that are being swallowed.
  */
 final class StackPainter {
     /** Card content fades in from this far below its place and from this size. */
@@ -80,7 +79,7 @@ final class StackPainter {
             if (ModuleSettings.legacyAnimation()) {
                 return c.leaveContentAlpha * (1.0f - clamp01((t - c.leaveAt) / LEAVING_CONTENT_FADE_MS));
             }
-            // the content blurs and fades out in the first part of the fold, while the card is still large; what
+            // the content fades out in the first part of the fold, while the card is still large; what
             // travels back into the pill is the plain shape, which does not leave a smear of tiny text behind
             return c.leaveContentAlpha * (1.0f - Easing.easeInOut(clamp01(foldProgress(c) / FOLD_FADE_TO)));
         }

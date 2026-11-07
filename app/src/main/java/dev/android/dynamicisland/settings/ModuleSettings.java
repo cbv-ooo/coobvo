@@ -338,15 +338,12 @@ public final class ModuleSettings {
     }
 
     /** Outline policy, independent of animation style. Auto uses contrast with the actual background. */
-    public static int transitionBlurMode() { return transitionBlurMode; }
+    /** Legacy setting retained for preference-file compatibility; transition blur is permanently disabled. */
+    public static int transitionBlurMode() { return TRANSITION_BLUR_OFF; }
 
+    /** Old preference values are ignored so a restored settings file cannot re-enable blur. */
     public static int readTransitionBlurMode(SharedPreferences source) {
-        try {
-            int mode = source.getInt(KEY_TRANSITION_BLUR, TRANSITION_BLUR_AUTO);
-            return mode >= TRANSITION_BLUR_AUTO && mode <= TRANSITION_BLUR_OFF ? mode : TRANSITION_BLUR_AUTO;
-        } catch (ClassCastException corrupt) {
-            return TRANSITION_BLUR_AUTO;
-        }
+        return TRANSITION_BLUR_OFF;
     }
 
     public static int pillOutlineMode() {
@@ -808,10 +805,11 @@ public final class ModuleSettings {
 
     /** Animated icons that show their settled frame (low-performance mode, or just this). */
     public static boolean stillIcons() { ensureStarted(); return lowPerformance || stillIcons; }
+    /** Legacy preference reader: this build intentionally uses opaque card surfaces only. */
     public static int readMaterialStyle(SharedPreferences source) {
-        return source.getInt(KEY_MATERIAL_STYLE, MATERIAL_CLASSIC) == MATERIAL_FROSTED ? MATERIAL_FROSTED : MATERIAL_CLASSIC;
+        return MATERIAL_CLASSIC;
     }
-    public static boolean frostedMaterial() { ensureStarted(); return materialStyle == MATERIAL_FROSTED; }
+    public static boolean frostedMaterial() { ensureStarted(); return false; }
     public static boolean showInFullscreen() { ensureStarted(); return showInFullscreen; }
     public static boolean chargingInfo() { ensureStarted(); return eventCharging && chargingInfo; }
     public static boolean stockChargingAnimation() { ensureStarted(); return stockChargingAnimation; }
@@ -906,7 +904,7 @@ public final class ModuleSettings {
                 + " pillOutline=" + pillOutlineMode + " showInFullscreen=" + showInFullscreen + " appFilter=" + (appFilter.onlyListed() ? "only " : "except ") + appFilter.size();
         Diagnostics.fact("pill outline mode", Integer.toString(pillOutlineMode));
         Diagnostics.fact("island presentation", iMode ? "iMotion" : "stack");
-        Diagnostics.fact("card material selected", materialStyle == MATERIAL_CLASSIC ? "classic" : "frosted");
+        Diagnostics.fact("card material", "opaque solid (frosted material disabled)");
         Diagnostics.fact("optional device cards", "charging=" + chargingInfo + " statistics=" + chargingStats + " headset=" + eventHeadset + " hotspot=" + hotspotCard + " unlock=" + unlockNotice + " stockCharging=" + stockChargingAnimation);
         Diagnostics.fact("settings file", prefs.getFile() + " readable=" + prefs.getFile().canRead() + " keys=" + prefs.getAll().size());
         Diagnostics.fact("settings source", viaProvider ? "provider (" + source.getAll().size() + " keys)" : "preference file (" + source.getAll().size() + " keys)");
