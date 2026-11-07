@@ -123,7 +123,7 @@ final class StackPainter {
     /** Card surfaces stay fully opaque while retaining the black-to-card-colour morph. */
     int fillColor(float opening) {
         float material = Easing.easeInOut(clamp01((opening - 0.35f) / 0.65f));
-        return Colors.blend(Colors.BLACK, Colors.CARD_SOLID, material);
+        return Colors.blend(Colors.SURFACE, Colors.SURFACE_CONTAINER, material);
     }
 
     /** The neck of goo between two cards that are folding back into the pill one after the other. */
