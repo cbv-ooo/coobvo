@@ -134,8 +134,7 @@ public class GlowMotionTest {
         assertTrue(view.needsAudio()); // music is not itself either visible pill
         Bitmap playing=capture(view);
         for(RectF shape:new RectF[]{body,bubble}){
-            int sample=playing.getPixel(Math.round(shape.centerX()),Math.round(shape.top)-4);
-            assertTrue(Color.alpha(sample)>0);assertTrue(Color.blue(sample)>Color.red(sample)*2);
+            assertBlueHalo(playing, shape);
         }
         music.playing=false;frames(view,300);assertFalse(view.needsAudio());
         Bitmap paused=capture(view);
@@ -163,6 +162,26 @@ public class GlowMotionTest {
     private Bitmap capture(IslandView view){
         Bitmap image=Bitmap.createBitmap(600,150,Bitmap.Config.ARGB_8888);view.draw(new Canvas(image));return image;
     }
+    /** Samples the full crisp contour band; an exact pixel can fall between the separated rings. */
+    private void assertBlueHalo(Bitmap bitmap, RectF shape) {
+        long alpha = 0, red = 0, blue = 0;
+        int left = Math.max(0, (int) Math.floor(shape.left));
+        int right = Math.min(bitmap.getWidth(), (int) Math.ceil(shape.right));
+        int top = Math.max(0, (int) Math.floor(shape.top) - 16);
+        int bottom = Math.max(top, Math.min(bitmap.getHeight(), (int) Math.ceil(shape.top) - 1));
+        for (int y = top; y < bottom; y++) {
+            for (int x = left; x < right; x++) {
+                int pixel = bitmap.getPixel(x, y);
+                int a = Color.alpha(pixel);
+                alpha += a;
+                red += (long) Color.red(pixel) * a;
+                blue += (long) Color.blue(pixel) * a;
+            }
+        }
+        assertTrue("compact body must have a visible glow contour", alpha > 0);
+        assertTrue("compact body glow must retain its blue music colour", blue > red * 2);
+    }
+
     private long haloLight(Bitmap bitmap,RectF shape){
         long sum=0;
         for(int y=Math.max(0,(int)shape.top-16);y<shape.top-2;y++)for(int x=Math.max(0,(int)shape.left);x<Math.min(bitmap.getWidth(),shape.right);x++){

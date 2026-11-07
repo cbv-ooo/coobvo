@@ -46,7 +46,7 @@ public class ShadeMaterialAppearanceTest {
         assertSame(stockPlayer,first.getBackground());
     }
 
-    @Test public void firstFrameUsesOwnCornersButKeepsStockScrollAndSwipeBounds() {
+    @Test public void legacyFrostedPreferenceKeepsStockOpaqueShadeClipping() {
         Context context=RuntimeEnvironment.getApplication();
         SharedPreferences prefs=context.getSharedPreferences("shade-material-clipping",0);
         prefs.edit().clear().putInt(ModuleSettings.KEY_MATERIAL_STYLE,ModuleSettings.MATERIAL_FROSTED).commit();
@@ -59,27 +59,29 @@ public class ShadeMaterialAppearanceTest {
             View guts=new View(context);row.addView(guts);
             Rect heightClip=new Rect(0,8,360,112);content.setClipBounds(heightClip);
             row.setClipToOutline(true);content.setClipToOutline(true);
+
             ShadeMaterialAppearance appearance=new ShadeMaterialAppearance();
             appearance.follow(host,()->true);
             activity.get().setContentView(row);activity.visible();
-            // The lease must exist before the first child is painted, not after onDraw.
             host.getViewTreeObserver().dispatchOnPreDraw();
-            assertFalse(row.getClipToOutline());assertFalse(content.getClipToOutline());
-            Path clip=ShadeMaterialAppearance.childClip(row,content);assertNotNull(clip);
+
+            // The old preference value is ignored: no frosted card owns or changes the stock row outline.
+            assertTrue(row.getClipToOutline());
+            assertTrue(content.getClipToOutline());
+            assertNull(ShadeMaterialAppearance.childClip(row,content));
             assertNull("menus keep their own clipping",ShadeMaterialAppearance.childClip(row,guts));
-            assertEquals(heightClip,content.getClipBounds());assertTrue(content.getClipChildren());
-            Bitmap before=paint(row.getClipPath(false)),after=paint(clip);
-            assertEquals("native capsule cuts the G2 corner",0,before.getPixel(40,9));
-            assertEquals("own G2 corner is now intact",0xffffcc00,after.getPixel(40,9));
-            assertEquals("swipe left bound retained",0,after.getPixel(6,60));
-            assertEquals("actual top bound retained",0,after.getPixel(180,7));
-            assertEquals("actual bottom bound retained",0,after.getPixel(180,113));
+            assertEquals(heightClip,content.getClipBounds());
+            assertTrue(content.getClipChildren());
+
             ExpandableNotificationRow ordinary=new ExpandableNotificationRow(context);
             View untouched=new View(context);ordinary.addView(untouched);ordinary.setClipToOutline(true);
-            assertNull(ShadeMaterialAppearance.childClip(ordinary,untouched));assertTrue(ordinary.getClipToOutline());
+            assertNull(ShadeMaterialAppearance.childClip(ordinary,untouched));
+            assertTrue(ordinary.getClipToOutline());
+
             prefs.edit().putInt(ModuleSettings.KEY_MATERIAL_STYLE,ModuleSettings.MATERIAL_CLASSIC).commit();
             ModuleSettings.configurePreview(prefs);host.getViewTreeObserver().dispatchOnPreDraw();
-            assertNull(ShadeMaterialAppearance.childClip(row,content));assertTrue(row.getClipToOutline());
+            assertNull(ShadeMaterialAppearance.childClip(row,content));
+            assertTrue(row.getClipToOutline());
             assertTrue(content.getClipToOutline());
         } finally {
             prefs.edit().clear().commit();ModuleSettings.configurePreview(prefs);
