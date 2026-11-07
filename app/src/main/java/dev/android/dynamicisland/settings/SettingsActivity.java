@@ -416,14 +416,6 @@ public final class SettingsActivity extends Activity {
                 selected -> prefs.edit().putBoolean(ModuleSettings.KEY_LEGACY_ANIMATION, selected == 1)
                         .putBoolean(ModuleSettings.KEY_I_MODE, selected == 2).apply());
         ui.note(page, getString(R.string.imode_desc));
-        radios(R.string.transition_blur, R.string.desc_transition_blur, new int[]{R.string.blur_mode_auto, R.string.blur_mode_always, R.string.blur_mode_off},
-                new int[]{OneUi.TAG_DEFAULT, 0, 0},
-                ModuleSettings.readTransitionBlurMode(prefs), LivePreview.RING,
-                selected -> prefs.edit().putInt(ModuleSettings.KEY_TRANSITION_BLUR, selected).apply());
-        radios(R.string.material_style, R.string.desc_material, new int[]{R.string.material_frosted, R.string.material_classic},
-                new int[]{OneUi.TAG_RECOMMENDED, OneUi.TAG_DEFAULT},
-                ModuleSettings.readMaterialStyle(prefs), LivePreview.MUSIC,
-                selected -> prefs.edit().putInt(ModuleSettings.KEY_MATERIAL_STYLE, selected).apply());
         radios(R.string.pill_outline, R.string.desc_outline, new int[]{R.string.pill_outline_auto, R.string.pill_outline_always, R.string.pill_outline_none},
                 new int[]{OneUi.TAG_DEFAULT | OneUi.TAG_RECOMMENDED, 0, 0},
                 ModuleSettings.readPillOutlineMode(prefs), LivePreview.RING,
@@ -518,7 +510,6 @@ public final class SettingsActivity extends Activity {
         }
         LinearLayout related = ui.card(page);
         ui.linkRow(related, getString(R.string.glow_title), getString(R.string.perf_glow_link), () -> openSetting(SettingsSearchCatalog.Route.GLOW, R.string.glow_title, 0));
-        ui.linkRow(related, getString(R.string.material_style), getString(R.string.perf_material_link), () -> open(this::displayPage));
     }
 
     private void notificationsPage() {

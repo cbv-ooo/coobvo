@@ -99,7 +99,7 @@ final class SettingsSearchScreen {
         if(query.trim().isEmpty()) {
             results.removeAllViews();ui.note(results,activity.getString(R.string.search_intro));
             ui.category(results,activity.getString(R.string.search_suggestions));LinearLayout card=ui.card(results);
-            suggestion(card,R.string.material_style);suggestion(card,R.string.glow_title);
+            suggestion(card,R.string.glow_title);
             suggestion(card,R.string.setting_paused_timeout);suggestion(card,R.string.pos_title);
         }else{
             if(results.getChildCount()==0)ui.note(results,activity.getString(R.string.search_working));
