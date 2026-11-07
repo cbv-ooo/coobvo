@@ -40,6 +40,6 @@ public final class EventBody extends CardBody {
         owner.bodyPaint.setColor(Colors.withAlpha(Colors.TEXT_SECONDARY, a));
         if (subtitle != null) IslandView.drawLayout(canvas, subtitle, left, top + title.getHeight() + owner.dp(3));
         if (gaugeSize > 0) gauge.draw(canvas, x + w - pad - gaugeSize / 2, midY,
-                gaugeSize, item.batteryPercent, item.fillAccent(), a, true, false);
+                gaugeSize, item.batteryPercent, BatteryGauge.colorFor(item.batteryPercent, item.batteryCharging), a, true, false);
     }
 }

@@ -39,6 +39,7 @@ public final class GlyphIcon extends Drawable {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final RectF rect = new RectF();
+    private final BatteryGauge batteryGauge = new BatteryGauge();
     private int color = 0xFFFFFFFF;
     /** Drawable alpha (0..255), multiplied with the alpha of {@link #color}. */
     private int alpha = 255;
@@ -69,6 +70,7 @@ public final class GlyphIcon extends Drawable {
     /** True while the animation still moves, so the island keeps its frame loop running. */
     public boolean animating() {
         if (ModuleSettings.stillIcons()) return false;
+        if (kind == Kind.BATTERY || kind == Kind.BATTERY_CHARGING || kind == Kind.POWER_SAVE) return false;
         LottiePlayer p = player(kind);
         if (p == null || frozen) {
             return false;
@@ -175,6 +177,12 @@ public final class GlyphIcon extends Drawable {
         float cx = bounds.centerX();
         float cy = bounds.centerY();
         int effectiveAlpha = Math.round((color >>> 24) * (alpha / 255f));
+        if (kind == Kind.BATTERY || kind == Kind.BATTERY_CHARGING || kind == Kind.POWER_SAVE) {
+            int percent = Math.round(level * 100);
+            batteryGauge.draw(c, cx, cy, s, percent, BatteryGauge.colorFor(percent, kind == Kind.BATTERY_CHARGING),
+                    effectiveAlpha / 255.0f, false, kind == Kind.BATTERY_CHARGING);
+            return;
+        }
         LottiePlayer player = player(kind);
         if (player != null) {
             player.setLevel(kind == Kind.BATTERY || kind == Kind.BATTERY_CHARGING || kind == Kind.POWER_SAVE ? level : -1.0f);

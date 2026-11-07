@@ -30,7 +30,8 @@ public final class BatteryBody extends CardBody {
     @Override public void draw(Canvas canvas, float x, float y, float alpha, long elapsed) {
         float a = alpha * rowAlpha(elapsed, 0);
         float midY = y + pad + rowHeight / 2;
-        gauge.draw(canvas, x + pad + diameter / 2, midY, diameter, item.batteryPercent, item.fillAccent(), a, true, false);
+        gauge.draw(canvas, x + pad + diameter / 2, midY, diameter, item.batteryPercent,
+                BatteryGauge.colorFor(item.batteryPercent, item.batteryCharging), a, true, false);
         float textX = x + pad + diameter + owner.dp(16);
         float block = title.getHeight() + (subtitle == null ? 0 : owner.dp(4) + subtitle.getHeight());
         float top = midY - block / 2;
