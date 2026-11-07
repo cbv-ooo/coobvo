@@ -142,7 +142,7 @@ public final class LyricsManager {
                         .appendQueryParameter("client","mobi").appendQueryParameter("hash","")
                         .appendQueryParameter("keyword",term)
                         .appendQueryParameter("duration",durationMs>0?Long.toString(durationMs):"").build();
-                JSONObject root=getObject(uri.toString(),BROWSER_UA);
+                JSONObject root=getObject(uri.toString(),"User-Agent",BROWSER_UA);
                 JSONArray array=root==null?null:root.optJSONArray("candidates");
                 if(array==null)continue;
                 for(int i=0;i<array.length();i++){
@@ -183,7 +183,7 @@ public final class LyricsManager {
                 Uri uri=Uri.parse(NETEASE_SEARCH).buildUpon().appendQueryParameter("type","1")
                         .appendQueryParameter("limit","10").appendQueryParameter("offset","0")
                         .appendQueryParameter("s",term).build();
-                JSONObject root=getObject(uri.toString(),BROWSER_UA,"Referer","https://music.163.com");
+                JSONObject root=getObject(uri.toString(),"User-Agent",BROWSER_UA,"Referer","https://music.163.com");
                 JSONObject result=root==null?null:root.optJSONObject("result");
                 JSONArray songs=result==null?null:result.optJSONArray("songs");
                 if(songs==null)continue;
@@ -226,12 +226,12 @@ public final class LyricsManager {
             Uri exact=Uri.parse(LRCLIB+"/get").buildUpon()
                     .appendQueryParameter("track_name",title).appendQueryParameter("artist_name",artist)
                     .appendQueryParameter("duration",Long.toString(Math.max(0,durationMs/1000))).build();
-            JSONObject object=getObject(exact.toString(),USER_AGENT);
+            JSONObject object=getObject(exact.toString(),"User-Agent",USER_AGENT);
             MediaLyrics lyrics=parseLrclib(object);
             if(lyrics!=null)return lyrics;
             Uri search=Uri.parse(LRCLIB+"/search").buildUpon()
                     .appendQueryParameter("track_name",title).appendQueryParameter("artist_name",artist).build();
-            JSONArray results=getArray(search.toString(),USER_AGENT);
+            JSONArray results=getArray(search.toString(),"User-Agent",USER_AGENT);
             JSONObject best=bestLrclibMatch(results,title,artist,durationMs);
             return parseLrclib(best);
         }catch(Throwable ignored){return null;}
@@ -325,10 +325,12 @@ public final class LyricsManager {
         if(na.isEmpty()||nb.isEmpty())return 0;
         if(na.equals(nb))return 1;
         if(na.contains(nb)||nb.contains(na))return .78;
-        String[] tokens=na.split(""),other=nb.split("");int hits=0;
-        java.util.HashSet<String> set=new java.util.HashSet<>(java.util.Arrays.asList(other));
-        for(String token:tokens)if(!token.isEmpty()&&set.contains(token))hits++;
-        return .65*hits/Math.max(1,tokens.length)+.35*hits/Math.max(1,other.length);
+        java.util.HashSet<String> left=new java.util.HashSet<>(),right=new java.util.HashSet<>();
+        for(int i=0;i+1<na.length();i++)left.add(na.substring(i,i+2));
+        for(int i=0;i+1<nb.length();i++)right.add(nb.substring(i,i+2));
+        if(left.isEmpty()||right.isEmpty())return 0;
+        int hits=0;for(String part:left)if(right.contains(part))hits++;
+        return 2.0*hits/(left.size()+right.size());
     }
     private static String key(String title,String artist){return normalize(title)+"|"+normalize(artist);}
     private static String normalize(String text){return text==null?"":text.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]","");}

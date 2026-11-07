@@ -206,14 +206,40 @@ public final class MediaBody extends CardBody {
             return;
         }
         MediaLyrics.Line line = data.line(index);
-        current.setColor(Colors.withAlpha(Colors.ON_SURFACE, alpha));
-        canvas.drawText(TextUtils.ellipsize(line.text, current, width, TextUtils.TruncateAt.END).toString(),
-                left, baseline, current);
+        drawLyricLine(canvas, data, line, left, baseline, width, alpha, positionMs, true);
         if (index + 1 < data.size()) {
             next.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.70f * alpha));
-            canvas.drawText(TextUtils.ellipsize(data.line(index + 1).text, next, width, TextUtils.TruncateAt.END).toString(),
+            String following = data.line(index + 1).text;
+            if (following.isEmpty()) following = "♪";
+            canvas.drawText(TextUtils.ellipsize(following, next, width, TextUtils.TruncateAt.END).toString(),
                     left, baseline + owner.dp(14.0f), next);
         }
+    }
+
+    /** Draw the line in its quiet role, then highlight the currently timed word/syllable. */
+    private void drawLyricLine(Canvas canvas, MediaLyrics data, MediaLyrics.Line line,
+                               float left, float baseline, float width, float alpha,
+                               long positionMs, boolean highlight) {
+        TextPaint paint = lyricsCurrentPaint;
+        String text = line.text == null || line.text.isEmpty() ? "♪" : line.text;
+        paint.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
+        String fitted = TextUtils.ellipsize(text, paint, width, TextUtils.TruncateAt.END).toString();
+        canvas.drawText(fitted, left, baseline, paint);
+        if (!highlight || fitted.length() != text.length() || line.words.isEmpty()) return;
+        int active = data.currentWordIndex(line, Math.max(0L, positionMs));
+        if (active < 0 || active >= line.words.size()) return;
+        StringBuilder prefix = new StringBuilder();
+        for (int i = 0; i < active; i++) {
+            if (data.type() != MediaLyrics.Type.SYLLABLE && prefix.length() > 0) prefix.append(' ');
+            prefix.append(line.words.get(i).text);
+        }
+        if (data.type() != MediaLyrics.Type.SYLLABLE && prefix.length() > 0) prefix.append(' ');
+        String word = line.words.get(active).text;
+        float wordX = left + paint.measureText(prefix.toString());
+        float wordWidth = paint.measureText(word);
+        if (wordWidth <= 0 || wordX + wordWidth > left + width) return;
+        paint.setColor(Colors.withAlpha(Colors.ON_SURFACE, alpha));
+        canvas.drawText(word, wordX, baseline, paint);
     }
 
     /** The glow, stretched to the card's current shape so it always fills the card edge to edge. */
