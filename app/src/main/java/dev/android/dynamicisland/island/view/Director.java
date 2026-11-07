@@ -245,10 +245,12 @@ final class Director {
     void refreshBubble() {
         if (scene.iMode != null) return;
         if (scene.secondary != null) {
-            scene.bubbleIn = Layer.shownLike(new BubbleContent(view, scene.secondary), scene.bubbleIn);
+            BubbleContent content = new BubbleContent(view, scene.secondary);
+            scene.bubbleIn = scene.bubbleIn == null ? Layer.shown(content) : Layer.shownLike(content, scene.bubbleIn);
         }
         if (scene.secondary2 != null) {
-            scene.bubble2In = Layer.shownLike(new BubbleContent(view, scene.secondary2), scene.bubble2In);
+            BubbleContent content = new BubbleContent(view, scene.secondary2);
+            scene.bubble2In = scene.bubble2In == null ? Layer.shown(content) : Layer.shownLike(content, scene.bubble2In);
         }
     }
 
@@ -256,8 +258,7 @@ final class Director {
     void refreshFontLayouts() {
         if (scene.iMode != null) { scene.iMode.relayout(); return; }
         if (scene.mode == Mode.COMPACT && scene.primary != null) refreshMain();
-        if ((scene.secondary != null && scene.bubbleIn != null)
-                || (scene.secondary2 != null && scene.bubble2In != null)) refreshBubble();
+        if (scene.secondary != null || scene.secondary2 != null) refreshBubble();
         if (scene.mode == Mode.EXPANDED) {
             List<IslandItem> opened = new ArrayList<>();
             for (Card card : scene.cards) if (!card.leaving) opened.add(card.item);
