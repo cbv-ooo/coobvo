@@ -19,7 +19,6 @@ Last updated: 2026-11-08
 - Module-owned Canvas glyphs and embedded Lottie shapes share one monochrome tint and rounded stroke caps/joins. Original app-provided notification logos and album artwork are intentionally preserved.
 - The settings hub exposes Smart Island, Dynamic App Settings and Material 3 Expressive. The Smart Island page reports currently available capabilities, gives real settings controls, and separates those from the Smart Island reference features still not ported.
 - LyricSync has an initial working LRCLIB adapter: one serialized background worker, cached track queries, synced-LRC parsing, and current/next lyric lines below the media controls. Plain unsynced text is not presented as synchronized lyrics. KRC/YRC syllable timing and the other LyricSync providers are not yet integrated.
-- Prism integration and UI references have been removed completely from the current app. No Prism hooks are merged.
 - Debug installs now use application ID `dev.android.dynamicisland.coobvo`, version code 120 / version name `0.1.18-dev1`, and a stable debug-only signing key. This intentionally installs beside the older `dev.android.dynamicisland` package rather than attempting an update signed by a different certificate. Release package identity and release signing configuration remain unchanged. Future Debug APKs must keep incrementing `versionCode` and reuse this same debug signer.
 
 ## Material 3 Expressive progress
@@ -33,8 +32,10 @@ Last updated: 2026-11-08
 - The existing `Shapes`/`NotchShape` geometry remains the basis for pill and card transitions; no Compose/AndroidX UI dependency was added.
 
 ## CI evidence
-- Runs #18–#22 passed for the prior card renderer, solid M3 Expressive surface/icon pass, settings hub, Prism status-page deletion precursor and fallback pictogram updates.
-- This corrective pass includes stable debug identity/signing, iMode card drawing, dual-bubble spacing/touch routing, shared battery rendering, the correct S10e framework cutout call, Smart Island settings, and the initial LyricSync LRCLIB integration. The latest Debug APK run is the acceptance check for those changes; update this section with the exact run and artifact after it succeeds.
+- Runs #18–#22 passed for the previous expanded-card, solid Material 3 Expressive surface/icon, settings-hub and fallback-glyph changes.
+- Runs #26–#33 failed because an editing operation had inserted literal escaped newline characters into a Java import and the manifest root line. Those source-formatting errors were corrected in commit `fc54f66`.
+- Run #34 succeeded for `fc54f66adc563e1e076f7cb88dc1f4922180c7f4`; both `Build debug APK` and `Upload debug APK` completed successfully. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42404783285/artifacts/13587260854).
+- Run #34 includes stable debug identity/signing, version code 120, iMode expanded-card rendering, dual-bubble spacing/touch routing, shared battery rendering, the corrected S10e framework cutout call, functional Smart Island settings, and the initial LRCLIB LyricSync integration.
 - A successful workflow proves compilation, packaging and artifact upload only. It does not verify installation on the Galaxy S10e, camera alignment, touch behaviour or live lyric timing on-device.
 
 ## Remaining backlog
