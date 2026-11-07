@@ -33,6 +33,7 @@ public final class MediaLyrics {
         if (positionMs < lines.get(0).startMs) return 0;
         for (int i = 0; i < lines.size(); i++) {
             Line line = lines.get(i);
+            if (positionMs < line.startMs) return i;
             if (positionMs >= line.startMs && positionMs < line.endMs) return i;
         }
         return -1;

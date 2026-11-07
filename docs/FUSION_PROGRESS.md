@@ -11,41 +11,38 @@ Last updated: 2026-11-08
 
 ## Implemented on main
 - PR #1 was merged into `main` on 2026-11-07 (merge commit `72fcb47644094309ca58b2a99c93b3dad9ab0740`).
-- The S10e layout anchors the compact pill to the right of the camera cutout and places both companion bubbles to the left. The latest code now tries the framework cutout, Samsung's framework resource approximation and a model-specific S10e fallback when One UI exposes no cutout. The estimate still requires real-device validation.
-- The second bubble has its own model slot, content layers, drawing, outline, hit target, swipe-to-minimize behaviour, lifecycle and audio handling. The latest `Director.update` also fills free bubble slots from the most recently minimized items.
-- Fixed the expanded-card render path: `IslandView.onDraw` now iterates the active card stack and calls `StackPainter.drawCard`. Previously the card painter existed but the runtime view never called it, explaining why opening a notification could show no expanded card.
-- Expanded cards now use a single opaque semantic surface-container fill with solid outline-variant edges. The vertical gradient rim and black-to-card morph were removed; no frosted or backdrop rendering is used.
-- Module-owned Canvas glyphs and embedded Lottie shapes now share one monochrome tint and rounded stroke caps/joins. App-provided notification logos and album artwork remain original content rather than being destructively redrawn.
-- The settings home now exposes direct entries for Smart Island status, Dynamic App Settings, Material 3 Expressive and Prism status. A settings live-preview sample displays two companion bubbles to the left of a right-anchored pill.
-- Smart Island has not been wholesale imported: its Compose/Hilt/overlay/service architecture is incompatible with the Java/Canvas System UI runtime. The current Smart Island page states which reference features still need individual Java ports.
-- Prism has not been merged. The uploaded archives do not contain the intended Prism source. A public repository named `hongducdev/prism` exists, but it has not been assumed to be the requested source; review its specific hook targets and AGPL-3.0 licensing before any code is adapted.
-- The workflow remains limited to the Debug APK build and artifact upload.
+- The normal stack and iMode paths now both paint expanded cards. iMode previously returned through its own renderer without calling the card painter, leaving compact activity nodes visible but not the expanded notification body.
+- The second companion bubble now uses the same edge-to-edge gap as the first. The overlay touch-region calculation includes the second bubble, so its hit target can reach the existing index-1 gesture handling.
+- S10e detection now checks the overlay DisplayCutout, then calls the framework resource-approximation API using its actual current signature, then the older overload. If neither returns geometry on an SM-G970/beyond0 device, the model fallback is used. Camera alignment still needs confirmation on the physical S10e.
+- Battery rendering is shared through `BatteryGauge`: compact pill, battery notifications, expanded battery cards and battery event glyphs now use the same gauge geometry and semantic charge tint.
+- Expanded cards use a single opaque semantic surface-container fill with solid outline-variant edges. No frosted or backdrop rendering is used.
+- Module-owned Canvas glyphs and embedded Lottie shapes share one monochrome tint and rounded stroke caps/joins. Original app-provided notification logos and album artwork are intentionally preserved.
+- The settings hub exposes Smart Island, Dynamic App Settings and Material 3 Expressive. The Smart Island page reports currently available capabilities, gives real settings controls, and separates those from the Smart Island reference features still not ported.
+- LyricSync has an initial working LRCLIB adapter: one serialized background worker, cached track queries, synced-LRC parsing, and current/next lyric lines below the media controls. Plain unsynced text is not presented as synchronized lyrics. KRC/YRC syllable timing and the other LyricSync providers are not yet integrated.
+- Prism integration and UI references have been removed completely from the current app. No Prism hooks are merged.
+- Debug installs now use application ID `dev.android.dynamicisland.coobvo`, version code 120 / version name `0.1.18-dev1`, and a stable debug-only signing key. This intentionally installs beside the older `dev.android.dynamicisland` package rather than attempting an update signed by a different certificate. Release package identity and release signing configuration remain unchanged. Future Debug APKs must keep incrementing `versionCode` and reuse this same debug signer.
 
 ## Material 3 Expressive progress
-- Added the six shared spring tokens to `graphics/Motion`: spatial fast/default/slow and effects fast/default/slow, derived from the supplied stiffness/response table.
-- Applied the named tokens to the shared island springs, card springs, i-Mode nodes/pages and the Director's pill, fade and stack-release transitions.
+- Added the six shared spring tokens to `graphics/Motion`: spatial fast/default/slow and effects fast/default/slow.
+- Applied the named tokens to shared island springs, card springs, i-Mode nodes/pages and Director pill/fade/stack transitions.
 - Added opaque semantic colour roles in `graphics/Colors`: surface, surface containers, on-surface, on-surface-variant, on-primary-container and outline-variant.
-- Card fills now use a fully opaque surface-container role. The media play control uses an opaque primary container derived from the current artwork accent; its glyph uses the on-primary-container role.
-- The media app tile uses an opaque surface-container role; title and artist text use semantic on-surface roles.
-- Increased the default expanded-card corner radius from 28 dp to 32 dp. The user's custom card-roundness setting still overrides the default.
-- Module glyphs and Lottie vector paths use semantic tinting with rounded terminals/joins. Original third-party app logos and media artwork are intentionally preserved.
-- The existing `Shapes`/`NotchShape` path geometry and card/pill state morphing remain the basis for shape transitions; no AndroidX/Compose/UI dependency was added.
+- Card fills use fully opaque surface-container roles; the media play control uses an opaque primary container derived from artwork accent.
+- Battery icons now use the same shared gauge path and semantic tint across compact, notification and expanded presentations.
+- Module glyphs and Lottie vector paths use semantic tinting with rounded terminals/joins. Third-party icons and album artwork are preserved.
+- Increased the default expanded-card corner radius from 28 dp to 32 dp. The custom roundness setting still overrides it.
+- The existing `Shapes`/`NotchShape` geometry remains the basis for pill and card transitions; no Compose/AndroidX UI dependency was added.
 
 ## CI evidence
-- `Debug APK` run #17 succeeded for documentation commit `50de53b2d7f2b67fba909ea3f22f2a5a807bfe7f`.
-- Run #18 succeeded for `90b97b1433f23d745cf52cac066bb88e309b7c36` (expanded-card render path, two bubble slots and S10e cutout fallback).
-- Run #19 succeeded for `64010ff0e6745719cb32a8544b6423cf65d96a58` (opaque M3 Expressive card surfaces and rounded monochrome glyph/Lottie strokes).
-- Run #20 succeeded for `8ddeaf6db97a8b048ceab1f077583b74ea37a005` (settings hub, integration-status pages and dual-bubble preview). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42401969214/artifacts/13584809625).
-- Run #21 succeeded for `390ca8a414247eaf729477a53fc550d56f102f0f` (Prism status page and handoff update). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42402079480/artifacts/13586250716).
-- Run #22 succeeded for `64c5fcc4707f595302c92034c0e117ba5fa85854` (rounded M3 Expressive Canvas fallback glyph strokes). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42402123464/artifacts/13586275823).
-- A successful workflow proves compilation, packaging and artifact upload only. It does not verify the S10e's visible cutout alignment, second-bubble gestures/position or notification card rendering on-device.
+- Runs #18–#22 passed for the prior card renderer, solid M3 Expressive surface/icon pass, settings hub, Prism status-page deletion precursor and fallback pictogram updates.
+- This corrective pass includes stable debug identity/signing, iMode card drawing, dual-bubble spacing/touch routing, shared battery rendering, the correct S10e framework cutout call, Smart Island settings, and the initial LyricSync LRCLIB integration. The latest Debug APK run is the acceptance check for those changes; update this section with the exact run and artifact after it succeeds.
+- A successful workflow proves compilation, packaging and artifact upload only. It does not verify installation on the Galaxy S10e, camera alignment, touch behaviour or live lyric timing on-device.
 
 ## Remaining backlog
-1. Verify the expanded notification card, camera anchor and both bubbles on the Galaxy S10e, including right-side anchoring and gestures.
-2. Port selected Smart Island pure-logic features as independent Java source modules, each behind its own setting. Do not copy Compose/Hilt/DataStore/Accessibility overlay infrastructure.
-3. Integrate LyricSync's Java providers and SYLLABLE/LINE lyrics into the media card below its seek/control row, synced to playback position with silent network failures and graceful timing fallback.
-4. Confirm the intended Prism source/API, then review only the compatible hook features and their licence terms before porting.
-5. Continue Material 3 Expressive adoption for remaining module-owned icons/control surfaces, keeping all surfaces opaque and gradient-free where they are used as icons or card fills.
+1. Verify the new debug package installs and upgrades in place across subsequent builds; enable the new `dev.android.dynamicisland.coobvo` module and System UI scope in LSPosed.
+2. Verify expanded notifications, iMode animations, both bubble touch targets/spacing and automatic camera-hole alignment on the Galaxy S10e.
+3. Port remaining Smart Island features: notification history, rotating idle widgets and dedicated quick-launch controls.
+4. Extend LyricSync with KRC/YRC word timing and additional providers, retaining silent network failure and throttled background requests.
+5. Finish remaining module-owned icon geometry with shared Material 3 Expressive primitives; keep app artwork and supplied notification logos intact.
 
 ## Constraints
 - No blur, frosted glass, backdrop capture, `RenderEffect`, or transparent surfaces.
