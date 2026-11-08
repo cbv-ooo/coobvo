@@ -232,8 +232,19 @@ public final class IslandItem {
     public MediaLyrics mediaLyrics;
     /** Prism LyricsState status: UNKNOWN, LOADING, WAITING, AVAILABLE or UNAVAILABLE. */
     public String mediaLyricsStatus;
-    /** Resolved Prism lyric appearance preferences, copied as JSON for later Canvas mapping. */
+    /** Resolved Prism lyric/player appearance preferences, copied as JSON for Canvas mapping. */
     public String mediaLyricsLook;
+    /** Prism's actual 28-band audio spectrum; null when its visualizer is off or not active. */
+    public float[] mediaVisualizerBands;
+    public float mediaVisualizerLevel;
+    /** Real Prism BlendMark values; -1 means no planned crossfade mark. */
+    public long mediaCrossfadeStartMs = -1L;
+    public long mediaCrossfadeLengthMs;
+    public String mediaCrossfadeSongId;
+    public String mediaCrossfadeFromId;
+    public String mediaCrossfadeToId;
+    public float mediaCrossfadeProgress;
+    public float mediaPlayerVolume = 1.0f;
 
     /** What the compact pill shows at its trailing edge. */
     public enum Trailing {
