@@ -911,7 +911,7 @@ public final class MediaBody extends CardBody {
         owner.tmpRect.set(left, centerY - radius, right, centerY + radius);
         owner.fillPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha * 0.18f));
         canvas.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
-        owner.tmpRect.right = left + (right - left) * IslandView.clamp01(item.mediaPlayerVolume);
+        owner.tmpRect.right = left + (right - left) * prismPlayer.volumeLevel(item.mediaPlayerVolume);
         int color = prismPlayer.volumeMatchesProgress ? prismScrubberColor()
                 : (item.accent != 0 && item.accent != -1 ? item.accent : Colors.WHITE);
         owner.fillPaint.setColor(Colors.withAlpha(color, alpha));
