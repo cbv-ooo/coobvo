@@ -44,11 +44,11 @@ The expanded media-card Canvas renderer currently maps Prism's current lyric/wor
 
 The dedicated workflow is `.github/workflows/prism-morphe.yml`, using Java 21 and Morphe's `:patches:buildAndroid` task.
 
-Latest bundle source version: `0.1.4`.
+Latest bundle source version: `0.1.5`.
 
-- Morphe run [#28](https://github.com/cbv-ooo/coobvo/actions/runs/42487611825) passed and uploaded [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42487611825/artifacts/13620077914).
-- The companion app build, selected tests and APK upload passed in debug run [#175](https://github.com/cbv-ooo/coobvo/actions/runs/42487474819); APK artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42487474819/artifacts/13619808689), versionCode 154 / `0.1.50-dev3`.
-- Both runs validate compilation/package generation only; neither validates applying the patch to the original Prism 1.8.2.1 APK or live lyrics on the S10e.
+- Morphe run [#42491434885](https://github.com/cbv-ooo/coobvo/actions/runs/42491434885) passed and uploaded [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42491434885/artifacts/13621996077).
+- The latest app build and selected Prism tests passed in debug run [#42492910498](https://github.com/cbv-ooo/coobvo/actions/runs/42492910498); APK artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42492910498/artifacts/13621973940).
+- Both runs validate compilation/package generation and selected test fixtures only; neither validates applying the patch to the original Prism 1.8.2.1 APK or live lyrics on the S10e.
 
 Build this project locally from this directory:
 
