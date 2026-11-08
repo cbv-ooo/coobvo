@@ -78,6 +78,17 @@ public class PrismPlayerPreferencesTest {
     }
 
 
+
+    @Test public void volumeLevelUsesTheSelectedPrismOrPhoneVolumeSource() {
+        PrismPlayerPreferences prismVolume = PrismPlayerPreferences.fromLyricsLook(
+                "{\\\"playerPreferences\\\":{\\\"volumeControl\\\":\\\"PRISM\\\",\\\"appVolume\\\":0.37}}");
+        assertEquals(0.37f, prismVolume.volumeLevel(0.92f), 0.001f);
+
+        PrismPlayerPreferences phoneVolume = PrismPlayerPreferences.fromLyricsLook(
+                "{\\\"playerPreferences\\\":{\\\"volumeControl\\\":\\\"PHONE\\\",\\\"appVolume\\\":0.22}}");
+        assertEquals(0.92f, phoneVolume.volumeLevel(0.92f), 0.001f);
+    }
+
     @Test public void prismOwnVolumeControlOverridesHideVolumeBarButNotHiddenDeckPart() {
         PrismPlayerPreferences prismVolume = PrismPlayerPreferences.fromLyricsLook(
                 "{\"playerPreferences\":{\"playerDeck\":[\"VOLUME\"],"
