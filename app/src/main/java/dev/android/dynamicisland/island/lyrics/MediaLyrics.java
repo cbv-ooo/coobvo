@@ -35,6 +35,11 @@ public final class MediaLyrics {
         public final List<Word> background;
         public final boolean interlude;
         public final boolean alignEnd;
+        /** Actual romanized line returned by Prism's own Romanizer, when enabled for this song. */
+        public final String romanizedText;
+        public final List<Word> romanizedWords;
+        /** Actual translated line returned by Prism's own LyricsTranslator, when enabled. */
+        public final String translatedText;
         public Line(long startMs,long endMs,String text) {
             this(startMs,endMs,text,Collections.emptyList(),false,false,Collections.emptyList());
         }
@@ -43,12 +48,23 @@ public final class MediaLyrics {
         }
         public Line(long startMs,long endMs,String text,List<Word> words,boolean interlude,
                     boolean alignEnd,List<Word> background) {
+            this(startMs,endMs,text,words,interlude,alignEnd,background,null,
+                    Collections.emptyList(),null);
+        }
+        public Line(long startMs,long endMs,String text,List<Word> words,boolean interlude,
+                    boolean alignEnd,List<Word> background,String romanizedText,
+                    List<Word> romanizedWords,String translatedText) {
             this.startMs=startMs; this.endMs=endMs; this.text=text==null?"":text;
             this.words=Collections.unmodifiableList(new ArrayList<>(words));
             this.background=Collections.unmodifiableList(new ArrayList<>(background));
             this.interlude=interlude; this.alignEnd=alignEnd;
+            this.romanizedText=blankToNull(romanizedText);
+            this.romanizedWords=Collections.unmodifiableList(new ArrayList<>(romanizedWords));
+            this.translatedText=blankToNull(translatedText);
         }
     }
+
+    private static String blankToNull(String value) { return value==null || value.trim().isEmpty() ? null : value; }
 
     private static final Pattern LRC_TIME=Pattern.compile("\\[(\\d{1,3}):(\\d{1,2})(?:[.:](\\d{1,3}))?]");
     private static final Pattern LINE_HEADER=Pattern.compile("^\\[(\\d+),(\\d+)]");
@@ -102,6 +118,8 @@ public final class MediaLyrics {
         if (snapshot == null) return null;
         JSONArray sourceLines = snapshot.optJSONArray("lines");
         if (sourceLines == null || sourceLines.length() == 0) return null;
+        JSONArray romanizedLines = snapshot.optJSONArray("romanizedLines");
+        JSONArray translatedLines = snapshot.optJSONArray("translatedLines");
         List<Line> parsed = new ArrayList<>(sourceLines.length());
         boolean hasWordTiming = false;
         for (int i = 0; i < sourceLines.length(); i++) {
@@ -112,9 +130,18 @@ public final class MediaLyrics {
             String text = source.optString("text", "");
             List<Word> words = prismWords(source.optJSONArray("words"));
             List<Word> background = prismWords(source.optJSONArray("background"));
+            JSONObject romanized = romanizedLines == null ? null : romanizedLines.optJSONObject(i);
+            String romanizedText = romanized == null ? null : romanized.optString("text", null);
+            List<Word> romanizedWords = romanized == null ? Collections.emptyList()
+                    : prismWords(romanized.optJSONArray("words"));
+            String translatedText = null;
+            if (translatedLines != null) {
+                Object translated = translatedLines.opt(i);
+                if (translated instanceof String) translatedText = (String) translated;
+            }
             hasWordTiming |= !words.isEmpty();
             parsed.add(new Line(start, end, text, words, source.optBoolean("isGap"),
-                    source.optBoolean("alignEnd"), background));
+                    source.optBoolean("alignEnd"), background, romanizedText, romanizedWords, translatedText));
         }
         if (parsed.isEmpty()) return null;
         boolean synced = snapshot.optBoolean("synced", false);
