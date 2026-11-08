@@ -1,6 +1,6 @@
 # Fusion Context
 
-Last updated: 2026-11-08. This file is the project source of truth for architecture, scope, constraints and backlog. Record implementation progress in docs/FUSION_PROGRESS.md.
+Last updated: 2026-11-08 (DI-first hierarchy). This file is the project source of truth for architecture, scope, constraints and backlog. Record implementation progress in docs/FUSION_PROGRESS.md.
 
 ## Product
 
@@ -55,7 +55,11 @@ The supplied SmartIsland-main archive is the Kotlin/Compose application document
 
 Take its parsing rules and local feature behaviour; reimplement them as small Java classes using this repository's existing hooks and event sources. Do not port Compose, Hilt, DataStore, AccessibilityService overlays, Shizuku, its service/window stack or its separate settings UI.
 
-Timer/stopwatch and navigation parsers are implemented in Java and connected to the existing OngoingActivity card builder; native Samsung Chronometer data remains preferred. An opt-in per-app ordinary-notification cooldown is also implemented in NotificationCooldownManager and HeadsUpTakeover: third posting within 30 seconds is allowed, then later ordinary island cards are held for three minutes and only the latest still-active one is delivered after expiry. Targeted JVM tests pass in CI. OTP, calls, alarms, media, navigation, progress/transfer and recognized download/cloud/store notifications are excluded. Notification history is now an opt-in archive of ordinary cards already shown by the island: the System UI process sends minimal text data through SettingsProvider; writes are accepted only from com.android.systemui, reads/clear only from the module app's own UID, and local SQLite retention is 500 entries/seven days. OTP-like, secret, call/alarm, transport/navigation and ongoing notifications are not stored. The feature is implemented and its database tests pass, but the history list/detail/clear UI still needs S10e verification. Quick-launch shortcuts, idle widgets, richer live activities, system-event cooldown and other optional widgets remain candidates. Full mapping: docs/SMART_ISLAND_PORTS.md.
+**Hierarchy:** Dynamic Island is the foundation. If DI already handles something pretty well, do not re-port it from Smart Island. See docs/SMART_ISLAND_PORT_CONTEXT.md.
+
+Timer/stopwatch and navigation parsers extend the existing OA path. Opt-in notification cooldown and opt-in notification history are SI gap fills (JVM tests in CI; history UI still needs S10e verification). Idle rotation (IdleSource) fills the empty always-visible pill only. Quick-launch (QuickLaunchSource) is opt-in card actions only — TouchController gestures are untouched.
+
+Do **not** clone ProgressSource/RuleSource/EventSource for "richer transfers" or "system-event cooldown"; those DI sources already cover that territory pretty well. Full mapping: docs/SMART_ISLAND_PORTS.md.
 
 ### LyricSync, Prism media and Morphe
 
@@ -93,7 +97,7 @@ Current main source version: version code 151 / version name 0.1.49-dev1; curren
 1. Make the dual-bubble layout fully visible and usable: verify simultaneous display, equal spacing, independent touch and animation. Owner has already confirmed S10e cutout alignment and that bubbles move to the left of a right-anchored pill; do not generalize this to touch/animation completion.
 2. Complete the whole battery feature, not merely shared gauge geometry/tint, and expose/verify every intended battery presentation and interaction.
 3. Finish one coherent Material 3 Expressive system across compact glyphs, both bubbles, buttons, and expanded cards; shared tokens currently form a foundation, not a completed system.
-4. Continue the remaining Smart Island Java ports: quick-launch shortcuts, idle widgets, richer live-activity parsing and system-event cooldown. Notification history is implemented and its database tests pass; verify the UI on the S10e. Do not count descriptive Settings rows as implementations.
+4. Smart Island gap fills for idle + quick-launch are in source; verify on S10e. Do **not** port richer live-activity/system-event cooldown clones — DI ProgressSource, RuleSource and EventSource already handle that pretty well. Optional: settings UI for quick_launch pin list. History UI still needs owner verification.
 5. Apply Prism Morphe bridge v0.1.3 to the exact Prism 1.8.2.1 APK, validate every remaining fingerprint and the local `/bridge/{songId}` query, then test with coobvo on the S10e. Verify native lyrics, romanization/translation helper outputs, configured upcoming lines, player/lyrics preference mapping and compact-fold transition. Record visual differences still needing Canvas parity. Do not send Prism sessions through LyricSync's independent providers.
 6. Complete LyricSync parity for non-Prism media sessions only if still needed.
 
