@@ -30,6 +30,9 @@ jobs:
       - name: Build debug APK
         run: ./gradlew --no-daemon assembleDebug
 
+      - name: Test Smart Island notification cooldown
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests dev.android.dynamicisland.island.NotificationCooldownManagerTest
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:

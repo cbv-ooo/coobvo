@@ -263,8 +263,13 @@ final class HeadsUpTakeover {
     }
 
     private void deliverBufferedNotification(String packageName) {
-        StatusBarNotification queued = notificationCooldown.pollBufferedNotification(
-                packageName, SystemClock.elapsedRealtime());
+        long now = SystemClock.elapsedRealtime();
+        long remaining = notificationCooldown.remainingMillis(packageName, now);
+        if (remaining > 0L) {
+            scheduleCooldownDelivery(packageName);
+            return;
+        }
+        StatusBarNotification queued = notificationCooldown.pollBufferedNotification(packageName, now);
         if (queued == null || !ModuleSettings.notificationCooldown()
                 || !(ModuleSettings.headsUpIsland() || ModuleSettings.allNotifications())
                 || !ModuleSettings.appAllowed(packageName) || !PeekSource.eligible(queued)
