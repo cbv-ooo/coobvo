@@ -221,7 +221,10 @@ private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.requestBack
     returnIndexes.forEach { index ->
         addInstructions(
             index,
-            "invoke-static { p0, p1 }, $EXTENSION->requestBackgroundLyrics(Ljava/lang/Object;Ljava/lang/Object;)V"
+            // PlaybackService has a large register frame on Prism 1.8.2.1. p1 may resolve
+            // above v15, so the short invoke form is discarded by dexlib's inline compiler.
+            // Receiver p0 and MediaItem p1 are consecutive one-word arguments: /range is required.
+            "invoke-static/range { p0 .. p1 }, $EXTENSION->requestBackgroundLyrics(Ljava/lang/Object;Ljava/lang/Object;)V"
         )
     }
 }
