@@ -250,7 +250,7 @@ public final class PrismMediaBridgeClient {
     }
 
     /** Prism's SongWaves scan is exactly 100 normalized points; reject partial/corrupt arrays. */
-    private static float[] readWaveform(JSONArray values) {
+    static float[] readWaveform(JSONArray values) {
         if (values == null || values.length() != 100) return null;
         float[] result = new float[100];
         for (int i = 0; i < result.length; i++) {
