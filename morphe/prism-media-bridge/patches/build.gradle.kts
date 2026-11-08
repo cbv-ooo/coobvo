@@ -3,7 +3,7 @@ group = "dev.coobvo"
 patches {
     about {
         name = "Coobvo Prism Media Bridge"
-        description = "Exports Prism's local media-session diagnostics for coobvo Dynamic Island."
+        description = "Exports Prism's live lyrics, player preferences, crossfade state and audio visualizer data for coobvo Dynamic Island."
         source = "https://github.com/cbv-ooo/coobvo/tree/main/morphe/prism-media-bridge"
         author = "cbv-ooo"
         contact = "GitHub repository issues"
