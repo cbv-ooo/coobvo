@@ -76,7 +76,7 @@ final class PrismPlayerPreferences {
     }
 
     boolean showRemainingTime() {
-        return TIME_LEFT.equals(playerTimes) && !showTrackLength;
+        return showRightTime() && !showTrackLength;
     }
 
     String effectiveThumb() {
