@@ -4,6 +4,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.SystemClock;
+import android.text.Layout;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 import dev.android.dynamicisland.island.graphics.Colors;
@@ -73,6 +74,9 @@ public final class MediaBody extends CardBody {
     private final MediaLyrics prismLyrics;
     private final String prismLyricsStatus;
     private final JSONObject prismLook;
+    private final PrismPlayerPreferences prismPlayer;
+    private final TextPaint playerTitlePaint;
+    private final TextPaint playerArtistPaint;
     private final float prismLyricsRowDp;
     private final PrismLyricsPainter.State prismLyricState = new PrismLyricsPainter.State();
     private final int prismSungColor;
@@ -115,6 +119,19 @@ public final class MediaBody extends CardBody {
         prismLyrics = item.mediaLyrics;
         prismLyricsStatus = item.mediaLyricsStatus == null ? "UNKNOWN" : item.mediaLyricsStatus;
         prismLook = parsePrismLook(item.mediaLyricsLook);
+        prismPlayer = prismSession ? PrismPlayerPreferences.fromLyricsLook(item.mediaLyricsLook)
+                : PrismPlayerPreferences.defaults();
+        playerTitlePaint = new TextPaint(owner.mediaTitlePaint());
+        playerArtistPaint = new TextPaint(owner.mediaArtistPaint());
+        if (prismSession) {
+            float titleScale = prismPlayer.titleScale();
+            playerTitlePaint.setTextSize(playerTitlePaint.getTextSize() * titleScale);
+            playerArtistPaint.setTextSize(playerArtistPaint.getTextSize() * titleScale);
+            if ("BOLD".equals(prismPlayer.titleWeight)) {
+                playerTitlePaint.setFakeBoldText(true);
+                playerArtistPaint.setFakeBoldText(true);
+            }
+        }
         prismLyricsRowDp = PrismLyricsPainter.rowHeightDp(prismLook, prismLyrics);
         prismSungColor = prismColor(prismLook, "sungColor", "sungCustom", item.accent, Colors.ON_SURFACE);
         prismOtherColor = prismColor(prismLook, "otherColor", "otherCustom", item.accent, Colors.ON_SURFACE_VARIANT);
@@ -140,12 +157,16 @@ public final class MediaBody extends CardBody {
         glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         glowRect = new RectF();
         int textWidth = Math.max(1, Math.round(((((w - (pad * 2.0f)) - art) - owner.dp(ART_TEXT_GAP_DP)) - tile) - owner.dp(10.0f)));
-        title = item.title == null ? null : IslandView.layout(item.title, owner.mediaTitlePaint(), textWidth, 1);
+        Layout.Alignment titleAlignment = prismSession && "CENTER".equals(prismPlayer.titleAlign)
+                ? Layout.Alignment.ALIGN_CENTER : Layout.Alignment.ALIGN_NORMAL;
+        title = item.title == null ? null
+                : IslandView.layout(item.title, playerTitlePaint, textWidth, 1, titleAlignment);
         CharSequence artistText = item.subtitle;
         if (artistText != null && item.mediaAlbum != null && item.mediaAlbum.length() > 0) {
             artistText = artistText + " · " + item.mediaAlbum;
         }
-        artist = artistText != null ? IslandView.layout(artistText, owner.mediaArtistPaint(), textWidth, 1) : null;
+        artist = artistText != null
+                ? IslandView.layout(artistText, playerArtistPaint, textWidth, 1, titleAlignment) : null;
         String outputText = null;
         if (item.mediaFlags != null && item.mediaFlags.length() > 0) {
             outputText = item.mediaFlags.toString();
@@ -163,8 +184,12 @@ public final class MediaBody extends CardBody {
         controlsTop = seekTop + owner.dp(14.0f) + owner.dp(10.0f);
         lyricsTop = controlsTop + controlH + owner.dp(5.0f);
         String totalText = item.mediaDuration > 0 ? IslandView.formatTimePadded(item.mediaDuration) : NO_DURATION;
-        barLeft = pad + owner.smallPaint.measureText("00:00") + owner.dp(10.0f);
-        barRight = ((w - pad) - owner.smallPaint.measureText(totalText)) - owner.dp(10.0f);
+        boolean showElapsed = !prismSession || prismPlayer.showElapsedTime();
+        boolean showRightTime = !prismSession || prismPlayer.showRightTime();
+        barLeft = pad + (showElapsed ? owner.smallPaint.measureText("00:00") + owner.dp(10.0f) : 0.0f);
+        String rightWidthText = prismSession && prismPlayer.showRemainingTime() ? "−00:00" : totalText;
+        barRight = ((w - pad) - (showRightTime
+                ? owner.smallPaint.measureText(rightWidthText) + owner.dp(10.0f) : 0.0f));
         float span = w - (pad * 2.0f);
         if (item.mediaCustom.size() > 0) {
             addCustom(item.mediaCustom.get(0), pad + (CUSTOM_LEFT_AT * span));
@@ -250,7 +275,7 @@ public final class MediaBody extends CardBody {
         float topRowProgress = rowAlpha(elapsed, 0);
         float topAlpha = alpha * topRowProgress;
         float topDy = (1.0f - topRowProgress) * owner.dp(ROW_SLIDE_DP);
-        fx.drawArt(c, x + pad, y + pad + topDy, art, topAlpha, owner.dp(ART_CORNER_DP), now);
+        fx.drawArt(c, x + pad, y + pad + topDy, art, topAlpha, artCornerRadius(), now);
         drawTexts(c, x, y, topDy, topAlpha);
         drawAppTile(c, x, y, topDy, topAlpha);
         float seekRowProgress = rowAlpha(elapsed, 1);
@@ -503,12 +528,12 @@ public final class MediaBody extends CardBody {
                 + (output != null ? gap + output.getHeight() : 0.0f);
         float lineY = y + pad + dy + ((art - textHeight) / 2.0f);
         if (title != null) {
-            owner.mediaTitlePaint().setColor(Colors.withAlpha(Colors.ON_SURFACE, alpha));
+            playerTitlePaint.setColor(Colors.withAlpha(Colors.ON_SURFACE, alpha));
             IslandView.drawLayout(c, title, textX, lineY);
             lineY += title.getHeight() + gap;
         }
         if (artist != null) {
-            owner.mediaArtistPaint().setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.55f * alpha));
+            playerArtistPaint.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.55f * alpha));
             IslandView.drawLayout(c, artist, textX, lineY);
             lineY += artist.getHeight() + gap;
         }
@@ -545,47 +570,124 @@ public final class MediaBody extends CardBody {
      * ends in a crisp highlight whose brightness follows the playback state.
      */
     private void drawSeekRow(Canvas c, float x, float centerY, float alpha, MediaFx fx, long now) {
-        long position = fx.shownPosition(item, SystemClock.elapsedRealtime());
-        long second=Math.max(0L,position)/1000;
-        if(clockText==null||clockSecond!=second){clockSecond=second;clockText=IslandView.formatTimePadded(Math.max(0L,position));}
-        long duration=item.mediaDuration>0 ? item.mediaDuration/1000 : -1;
-        if(durationText==null||durationSecond!=duration){durationSecond=duration;durationText=item.mediaDuration>0 ? IslandView.formatTimePadded(item.mediaDuration) : NO_DURATION;}
-        String current=clockText,total=durationText;
+        long position = Math.max(0L, fx.shownPosition(item, SystemClock.elapsedRealtime()));
+        long second = position / 1000L;
+        if (clockText == null || clockSecond != second) {
+            clockSecond = second;
+            clockText = IslandView.formatTimePadded(position);
+        }
+        long durationSeconds = item.mediaDuration > 0 ? item.mediaDuration / 1000L : -1L;
+        if (durationText == null || durationSecond != durationSeconds) {
+            durationSecond = durationSeconds;
+            durationText = item.mediaDuration > 0
+                    ? IslandView.formatTimePadded(item.mediaDuration) : NO_DURATION;
+        }
+
+        boolean dragged = owner.seekBody == this;
+        boolean showElapsed = !prismSession || prismPlayer.showElapsedTime();
+        boolean showRightTime = !prismSession || prismPlayer.showRightTime();
+        String current = clockText;
+        String right = durationText;
+        if (prismSession && prismPlayer.showRemainingTime() && item.mediaDuration > 0) {
+            right = prismPlayer.showTrackLength ? durationText
+                    : "−" + IslandView.formatTimePadded(Math.max(0L, item.mediaDuration - position));
+        }
+        if (dragged && item.mediaDuration > 0) {
+            long draggedPosition = (long) (item.mediaDuration * owner.seekFraction);
+            current = IslandView.formatTimePadded(draggedPosition);
+            if (prismSession && prismPlayer.showRemainingTime() && !prismPlayer.showTrackLength) {
+                right = "−" + IslandView.formatTimePadded(Math.max(0L, item.mediaDuration - draggedPosition));
+            }
+        }
+
         owner.smallPaint.setColor(Colors.withAlpha(Colors.TEXT_SECONDARY, alpha));
         Paint.FontMetrics fm = owner.smallPaint.getFontMetrics();
         float baseline = centerY - ((fm.ascent + fm.descent) / 2.0f);
-        boolean dragged = owner.seekBody == this;
-        if (!dragged) {
-            c.drawText(current, x + pad, baseline, owner.smallPaint);
+        if (showElapsed) c.drawText(current, x + pad, baseline, owner.smallPaint);
+        if (showRightTime) {
+            float rightWidth = owner.smallPaint.measureText(right);
+            c.drawText(right, ((x + w) - pad) - rightWidth, baseline, owner.smallPaint);
         }
-        float totalWidth = owner.smallPaint.measureText(total);
-        c.drawText(total, ((x + w) - pad) - totalWidth, baseline, owner.smallPaint);
+
         float trackLeft = x + barLeft;
         float trackRight = x + barRight;
-        if (dragged) {
-            String draggedTime = IslandView.formatTimePadded((long) (Math.max(0L, item.mediaDuration) * owner.seekFraction));
-            c.drawText(draggedTime, x + pad, baseline, owner.smallPaint);
+        float fraction = dragged ? IslandView.clamp01(owner.seekFraction)
+                : (item.mediaDuration > 0
+                ? IslandView.clamp01((float) position / (float) item.mediaDuration) : 0.0f);
+        float scale = prismSession ? prismPlayer.scrubberThickness : 1.0f;
+        float idleDp = 3.0f;
+        if (prismSession) {
+            switch (prismPlayer.scrubberStyle) {
+                case "HAIRLINE": idleDp = 2.0f; break;
+                case "BOLD": idleDp = 6.0f; break;
+                case "THUMB": idleDp = 2.0f; break;
+                case "WAVE":
+                case "RIBBONS":
+                default: idleDp = 3.0f; break; // Prism's waveform is unavailable until its scan export is bridged.
+            }
         }
-        float barHeight = owner.dp(dragged ? 7.0f : 3.5f);
-        owner.tmpRect.set(trackLeft, centerY - (barHeight / 2.0f), trackRight, (barHeight / 2.0f) + centerY);
-        owner.fillPaint.setColor(Colors.withAlpha(Colors.SEEK_TRACK, alpha));
-        c.drawRoundRect(owner.tmpRect, barHeight / 2.0f, barHeight / 2.0f, owner.fillPaint);
-        float fraction = 0.0f;
-        if (dragged) {
-            fraction = owner.seekFraction;
-        } else if (item.mediaDuration > 0) {
-            fraction = IslandView.clamp01(((float) position) / ((float) item.mediaDuration));
+        float barHeight = owner.dp((dragged ? Math.max(idleDp * 1.45f, 4.5f) : idleDp) * scale);
+        float radius = barHeight / 2.0f;
+        owner.tmpRect.set(trackLeft, centerY - radius, trackRight, centerY + radius);
+        int activeColor = prismSession ? prismScrubberColor() : Colors.SEEK_FILL;
+        int trackColor = prismSession ? Colors.withAlpha(activeColor, 0.22f) : Colors.SEEK_TRACK;
+        owner.fillPaint.setColor(Colors.withAlpha(trackColor, alpha));
+        c.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
+
+        float trackWidth = Math.max(0.0f, trackRight - trackLeft);
+        float playedWidth = trackWidth * fraction;
+        owner.tmpRect.right = trackLeft + playedWidth;
+        owner.fillPaint.setColor(Colors.withAlpha(activeColor, alpha));
+        c.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
+
+        String thumb = prismSession ? prismPlayer.effectiveThumb() : "DOT";
+        if (!"NONE".equals(thumb) && item.mediaDuration > 0 && trackWidth > 0.0f) {
+            float head = trackLeft + playedWidth;
+            float glowAlpha = ((fx.liveness(now) * ((((float) Math.sin(fx.seekPhase))
+                    * IslandView.PAUSED_SPEED) + 0.05f)) + 0.8f) * alpha;
+            glowPaint.setStyle(Paint.Style.FILL);
+            if ("LINE".equals(thumb)) {
+                float halfHeight = Math.max(owner.dp(7.0f), barHeight * 1.8f);
+                glowPaint.setColor(Colors.withAlpha(Colors.WHITE, glowAlpha));
+                glowRect.set(head - owner.dp(1.5f), centerY - halfHeight,
+                        head + owner.dp(1.5f), centerY + halfHeight);
+                c.drawRoundRect(glowRect, owner.dp(1.5f), owner.dp(1.5f), glowPaint);
+            } else if ("RING".equals(thumb)) {
+                float thumbRadius = owner.dp(4.5f);
+                glowPaint.setColor(Colors.withAlpha(Colors.BLACK, alpha));
+                c.drawCircle(head, centerY, thumbRadius, glowPaint);
+                glowPaint.setStyle(Paint.Style.STROKE);
+                glowPaint.setStrokeWidth(owner.dp(2.0f));
+                glowPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha));
+                c.drawCircle(head, centerY, thumbRadius, glowPaint);
+                glowPaint.setStyle(Paint.Style.FILL);
+            } else {
+                float thumbRadius = Math.max(owner.dp(3.0f), barHeight * 1.25f);
+                glowPaint.setColor(Colors.withAlpha(Colors.WHITE, glowAlpha));
+                c.drawCircle(head, centerY, thumbRadius, glowPaint);
+            }
         }
-        owner.tmpRect.right = Math.max(2.4f * barHeight, (trackRight - trackLeft) * fraction) + trackLeft;
-        float head = owner.tmpRect.right;
-        // pulses with the music while playing, dims when paused
-        float glowAlpha = ((fx.liveness(now) * ((((float) Math.sin(fx.seekPhase)) * IslandView.PAUSED_SPEED) + 0.05f)) + 0.8f) * alpha;
-        glowPaint.setColor(Colors.withAlpha(Colors.WHITE, 0.45f * glowAlpha));
-        glowRect.set(Math.max(trackLeft, head - owner.dp(70.0f)), centerY - (barHeight / 2.0f), head, centerY + (barHeight / 2.0f));
-        c.drawRoundRect(glowRect, barHeight / 2.0f, barHeight / 2.0f, glowPaint);
-        glowPaint.setColor(Colors.withAlpha(Colors.WHITE, glowAlpha * 0.9f));
-        c.drawCircle(head - (barHeight * 0.6f), centerY, 0.95f * barHeight, glowPaint);
-        owner.fillPaint.setColor(Colors.withAlpha(Colors.SEEK_FILL, alpha));
-        c.drawRoundRect(owner.tmpRect, barHeight / 2.0f, barHeight / 2.0f, owner.fillPaint);
+    }
+
+    private int prismScrubberColor() {
+        switch (prismPlayer.scrubberColor) {
+            case "WHITE":
+                return Colors.WHITE;
+            case "ACCENT":
+            case "COVER":
+                return item.accent != 0 && item.accent != -1
+                        ? Colors.readableOnBlack(item.accent) : Colors.WHITE;
+            case "SPECTRUM":
+            default:
+                // Coobvo currently has the artwork accent, not Prism's full animated spectrum shader.
+                return Colors.WHITE;
+        }
+    }
+
+    private float artCornerRadius() {
+        if (!prismSession) return owner.dp(ART_CORNER_DP);
+        if ("CIRCLE".equals(prismPlayer.coverShape)) return art / 2.0f;
+        if ("SQUARE".equals(prismPlayer.coverShape)) return 0.0f;
+        return Math.min(art / 2.0f, owner.dp(prismPlayer.artCornersDp));
     }
 }
