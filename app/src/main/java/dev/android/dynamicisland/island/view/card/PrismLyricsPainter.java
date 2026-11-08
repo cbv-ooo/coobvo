@@ -104,7 +104,7 @@ final class PrismLyricsPainter {
     static float lineHeightDp(JSONObject look) {
         float spacing = look == null ? 1.0f
                 : clamp((float) look.optDouble("spacing", 1.0d), 0.6f, 1.8f);
-        return 16.0f * spacing;
+        return 20.0f * spacing;
     }
 
     /** The newer past line is strongest; the second line remains visible but quieter. */
@@ -114,8 +114,11 @@ final class PrismLyricsPainter {
 
     static float rowHeightDp(JSONObject look, MediaLyrics lyrics) {
         if (look == null) {
-            return DEFAULT_ROW_DP
-                    + (lyrics != null && lyrics.type() != MediaLyrics.Type.STATIC ? 28.0f : 0.0f);
+            // No preference snapshot: reserve two history rows, the active line and one preview
+            // row for synchronized lyrics using the default 20 dp baseline interval.
+            return lyrics != null && lyrics.type() != MediaLyrics.Type.STATIC
+                    ? 12.0f + (2.0f + 1.0f + 1.0f) * 20.0f
+                    : DEFAULT_ROW_DP;
         }
         int mainRows = look.optBoolean("lyricsStripTwoLines", false) ? 2 : 1;
         int futureRows = aheadLineCount(look);
