@@ -138,7 +138,7 @@ final class TimerStopwatchParser {
         return parseTimeFields(notification);
     }
 
-    static Long stopwatchElapsedSeconds(Notification notification) {
+    static Long stopwatchElapsedSeconds(Notification notification, String packageName) {
         if (notification == null) return null;
         Bundle extras = notification.extras;
         if (!isStopwatchPaused(notification) && extras != null && !chronometerCountDown(extras)) {

@@ -206,7 +206,7 @@ final class OaCardBuilder {
             showText(it, chipText);
         } else if (frozen) {
             // a paused clock must not keep counting: freeze on the text System UI shows
-            showText(it, frozenClockText(it.key, n, a.sbn, chrono));
+            showText(it, frozenClockText(it.key, n, a.sbn, chrono, a.pkg));
         } else if (chrono != null) {
             it.trailing = IslandItem.Trailing.CHRONOMETER;
         } else if (hasText(criticalText)) {
@@ -259,8 +259,8 @@ final class OaCardBuilder {
     }
 
     /** A stopwatch that was paused shows the time elapsed when it was stopped, to the hundredth. */
-    private CharSequence frozenClockText(String key, Notification n, StatusBarNotification sbn, OaViews.Chrono chrono) {
-        Long base = isStopwatch(n, null) ? stopwatchBases.get(key) : null;
+    private CharSequence frozenClockText(String key, Notification n, StatusBarNotification sbn, OaViews.Chrono chrono, String packageName) {
+        Long base = isStopwatch(n, packageName) ? stopwatchBases.get(key) : null;
         if (base != null && sbn != null && sbn.getPostTime() >= base) {
             return IslandView.formatTimeCentis(sbn.getPostTime() - base);
         }
