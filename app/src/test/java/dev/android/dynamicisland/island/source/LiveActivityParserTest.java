@@ -49,6 +49,15 @@ public final class LiveActivityParserTest {
     }
 
     @Test
+    public void preservesBothBoundsOfAnEtaRange() throws Exception {
+        LiveActivityParser.Info info = LiveActivityParser.parse(
+                sbn("com.ubercab", notification("Your driver is on the way", "Arrival in 6-9 min")));
+        assertNotNull(info);
+        assertEquals("6–9 min", info.etaText);
+        assertEquals(2, info.stage);
+    }
+
+    @Test
     public void ignoresPromotionalNotificationFromSupportedDeliveryApp() throws Exception {
         assertNull(LiveActivityParser.parse(
                 sbn("com.application.zomato", notification("Special offer", "50% off — use code SAVE"))));
