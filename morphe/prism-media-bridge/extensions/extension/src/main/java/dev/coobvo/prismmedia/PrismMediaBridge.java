@@ -255,6 +255,7 @@ public final class PrismMediaBridge {
                     ensureVisualizerListening(!"OFF".equalsIgnoreCase(preferences.optString("visualizer", "OFF")));
                 }
                 copyMixState(snapshot, container);
+                copyBestPart(snapshot, container, requestedSongId, preferences);
                 copyVisualizer(snapshot);
                 Object stateFlow = invokeNoArgs(container, "getNerdStats");
                 Object stats = invokeNoArgs(stateFlow, "getValue");
@@ -896,6 +897,35 @@ public final class PrismMediaBridge {
         }
         visualizerSpectrum = null;
         visualizerLastFrame = 0L;
+    }
+
+    /**
+     * Export Prism's actual BestParts.Current marker in the same shifted playback timeline
+     * used by its scrubber. Never guess a chorus or derive a marker from duration.
+     */
+    private static void copyBestPart(JSONObject target, Object container,
+            String requestedSongId, JSONObject preferences) {
+        try {
+            if (target == null || container == null || requestedSongId == null
+                    || requestedSongId.isEmpty() || preferences == null
+                    || !preferences.optBoolean("bestPartButton", true)) return;
+            Object bestParts = property(container, "bestParts");
+            Object stateFlow = property(bestParts, "current");
+            Object current = property(stateFlow, "value");
+            if (current == null) return;
+            Object idValue = property(current, "songId");
+            if (idValue == null || !requestedSongId.equals(String.valueOf(idValue))) return;
+            Object startValue = property(current, "startMs");
+            if (!(startValue instanceof Number)) return;
+            Object player = invokeNoArgs(container, "getPlayer");
+            Object shiftFlow = property(player, "lyricShift");
+            Object shiftValue = property(shiftFlow, "value");
+            long startMs = ((Number) startValue).longValue();
+            long shiftMs = shiftValue instanceof Number ? ((Number) shiftValue).longValue() : 0L;
+            if (startMs >= 0L) target.put("bestPartStartMs", Math.max(0L, startMs - shiftMs));
+        } catch (Throwable ignored) {
+            // Best Part data is optional and must never interfere with metadata or lyrics.
+        }
     }
 
     /** The real MixState is exported; no crossfade position is estimated from duration or mixSeconds. */
