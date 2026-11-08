@@ -161,6 +161,10 @@ final class PrismPlayerPreferences {
         return hasDeckPart("VOLUME") && (!hideVolumeBar || "PRISM".equals(volumeControl));
     }
 
+    float volumeLevel(float phoneVolume) {
+        return "PRISM".equals(volumeControl) ? appVolume : clamp(phoneVolume, 0.0f, 1.0f);
+    }
+
     int titleFontWeight() {
         switch (titleWeight) {
             case "THIN": return 300;
