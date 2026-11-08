@@ -79,6 +79,8 @@ public final class PrismMediaBridgeClient {
         public boolean needsLyricsRefresh() {
             return "UNKNOWN".equals(lyricsStatus) || "LOADING".equals(lyricsStatus)
                     || "WAITING".equals(lyricsStatus) || "BRIDGE_UNAVAILABLE".equals(lyricsStatus)
+                    || "NO_LYRICS_STATE".equals(lyricsStatus)
+                    || "NO_LYRICS_SNAPSHOT".equals(lyricsStatus)
                     || lyricsExtrasPending;
         }
 
@@ -152,12 +154,12 @@ public final class PrismMediaBridgeClient {
             JSONObject data = new JSONObject(json);
             JSONObject prismLyrics = data.optJSONObject("prismLyrics");
             MediaLyrics lyrics = null;
-            String status = "UNKNOWN";
+            String status = lyricsStatus(data);
             String look = null;
             boolean extrasPending = false;
             JSONObject lyricLook = null;
             if (prismLyrics != null) {
-                status = prismLyrics.optString("status", "UNKNOWN");
+                status = lyricsStatus(data);
                 lyrics = MediaLyrics.fromPrismSnapshot(prismLyrics.optJSONObject("lyrics"));
                 lyricLook = prismLyrics.optJSONObject("look");
             }
@@ -179,6 +181,14 @@ public final class PrismMediaBridgeClient {
             // Distinguish a missing/denied provider route from a real Prism "no lyrics" result.
             return bridgeUnavailable("PROVIDER_QUERY_FAILED");
         }
+    }
+
+    /** Prefer Prism's own state status; retain bridge-registration diagnostics before state exists. */
+    static String lyricsStatus(JSONObject data) {
+        if (data == null) return "UNKNOWN";
+        JSONObject prismLyrics = data.optJSONObject("prismLyrics");
+        if (prismLyrics != null) return prismLyrics.optString("status", "UNKNOWN");
+        return data.optString("lyricsBridgeStatus", "UNKNOWN");
     }
 
     private static Snapshot bridgeUnavailable(String reason) {
