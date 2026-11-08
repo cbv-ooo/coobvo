@@ -11,7 +11,7 @@ Last updated: 2026-11-08
 ## Current debug install identity
 - Debug application ID: dev.android.dynamicisland.coobvo (release ID unchanged).
 - Stable debug-only signing key: app/coobvo-debug.keystore.
-- Current main version: code 127 / 0.1.25-dev1.
+- Current main version: code 128 / 0.1.26-dev1.
 - This is a separate package from the older dev.android.dynamicisland installation, deliberately avoiding the existing certificate mismatch. Disable the old LSPosed module and enable the new coobvo module for com.android.systemui before testing. Future debug builds must keep the same package ID/key and increment version code.
 
 ## Implemented on main
@@ -22,7 +22,7 @@ Last updated: 2026-11-08
 - Battery icons share BatteryGauge geometry and semantic charge tint across compact battery UI, notification glyphs and expanded battery/event cards.
 - Existing Material 3 Expressive work includes six motion tokens in graphics/Motion, opaque semantic colour roles in graphics/Colors, opaque surface-container cards, artwork-derived primary-container media controls, shared battery glyph rendering and a 32dp default expanded-card radius. Consolidation into a single expressive token source and complete compact glyph coverage remain unfinished.
 - Smart Island settings distinguish capabilities available in the Java runtime from features not yet ported. A new Java `TimerStopwatchParser` now classifies clock-app, timer, alarm and stopwatch notifications, extracts elapsed/remaining values and paused state, and feeds the existing `OaCardBuilder`/`TimerBody` path when a native Chronometer view is unavailable. The native Samsung Chronometer remains preferred. Navigation, richer live activities, notification cooldown/history, quick-launch shortcuts, idle widgets, network speed and diagnostics remain candidates.
-- LyricSync has a background provider cascade for Kugou KRC, Netease YRC and LRCLIB LRC/static text, shared line/word models, cache, a media-card lyric row and current timed-word highlighting where source word timings exist. SpicyLyrics requires an optional client key/Spotify track ID and is not yet connected. Provider matching and exact source parity still need work.
+- LyricSync has a background provider cascade for Kugou KRC, Netease YRC and LRCLIB LRC/static text, shared line/word models, cache, a media-card lyric row and current timed-word highlighting where source word timings exist. This pass also precomputes the normalized track key and caches ellipsized current/next line text on line changes, avoiding key normalization and prefix-string construction during drawing. SpicyLyrics requires an optional client key/Spotify track ID and is not yet connected. Provider matching and exact source parity still need work.
 - Lyrics lookup is opt-in and defaults off. The settings summary discloses that track title/artist are sent to external lyric providers. The runtime checks the hosting process's INTERNET permission before making requests.
 - The Smart Island and LyricSync archives were inspected directly; only Java behaviour/models are being ported into the existing Dynamic Island architecture.
 

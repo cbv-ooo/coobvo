@@ -63,8 +63,16 @@ public final class LyricsManager {
         NeteaseCandidate(long id,double score){this.id=id;this.score=score;}
     }
 
+    /** Normalized cache key computed once when a media body is constructed. */
+    public static String keyFor(String title,String artist) { return key(title,artist); }
+
     public static MediaLyrics get(String title,String artist) {
-        String key=key(title,artist);
+        return getByKey(key(title,artist));
+    }
+
+    /** Frame-loop-safe lookup: caller supplies the already normalized cache key. */
+    public static MediaLyrics getByKey(String key) {
+        if (key == null || key.isEmpty()) return null;
         synchronized(CACHE){
             Entry entry=CACHE.get(key);
             if(entry==null)return null;
@@ -74,7 +82,13 @@ public final class LyricsManager {
     }
 
     public static boolean isLoading(String title,String artist) {
-        synchronized(CACHE){return WAITERS.containsKey(key(title,artist));}
+        return isLoadingByKey(key(title,artist));
+    }
+
+    /** Frame-loop-safe loading check: no normalization or temporary key allocation. */
+    public static boolean isLoadingByKey(String key) {
+        if (key == null || key.isEmpty()) return false;
+        synchronized(CACHE){return WAITERS.containsKey(key);}
     }
 
     public static void request(Context context,String title,String artist,long durationMs,Runnable completed) {

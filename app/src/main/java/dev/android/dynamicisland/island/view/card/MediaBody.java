@@ -5,7 +5,6 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.SystemClock;
 import android.text.StaticLayout;
-import android.text.TextUtils;
 import android.text.TextPaint;
 import dev.android.dynamicisland.island.graphics.Colors;
 import dev.android.dynamicisland.island.graphics.Glyphs;
@@ -63,6 +62,15 @@ public final class MediaBody extends CardBody {
     /** Lyrics use dedicated paints so their sizes/alignments cannot mutate the shared title layouts. */
     private final TextPaint lyricsCurrentPaint;
     private final TextPaint lyricsNextPaint;
+    private final String lyricsTitle;
+    private final String lyricsArtist;
+    private final String lyricsKey;
+    /** Prepared text is rebuilt only when the track or current line changes, never per frame. */
+    private MediaLyrics cachedLyrics;
+    private int cachedLyricIndex = Integer.MIN_VALUE;
+    private String cachedCurrentLine;
+    private String cachedNextLine;
+    private boolean cachedCurrentLineFull;
     final float pad;
     final float seekTop;
     final float lyricsTop;
@@ -77,6 +85,9 @@ public final class MediaBody extends CardBody {
         super(owner, item, w);
         lyricsCurrentPaint = new TextPaint(owner.mediaTitlePaint());
         lyricsNextPaint = new TextPaint(owner.mediaArtistPaint());
+        lyricsTitle = item.title == null ? "" : item.title.toString();
+        lyricsArtist = item.subtitle == null ? "" : item.subtitle.toString();
+        lyricsKey = LyricsManager.keyFor(lyricsTitle, lyricsArtist);
         pad = owner.dp(18.0f);
         art = owner.dp(56.0f);
         tile = owner.dp(32.0f);
@@ -110,7 +121,7 @@ public final class MediaBody extends CardBody {
         }
         h = lyricsTop + (ModuleSettings.mediaLyricsEnabled() ? owner.dp(LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
         if (ModuleSettings.mediaLyricsEnabled() && item.title != null && item.subtitle != null) {
-            LyricsManager.request(owner.getContext(), item.title.toString(), item.subtitle.toString(),
+            LyricsManager.request(owner.getContext(), lyricsTitle, lyricsArtist,
                     item.mediaDuration, owner::postInvalidateOnAnimation);
         }
     }
@@ -180,9 +191,7 @@ public final class MediaBody extends CardBody {
 
     /** Current and next line of synced lyrics, using the playback clock shared with the seek row. */
     private void drawLyrics(Canvas canvas, float left, float top, float width, float alpha, long positionMs) {
-        String titleText = item.title == null ? "" : item.title.toString();
-        String artistText = item.subtitle == null ? "" : item.subtitle.toString();
-        MediaLyrics data = LyricsManager.get(titleText, artistText);
+        MediaLyrics data = LyricsManager.getByKey(lyricsKey);
         TextPaint current = lyricsCurrentPaint;
         TextPaint next = lyricsNextPaint;
         current.setTextSize(owner.dp(12.0f));
@@ -192,57 +201,74 @@ public final class MediaBody extends CardBody {
         Paint.FontMetrics fm = current.getFontMetrics();
         float baseline = top + owner.dp(5.0f) - fm.ascent;
         if (data == null || data.isEmpty()) {
-            String status = LyricsManager.isLoading(titleText, artistText)
+            String status = LyricsManager.isLoadingByKey(lyricsKey)
                     ? "Finding synced lyrics…" : "No synced lyrics found";
             current.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
-            canvas.drawText(TextUtils.ellipsize(status, current, width, TextUtils.TruncateAt.END).toString(),
-                    left, baseline, current);
+            canvas.drawText(status, left, baseline, current);
             return;
         }
+
         int index = data.currentIndex(Math.max(0L, positionMs));
+        if (data != cachedLyrics || index != cachedLyricIndex) {
+            cachedLyrics = data;
+            cachedLyricIndex = index;
+            cachedCurrentLine = null;
+            cachedNextLine = null;
+            cachedCurrentLineFull = false;
+            if (index >= 0) {
+                MediaLyrics.Line line = data.line(index);
+                String raw = line.text == null || line.text.isEmpty() ? "♪" : line.text;
+                cachedCurrentLine = fitLyricText(raw, current, width);
+                cachedCurrentLineFull = cachedCurrentLine.length() == raw.length();
+                if (index + 1 < data.size()) {
+                    String following = data.line(index + 1).text;
+                    cachedNextLine = fitLyricText(following == null || following.isEmpty() ? "♪" : following, next, width);
+                }
+            }
+        }
+
         if (index < 0) {
             current.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
             canvas.drawText("♪", left, baseline, current);
             return;
         }
-        MediaLyrics.Line line = data.line(index);
-        drawLyricLine(canvas, data, line, left, baseline, width, alpha, positionMs, true);
-        if (index + 1 < data.size()) {
+
+        current.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
+        canvas.drawText(cachedCurrentLine == null ? "♪" : cachedCurrentLine, left, baseline, current);
+        drawActiveLyricWord(canvas, data, data.line(index), left, baseline, width, alpha, positionMs);
+        if (cachedNextLine != null) {
             next.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.70f * alpha));
-            String following = data.line(index + 1).text;
-            if (following.isEmpty()) following = "♪";
-            canvas.drawText(TextUtils.ellipsize(following, next, width, TextUtils.TruncateAt.END).toString(),
-                    left, baseline + owner.dp(14.0f), next);
+            canvas.drawText(cachedNextLine, left, baseline + owner.dp(14.0f), next);
         }
     }
 
-    /** Draw the line in its quiet role, then highlight the currently timed word/syllable. */
-    private void drawLyricLine(Canvas canvas, MediaLyrics data, MediaLyrics.Line line,
-                               float left, float baseline, float width, float alpha,
-                               long positionMs, boolean highlight) {
-        TextPaint paint = lyricsCurrentPaint;
-        String text = line.text == null || line.text.isEmpty() ? "♪" : line.text;
-        paint.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
-        String fitted = TextUtils.ellipsize(text, paint, width, TextUtils.TruncateAt.END).toString();
-        canvas.drawText(fitted, left, baseline, paint);
-        if (!highlight || fitted.length() != text.length() || line.words.isEmpty()) return;
+    /** Ellipsize once per line change, not on every animation frame. */
+    private static String fitLyricText(String text, TextPaint paint, float width) {
+        if (text == null || text.isEmpty() || paint.measureText(text) <= width) return text == null ? "" : text;
+        String ellipsis = "…";
+        float available = Math.max(0.0f, width - paint.measureText(ellipsis));
+        int end = text.length();
+        while (end > 0 && paint.measureText(text, 0, end) > available) end--;
+        return end <= 0 ? ellipsis : text.substring(0, end).trim() + ellipsis;
+    }
+
+    /** Highlights a timed word/syllable without allocating a prefix StringBuilder per frame. */
+    private void drawActiveLyricWord(Canvas canvas, MediaLyrics data, MediaLyrics.Line line,
+                                     float left, float baseline, float width, float alpha, long positionMs) {
+        if (!cachedCurrentLineFull || line.words.isEmpty()) return;
         int active = data.currentWordIndex(line, Math.max(0L, positionMs));
         if (active < 0 || active >= line.words.size()) return;
-        StringBuilder prefix = new StringBuilder();
-        for (int i = 0; i < active; i++) {
-            if (data.type() != MediaLyrics.Type.SYLLABLE && prefix.length() > 0) prefix.append(' ');
-            prefix.append(line.words.get(i).text);
-        }
-        if (data.type() != MediaLyrics.Type.SYLLABLE && prefix.length() > 0) prefix.append(' ');
+        TextPaint paint = lyricsCurrentPaint;
+        float prefixWidth = 0.0f;
+        for (int i = 0; i < active; i++) prefixWidth += paint.measureText(line.words.get(i).text);
         String word = line.words.get(active).text;
-        float wordX = left + paint.measureText(prefix.toString());
+        float wordX = left + prefixWidth;
         float wordWidth = paint.measureText(word);
-        if (wordWidth <= 0 || wordX + wordWidth > left + width) return;
+        if (wordWidth <= 0.0f || wordX + wordWidth > left + width) return;
         paint.setColor(Colors.withAlpha(Colors.ON_SURFACE, alpha));
         canvas.drawText(word, wordX, baseline, paint);
     }
 
-    /** The glow, stretched to the card's current shape so it always fills the card edge to edge. */
     @Override public MediaFx materialMusic() { return owner.mediaFx(item); }
 
     @Override
