@@ -148,6 +148,8 @@ public final class ModuleSettings {
     public static final int DEFAULT_GLOW_STRENGTH = 45;
     public static final int DEFAULT_GLOW_MOTION = 50;
     public static final String KEY_ALL_NOTIFICATIONS = "all_notifications_island";
+    /** Rate-limits ordinary notification cards by package; Android notifications themselves are untouched. */
+    public static final String KEY_NOTIFICATION_COOLDOWN = "notification_cooldown";
     public static final String KEY_PROGRESS_NOTIFICATIONS = "progress_notifications";
     public static final String KEY_HIDE_PROGRESS_ORIGINALS = "hide_progress_originals";
     /** Cards for staged processes (delivery, taxi, route, connection) found by the rules. */
@@ -225,6 +227,7 @@ public final class ModuleSettings {
     private static volatile boolean swipeDownOpens = true;
     private static volatile boolean headsUpIsland = true;
     private static volatile boolean allNotifications;
+    private static volatile boolean notificationCooldown;
     private static volatile boolean foregroundNotifications;
     private static volatile boolean autoOpenCards;
     private static volatile int autoOpenS = 4;
@@ -655,6 +658,7 @@ public final class ModuleSettings {
             headsUpIsland = source.getBoolean(KEY_HEADS_UP_ISLAND, true);
             progressNotifications = source.getBoolean(KEY_PROGRESS_NOTIFICATIONS, true);
             allNotifications = source.getBoolean(KEY_ALL_NOTIFICATIONS, false);
+            notificationCooldown = source.getBoolean(KEY_NOTIFICATION_COOLDOWN, false);
             hideProgressOriginals = source.getBoolean(KEY_HIDE_PROGRESS_ORIGINALS, true);
             smartRules = source.getBoolean(KEY_SMART_RULES, true);
             int sizeBefore = pillHPct * 1_000_000 + pillMinWDp * 1000 + pillMaxWDp + (keepPillWidth ? 1 : 0) * 100_000_000;
@@ -732,6 +736,8 @@ public final class ModuleSettings {
         }
     }
 
+    /** Limits only ordinary island notification cards; calls, OTPs, media, progress and system notifications stay native. */
+    public static boolean notificationCooldown() { ensureStarted(); return notificationCooldown; }
     public static boolean foregroundNotifications() { return foregroundNotifications; }
     public static final String KEY_AUTO_OPEN_S = "auto_open_s";
     public static long autoOpenMs() { return autoOpenS * 1000L; }
@@ -893,7 +899,7 @@ public final class ModuleSettings {
 
     private static String switchSignature() {
         return "" + ambientGlow + glowAlbum + glowFollowTheme + glowStrength + "/motion=" + glowMotion + "/musicOnly=" + glowMusicOnly + "/" + glowColour + lowPerformance + "/light=" + stillMusic + staticWaveform + limitFrameRate + stillIcons + foregroundNotifications + autoOpenCards + autoOpenS + experimentalRecovery + compactEventIcons + hideBatteryIcon + accentCustom + accentColor + "/system=" + accentSystem + systemAccent + eventCharging + eventRinger + eventBluetooth + eventToggles + torchPill + "/torchStyle=" + torchStyle + headsUpIsland + allNotifications + progressNotifications + hideProgressOriginals
-                + smartRules + privacyIndicator + privacyLocation + privacyInApp + otpCard + otpAutoCopy + thirdPartyCalls + visualizer + colorIcons + shadeMedia + cardHeader
+                + notificationCooldown + smartRules + privacyIndicator + privacyLocation + privacyInApp + otpCard + otpAutoCopy + thirdPartyCalls + visualizer + colorIcons + shadeMedia + cardHeader
                 + "/devices=" + chargingInfo + "/" + chargingStats + "/" + eventHeadset + "/" + headsetStay + "/hotspot=" + hotspotCard + "/unlock=" + unlockNotice + "/peekProgress=" + peekProgress + "/progressForeground=" + progressForeground + "/progressAny=" + progressAny + "/stockCharging=" + stockChargingAnimation + "/recordingInput=" + concurrentRecordingInput
                 + "/alwaysVisible=" + alwaysVisible + "/notch=" + notchStyle + "/popup=" + popupSeconds + "/chargingText=" + chargingText + "/swipeUpHides=" + swipeUpHides + "/swipeDownOpens=" + swipeDownOpens + "/iMotion=" + iMode + "/material=" + materialStyle + "/roundness=" + customCardRoundness + "/" + cardCornerRadiusDp + "/outline=" + pillOutlineMode + "/blur=" + transitionBlurMode + "/" + appFilter.onlyListed() + appFilter.size();
     }

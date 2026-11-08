@@ -50,6 +50,8 @@
     <string name="setting_progress_foreground_desc">Also show downloads and transfers of the app that is open.</string>
     <string name="setting_progress_any">Progress of ordinary notifications</string>
     <string name="setting_progress_any_desc">Also for ordinary notifications that have a progress bar.</string>
+    <string name="notification_cooldown_title">Notification cooldown &amp; anti-spam</string>
+    <string name="notification_cooldown_desc">After 3 ordinary messages from one app within 30 seconds, coobvo pauses further cards from that app for 3 minutes and then shows its latest still-active message. This affects island cards only; Android notifications and sounds are unchanged. Calls, verification codes, timers, media, navigation and recognized transfer apps stay exempt.</string>
     <string name="setting_heads_up">Notifications in the island</string>
     <string name="setting_all_notifications">All notifications in the island</string>
     <string name="setting_all_notifications_desc">Every new notification gets an island card, also the quiet ones that would not pop up as a banner. Ongoing, call and alarm notifications and the app you are in are left out. Experimental: it may not work on every phone or for every app.</string>

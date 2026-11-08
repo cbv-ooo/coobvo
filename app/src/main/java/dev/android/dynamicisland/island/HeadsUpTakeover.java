@@ -3,6 +3,7 @@ package dev.android.dynamicisland.island;
 import android.app.Notification;
 import android.os.SystemClock;
 import android.service.notification.StatusBarNotification;
+import dev.android.dynamicisland.island.detect.NotificationText;
 import dev.android.dynamicisland.island.detect.OtpDetector;
 import dev.android.dynamicisland.island.model.IslandItem;
 import dev.android.dynamicisland.island.source.PeekSource;
@@ -45,6 +46,9 @@ final class HeadsUpTakeover {
     private final IslandPlacement placement;
     /** Rebuilds the island list immediately (a card is a source item). */
     private final Runnable refreshNow;
+    private final NotificationCooldownManager<StatusBarNotification> notificationCooldown =
+            new NotificationCooldownManager<>();
+    private final Map<String, Runnable> cooldownDeliveries = new HashMap<>();
 
     /** Notification key to post time of the posting that already got a card. */
     private final Map<String, Long> peeked = new HashMap<>();
@@ -120,6 +124,10 @@ final class HeadsUpTakeover {
                 reject("banner of " + sbn.getPackageName() + ": " + (view.isExpanded() ? "a card is open" : "the notification settings are off"));
                 return false;
             }
+            if (throttleOrdinaryNotification(sbn)) {
+                reject("banner of " + sbn.getPackageName() + ": notification cooldown");
+                return false; // leave Android's own banner/sound behavior unchanged
+            }
             IslandItem message = sources.peeks.buildMessage(sbn);
             boolean taken = message != null && show(sbn, message);
             note("banner of " + sbn.getPackageName() + (taken ? " taken by the island" : " left to the stock banner: no card could be built or opened"));
@@ -153,6 +161,9 @@ final class HeadsUpTakeover {
                     && (foregroundBlocked(sbn) || !PeekSource.preferred(sbn, snapshot)))) {
                 continue;
             }
+            if (throttleOrdinaryNotification(sbn)) {
+                continue;
+            }
             if (newest == null || sbn.getPostTime() >= newest.getPostTime()) {
                 newest = sbn;
             }
@@ -173,6 +184,108 @@ final class HeadsUpTakeover {
             } else {
                 reject("all notifications: the island could not open");
             }
+        }
+    }
+
+    /**
+     * Applies Smart Island's per-package burst rule only to ordinary message cards. The third alert
+     * inside the 30-second window is allowed and starts the quiet interval for subsequent alerts.
+     */
+    private boolean throttleOrdinaryNotification(StatusBarNotification sbn) {
+        if (!ModuleSettings.notificationCooldown() || sbn == null || isTransferExempt(sbn)) return false;
+        long now = SystemClock.elapsedRealtime();
+        boolean throttled = notificationCooldown.shouldThrottle(
+                sbn.getPackageName(), sbn.getKey() + "@" + sbn.getPostTime(), sbn,
+                3, 3, now);
+        if (throttled) scheduleCooldownDelivery(sbn.getPackageName());
+        return throttled;
+    }
+
+    private static boolean isTransferExempt(StatusBarNotification sbn) {
+        String pkg = sbn.getPackageName();
+        Notification notification = sbn.getNotification();
+        if (notification == null) return false;
+        if (Notification.CATEGORY_PROGRESS.equals(notification.category)
+                || notification.extras != null && notification.extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) > 0) {
+            return true;
+        }
+        String lower = NotificationText.joined(notification).toLowerCase(java.util.Locale.ROOT);
+        String[] exemptPackages = {
+                "com.deniscerri.ytdl", "com.deniscerri.ytdlnis", "com.dv.adm", "com.dv.adm.pay",
+                "idm.internet.download.manager", "idm.internet.download.manager.plus",
+                "com.tachibana.downloader", "org.proninyaroslav.libretorrent",
+                "com.android.providers.downloads", "com.android.providers.downloads.ui",
+                "com.delphicoder.flud", "com.delphicoder.flud.paid", "com.bittorrent.client",
+                "com.utorrent.client", "com.vuze.torrent.downloader", "com.xunlei.downloadprovider",
+                "com.dv.get", "com.google.android.apps.photos", "com.google.android.apps.docs",
+                "com.dropbox.android", "com.microsoft.skydrive", "com.nextcloud.client",
+                "com.owncloud.android", "mega.privacy.android.app", "com.box.android",
+                "com.pcloud.pcloud", "com.samsung.android.scloud", "me.proton.android.drive",
+                "com.syncthing.android", "com.nutomic.syncthingandroid", "org.nextcloud.client",
+                "com.google.android.documentsui", "com.android.documentsui",
+                "com.google.android.apps.nbu.files", "com.sec.android.app.myfiles",
+                "com.android.vending", "com.sec.android.app.samsungapps", "org.fdroid.fdroid",
+                "com.aurora.store", "com.xiaomi.mipicks", "com.heytap.market", "com.vivo.appstore",
+                "com.huawei.appmarket"
+        };
+        for (String exempt : exemptPackages) {
+            if (exempt.equals(pkg)) return true;
+        }
+        boolean browser = pkg.startsWith("com.android.chrome") || pkg.startsWith("com.chrome.")
+                || pkg.startsWith("org.chromium.") || pkg.equals("com.brave.browser")
+                || pkg.equals("com.microsoft.emmx") || pkg.startsWith("com.opera.")
+                || pkg.equals("com.vivaldi.browser") || pkg.equals("com.sec.android.app.sbrowser")
+                || pkg.equals("com.yandex.browser") || pkg.equals("org.mozilla.firefox");
+        return browser && containsAny(lower, "complete", "finished", "downloaded", "uploaded", "saved", "done",
+                "descarga completa", "descarga completada", "download concluído", "download concluido",
+                "téléchargement terminé", "download abgeschlossen", "download completato",
+                "indirme tamamlandı", "unduhan selesai", "загрузка завершена", "скачивание завершено",
+                "下载完成", "下載完成", "上传完成", "上傳完成", "ダウンロード完了", "다운로드 완료");
+    }
+
+    private static boolean containsAny(String text, String... words) {
+        for (String word : words) if (text.contains(word)) return true;
+        return false;
+    }
+
+    private void scheduleCooldownDelivery(String packageName) {
+        if (packageName == null || cooldownDeliveries.containsKey(packageName)) return;
+        IslandView view = placement.view();
+        if (view == null) return;
+        long delay = Math.max(250L,
+                notificationCooldown.remainingMillis(packageName, SystemClock.elapsedRealtime()) + 100L);
+        Runnable task = () -> {
+            cooldownDeliveries.remove(packageName);
+            deliverBufferedNotification(packageName);
+        };
+        cooldownDeliveries.put(packageName, task);
+        view.postDelayed(task, delay);
+    }
+
+    private void deliverBufferedNotification(String packageName) {
+        StatusBarNotification queued = notificationCooldown.pollBufferedNotification(
+                packageName, SystemClock.elapsedRealtime());
+        if (queued == null || !ModuleSettings.notificationCooldown()
+                || !(ModuleSettings.headsUpIsland() || ModuleSettings.allNotifications())
+                || !ModuleSettings.appAllowed(packageName) || !PeekSource.eligible(queued)
+                || alreadyHadCard(queued) || recentlyShown(queued)) return;
+
+        boolean stillActive = false;
+        for (StatusBarNotification current : snapshot) {
+            if (current != null && queued.getKey().equals(current.getKey())
+                    && queued.getPostTime() == current.getPostTime()) {
+                stillActive = true;
+                break;
+            }
+        }
+        if (!stillActive || (!ModuleSettings.experimentalRecovery()
+                && (foregroundBlocked(queued) || !PeekSource.preferred(queued, snapshot)))) return;
+        IslandView view = placement.view();
+        if (view == null || !placement.ready()
+                || (ModuleSettings.experimentalRecovery() ? view.isSuppressedNow() : !view.canPeek())) return;
+        IslandItem item = sources.peeks.buildMessage(queued);
+        if (item != null && show(queued, item)) {
+            note("latest notification from " + packageName + " shown after cooldown");
         }
     }
 

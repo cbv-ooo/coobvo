@@ -374,7 +374,7 @@ public final class SettingsActivity extends Activity {
         ui.linkRow(links, getString(R.string.hub_events), getString(R.string.hub_events_sum), () -> open(this::eventsPage));
         ui.linkRow(links, "Dynamic App Settings", "Per-app include and exclude lists", () -> open(this::appsPage));
         ui.linkRow(links, getString(R.string.rules_title), getString(R.string.hub_rules_sum), () -> open(rules::advancedPage));
-        ui.note(page, "Still to port: notification history, rotating idle widgets and dedicated quick-launch controls. These are not marked as completed.");
+        ui.note(page, "Still to port: notification history, rotating idle widgets and dedicated quick-launch controls. Notification cooldown is now available for ordinary island cards; system-event cooldown is still pending.");
     }
 
     /** Documents the shared M3 Expressive treatment now used by the Canvas island. */
@@ -562,6 +562,8 @@ public final class SettingsActivity extends Activity {
                 selected -> prefs.edit().putBoolean(ModuleSettings.KEY_HEADS_UP_ISLAND, selected > 0)
                         .putBoolean(ModuleSettings.KEY_ALL_NOTIFICATIONS, selected == 2).apply());
         Switch foreground = toggle(banners, R.string.foreground_notifications, R.string.foreground_notifications_desc, ModuleSettings.KEY_FOREGROUND_NOTIFICATIONS, false);
+        toggle(banners, R.string.notification_cooldown_title, R.string.notification_cooldown_desc,
+                ModuleSettings.KEY_NOTIFICATION_COOLDOWN, false);
         toggle(banners, R.string.setting_peek_progress, R.string.setting_peek_progress_desc, ModuleSettings.KEY_PEEK_PROGRESS, false);
         OneUi.setDependentsEnabled(mode > 0 || flag(ModuleSettings.KEY_OTP_CARD, true), OneUi.rowOf(foreground));
         ui.linkRow(banners, getString(R.string.apps_title), appsSummary(), () -> open(this::appsPage));

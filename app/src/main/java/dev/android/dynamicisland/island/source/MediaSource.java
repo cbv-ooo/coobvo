@@ -563,6 +563,7 @@ public final class MediaSource {
                 prismLyrics = null;
                 prismLyricsStatus = "UNKNOWN";
                 prismLyricsLook = null;
+                prismRefreshScheduled = false;
                 prismInfoUpdatedAt = 0L;
             }
             it.mediaInfo = prismInfo;
