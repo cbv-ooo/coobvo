@@ -86,7 +86,10 @@ These results prove that the app source compiles, the selected unit tests pass, 
 - Latest Prism-specific fix: commit [`b331a0598b45424bff47406ff03d5f5f7d6ce191`](https://github.com/cbv-ooo/coobvo/commit/b331a0598b45424bff47406ff03d5f5f7d6ce191).
 - Status resolution now keeps an empty-but-pending Prism `Lyrics` object in `LOADING`, `WAITING` or `UNKNOWN`, rather than prematurely reporting `UNAVAILABLE`. A non-empty lyric list remains `AVAILABLE` immediately; an empty result is terminal only after Prism reports `settled` or `unavailable`.
 - This keeps the existing consumer refresh path active for pending states. It does not establish that every Morphe fingerprint matched or that the provider query and lyrics render work on the owner's phone.
-- The code change is committed; a passing build for this new revision and exact-APK/device runtime verification must be recorded separately. Do not treat the earlier v0.1.2 run as proof for v0.1.3.
+- The 0.1.3 extension now also reads Prism's own `SongWaves.get(songId)` result from the app container and exports its 100 normalized scan points as `songWaveform` when a scan exists. The System UI client accepts only a complete 100-point array; the WAVE island renderer draws played/unplayed bars and falls back to Prism's plain progress line for unscanned songs.
+- The island now consumes Prism's exported elapsed/remaining time mode and full-track-length toggle, title alignment/size/weight, cover corner/full-width-cover settings, scrubber style/thickness/color/thumb, and the scanned WAVE data. This is a partial match to Prism's expanded page, not a 1:1 page clone: RIBBONS animation, spectrum gradient shader, all cover shapes, marquee scrolling, full player layouts/decks/buttons, crossfade shaping, volume bar and animated cover still need work.
+- A provider query that returns no row, an empty snapshot or throws is now surfaced as `BRIDGE_UNAVAILABLE`, displayed as “Prism bridge not connected”, and retried. This separates provider connectivity failure from Prism returning a real empty/unavailable lyrics result.
+- The code change is committed; a passing build for the new app/bridge source and exact-APK/device runtime verification must be recorded separately. Do not treat earlier v0.1.2 runs as proof for v0.1.3.
 
 ## Still required
 
@@ -133,9 +136,9 @@ Owner-provided requirements recorded on 2026-11-08. This is a requirements and i
 |---|---|
 | Expanded-card layout; player contents; content under title; button row | Player layout/deck/button/hidden-part settings are exported. The island still uses its own fixed Canvas card structure; these settings are not yet a complete layout adaptation. |
 | Player background and button appearance | Background and player control settings are exported in part. Prism's full player appearance is not reproduced in the island. |
-| Progress-bar color, playhead knob, crossfade overlay and volume bar | Not established as fully exported or rendered by the current bridge/card. Audit the exact Prism setting/property sources before adding mappings; do not guess property names. |
-| Cover corners, edge-to-edge cover, animated cover and fill-player behavior | Cover-corner preference is exported, but the island's cover treatment is still its own card presentation. Edge-to-edge/fill behavior and Prism's animated-cover experience are not implemented as equivalent island features. |
-| Title size, weight and scrolling; artist name; times under progress; visualizer | Several title/time/visualizer settings are exported. The expanded island does not yet consume all of them, and it does not currently reproduce Prism's full visualizer/player page. |
+| Progress-bar style/color, playhead knob and scanned waveform | Prism's scrubber style, color, thickness and thumb are exported and consumed; the scanned 100-point WAVE outline is now exported and rendered when present, with a plain-line fallback for unscanned tracks. Spectrum/Cover colors are still approximations, and Prism's RIBBONS animation, crossfade-shaped progress and volume bar are not yet reproduced. |
+| Cover corners, edge-to-edge cover, animated cover and fill-player behavior | Player corner radius, cover shape and FULL-width cover setting are consumed by the island. The circle/square/rounded equivalents map; Prism's other custom shapes, animated cover and full-bleed page fill are not reproduced. |
+| Title size, weight and alignment; scrolling; artist name; times under progress; visualizer | Title size/weight/alignment and Prism's time/remaining-time selection are consumed. Title marquee scrolling and the full player visualizer/page are not yet reproduced; Prism's visualizer data remains available through the existing snapshot. |
 
 ### Required implementation order and acceptance criteria
 
