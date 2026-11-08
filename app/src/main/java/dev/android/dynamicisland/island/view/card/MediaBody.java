@@ -875,27 +875,37 @@ public final class MediaBody extends CardBody {
             c.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
         }
 
-        if (prismSession && prismPlayer.showsPart("CROSSFADE_MARK")
-                && item.mediaDuration > 0 && trackWidth > 0.0f
-                && item.mediaCrossfadeStartMs >= 0L && item.mediaCrossfadeLengthMs > 0L) {
+        if (prismSession && item.mediaDuration > 0 && trackWidth > 0.0f
+                && item.mediaCrossfadeStartMs >= 0L && item.mediaCrossfadeLengthMs > 0L
+                && prismPlayer.showsPart("CROSSFADE_MARK")) {
             float crossfadeStart = IslandView.clamp01(
                     (float) item.mediaCrossfadeStartMs / (float) item.mediaDuration);
             float crossfadeEnd = IslandView.clamp01(
                     (float) (item.mediaCrossfadeStartMs + item.mediaCrossfadeLengthMs) / (float) item.mediaDuration);
             float markX = trackLeft + trackWidth * crossfadeStart;
+            float progress = IslandView.clamp01(item.mediaCrossfadeProgress);
+            float blendX = trackLeft + trackWidth
+                    * crossfadeProgressFraction(item.mediaCrossfadeStartMs,
+                            item.mediaCrossfadeLengthMs, progress, item.mediaDuration);
             if (prismPlayer.crossfadeShape && crossfadeEnd > crossfadeStart) {
-                glowRect.set(markX, centerY - Math.max(owner.dp(4.0f), radius * 2.0f),
-                        trackLeft + trackWidth * crossfadeEnd,
-                        centerY + Math.max(owner.dp(4.0f), radius * 2.0f));
+                float halfHeight = Math.max(owner.dp(4.0f), radius * 2.0f);
                 int nextColor = item.accent != 0 && item.accent != -1 ? item.accent : Colors.WHITE;
                 glowPaint.setStyle(Paint.Style.FILL);
+                glowRect.set(markX, centerY - halfHeight,
+                        trackLeft + trackWidth * crossfadeEnd, centerY + halfHeight);
                 glowPaint.setShader(new LinearGradient(glowRect.left, centerY, glowRect.right, centerY,
-                        new int[]{Colors.withAlpha(activeColor, alpha * 0.14f),
-                                Colors.withAlpha(nextColor, alpha * 0.5f),
-                                Colors.withAlpha(activeColor, alpha * 0.14f)},
+                        new int[]{Colors.withAlpha(activeColor, alpha * 0.12f),
+                                Colors.withAlpha(nextColor, alpha * 0.36f),
+                                Colors.withAlpha(activeColor, alpha * 0.12f)},
                         null, Shader.TileMode.CLAMP));
                 c.drawRoundRect(glowRect, radius, radius, glowPaint);
                 glowPaint.setShader(null);
+                // Fill only the completed part of the crossfade window; the rest remains a quiet preview.
+                if (progress > 0.0f && blendX > markX) {
+                    glowRect.right = Math.min(glowRect.right, blendX);
+                    glowPaint.setColor(Colors.withAlpha(nextColor, alpha * 0.34f));
+                    c.drawRoundRect(glowRect, radius, radius, glowPaint);
+                }
             }
             if (prismPlayer.crossfadeMark) {
                 glowPaint.setStyle(Paint.Style.STROKE);
@@ -904,6 +914,26 @@ public final class MediaBody extends CardBody {
                 c.drawLine(markX, centerY - owner.dp(5.0f), markX, centerY + owner.dp(5.0f), glowPaint);
                 glowPaint.setStyle(Paint.Style.FILL);
             }
+            if (progress > 0.0f && progress < 1.0f && blendX > markX) {
+                glowPaint.setStyle(Paint.Style.STROKE);
+                glowPaint.setStrokeWidth(owner.dp(2.0f));
+                glowPaint.setColor(Colors.withAlpha(nextMarkerColor(item), alpha));
+                c.drawLine(blendX, centerY - owner.dp(7.0f), blendX, centerY + owner.dp(7.0f), glowPaint);
+                glowPaint.setStyle(Paint.Style.FILL);
+            }
+        }
+
+        if (prismSession && prismPlayer.showsPart("BEST_PART")
+                && item.mediaDuration > 0 && trackWidth > 0.0f
+                && item.mediaBestPartStartMs > 0L && item.mediaBestPartStartMs < item.mediaDuration) {
+            float bestFraction = IslandView.clamp01(
+                    (float) item.mediaBestPartStartMs / (float) item.mediaDuration);
+            float bestX = trackLeft + trackWidth * bestFraction;
+            glowPaint.setStyle(Paint.Style.STROKE);
+            glowPaint.setStrokeWidth(owner.dp(2.0f));
+            glowPaint.setColor(Colors.withAlpha(0xFFFFC65C, alpha * 0.96f));
+            c.drawLine(bestX, centerY - owner.dp(7.0f), bestX, centerY + owner.dp(7.0f), glowPaint);
+            glowPaint.setStyle(Paint.Style.FILL);
         }
 
         String thumb = prismSession ? prismPlayer.effectiveThumb() : "DOT";
@@ -933,6 +963,18 @@ public final class MediaBody extends CardBody {
                 c.drawCircle(head, centerY, thumbRadius, glowPaint);
             }
         }
+    }
+
+    /** Current point within Prism's actual crossfade window (not an estimate from track duration). */
+    static float crossfadeProgressFraction(long startMs, long lengthMs, float progress, long durationMs) {
+        if (startMs < 0L || lengthMs <= 0L || durationMs <= 0L) return 0.0f;
+        float start = IslandView.clamp01((float) startMs / (float) durationMs);
+        float end = IslandView.clamp01((float) (startMs + lengthMs) / (float) durationMs);
+        return start + (end - start) * IslandView.clamp01(progress);
+    }
+
+    private static int nextMarkerColor(IslandItem item) {
+        return item.accent != 0 && item.accent != -1 ? item.accent : Colors.WHITE;
     }
 
     /** Keep every non-Prism player on its original island seek-bar appearance. */
