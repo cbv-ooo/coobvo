@@ -120,6 +120,7 @@ public final class PrismMediaBridge {
                             "videoResolution", "videoCodec", "droppedFrames", "underruns");
                 }
                 copyPlayerState(snapshot, container);
+                copySongWaveform(snapshot, container, requestedSongId);
             }
 
             JSONObject lyrics = null;
@@ -570,6 +571,31 @@ public final class PrismMediaBridge {
             } catch (Throwable ignored) {
                 // Optional across Prism versions; unknown fields are simply omitted.
             }
+        }
+    }
+
+    /**
+     * Reads Prism's own scanned song waveform. SongWaves stores 100 normalized loudness points
+     * locally; its get() reads a tiny file and this provider query is performed off System UI's
+     * main thread by the bridge client.
+     */
+    private static void copySongWaveform(JSONObject target, Object container, String songId) {
+        if (target == null || container == null || songId == null || songId.isEmpty()) return;
+        try {
+            Object waves = property(container, "waves");
+            Object result = invokeOneArg(waves, "get", songId);
+            if (!(result instanceof float[])) return;
+            float[] values = (float[]) result;
+            if (values.length != 100) return;
+            JSONArray waveform = new JSONArray();
+            for (float value : values) {
+                float safe = Float.isNaN(value) || Float.isInfinite(value)
+                        ? 0.0f : Math.max(0.0f, Math.min(1.0f, value));
+                waveform.put(safe);
+            }
+            target.put("songWaveform", waveform);
+        } catch (Throwable ignored) {
+            // Waveform scans are optional; a song without scan data keeps Prism's plain progress line.
         }
     }
 
