@@ -211,23 +211,22 @@ final class PrismPlayerPreferences {
     }
 
     /**
-     * Returns Prism's visible player rows in the exact user-selected order.
-     * VOLUME has the additional Prism/phone visibility rule; unknown future rows
-     * are ignored rather than being assigned an invented island layout.
+     * Returns the island's supported Prism rows.
+     *
+     * Lyrics are a first-class part of this expanded card and stay directly below the
+     * centered track header even when Prism's app-only deck order omits STRIP. Prism's
+     * volume row is intentionally not represented in Dynamic Island.
      */
     List<String> orderedDeckParts() {
-        ArrayList<String> ordered = new ArrayList<>(deckParts.size());
+        ArrayList<String> ordered = new ArrayList<>(deckParts.size() + 1);
+        if (showsPart("LYRIC_LINE")) ordered.add("STRIP");
         for (String part : deckParts) {
-            if (hiddenParts.contains(part)) continue;
+            if (hiddenParts.contains(part) || "STRIP".equals(part) || "VOLUME".equals(part)) continue;
             switch (part) {
-                case "STRIP":
                 case "SCRUBBER":
                 case "TRANSPORT":
                 case "BUTTONS":
                     ordered.add(part);
-                    break;
-                case "VOLUME":
-                    if (showVolumeBar()) ordered.add(part);
                     break;
                 default:
                     // Prism may add a deck row in a later release; do not guess its rendering.
