@@ -39,7 +39,7 @@ public class PrismMediaBridgeClientTest {
         assertNull(PrismMediaBridgeClient.ensureBridgeExtras(null, null));
     }
 
-    @Test public void readsOnlyCompleteNormalizedPrismSongWaveforms() {
+    @Test public void readsOnlyCompleteNormalizedPrismSongWaveforms() throws Exception {
         JSONArray json = new JSONArray();
         for (int i = 0; i < 100; i++) json.put(i / 99.0d);
         float[] values = PrismMediaBridgeClient.readWaveform(json);
