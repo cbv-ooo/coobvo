@@ -322,12 +322,33 @@ public final class PrismMediaBridge {
             };
             for (String field : lookFields) putProperty(result, field, look, field);
 
+            // Export the settings that control the player and its inline lyric strip. Values are
+            // read from Prism's live AppSettings snapshot, not defaults or a second settings store.
             String[] settingsFields = {
-                    "lyricsAlign", "lyricsStripAlign", "lyricsStripTwoLines",
-                    "romanize", "romanizeAll", "lyricsTranslate", "lyricsTranslateTo",
-                    "lyricsFont", "lyricsFontName", "fontChoice", "appFontName", "fontStamp", "textScale"
+                    "lyricsAlign", "lyricsStripAlign", "lyricsStripTwoLines", "lyricsOnPlayer",
+                    "lyricsSourceButton", "lyricsProgressLine", "lyricsScale", "lyricsBlur",
+                    "lyricsOrder", "lyricsOff", "lyricsOnMobileData", "lyricsTranslate",
+                    "lyricsTranslateTo", "lyricsFileWords", "lyricsFileTranslation",
+                    "romanize", "romanizeAll", "lyricsFont", "lyricsFontName",
+                    "playerLayout", "playerDeck", "playerButtons", "playerHiddenParts",
+                    "playerTitleAlign", "playerTitleSize", "playerTitleScroll", "playerTitleWeight",
+                    "playerTimes", "playerShuffleRepeat", "showPlayingFrom", "showQuality",
+                    "showOutputDevice", "showVideoSwitch", "showTrackLength",
+                    "playerBackground", "playerBackdropShow", "playerArtCorners", "playerBlur",
+                    "playerHandle", "playerNavBand", "visualizer", "visualizerColor",
+                    "miniPlayerStyle", "miniPlayerJoined", "miniProgress", "immersivePlayer",
+                    "immersiveArt", "immersiveLyrics", "immersiveControls", "showNerdStats",
+                    "lyricsSteady", "playerRemembersPage", "textScale", "fontChoice",
+                    "appFontName", "fontStamp"
             };
             for (String field : settingsFields) putProperty(result, field, settings, field);
+            Object behavior = property(settings, "behavior");
+            if (behavior != null) {
+                JSONObject behaviorValues = new JSONObject();
+                String[] behaviorFields = {"embeddedLyrics", "localMusic", "panelSwipes"};
+                for (String field : behaviorFields) putProperty(behaviorValues, field, behavior, field);
+                result.put("behavior", behaviorValues);
+            }
 
             // TextStyle.titleMedium inherits Prism's typography tracking. The expanded Canvas row
             // reads the same application-level letter-spacing preference directly.
@@ -356,8 +377,28 @@ public final class PrismMediaBridge {
 
     private static void putProperty(JSONObject target, String key, Object source, String property) throws Exception {
         Object value = property(source, property);
-        if (value instanceof Enum<?>) value = ((Enum<?>) value).name();
-        if (value != null) target.put(key, value);
+        if (value != null) target.put(key, jsonValue(value));
+    }
+
+    /** Convert Prism enums and ordered setting lists without leaking implementation objects. */
+    private static Object jsonValue(Object value) throws Exception {
+        if (value == null) return JSONObject.NULL;
+        if (value instanceof Enum<?>) return ((Enum<?>) value).name();
+        if (value instanceof Iterable<?>) {
+            JSONArray result = new JSONArray();
+            for (Object item : (Iterable<?>) value) result.put(jsonValue(item));
+            return result;
+        }
+        if (value instanceof Map<?, ?>) {
+            JSONObject result = new JSONObject();
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                if (entry.getKey() != null) result.put(String.valueOf(entry.getKey()), jsonValue(entry.getValue()));
+            }
+            return result;
+        }
+        if (value instanceof String || value instanceof Number || value instanceof Boolean
+                || value instanceof JSONObject || value instanceof JSONArray) return value;
+        return String.valueOf(value);
     }
 
     private static Object property(Object target, String name) throws Exception {
