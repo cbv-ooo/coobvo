@@ -736,16 +736,14 @@ public final class MediaBody extends CardBody {
         float lineY = y + pad + dy + ((textSlotHeight - textHeight) / 2.0f);
         if (title != null) {
             playerTitlePaint.setColor(Colors.withAlpha(
-                prismSession && "WHITE".equals(prismPlayer.background)
-                        ? Colors.BLACK : Colors.ON_SURFACE, alpha));
+                    prismSession ? Colors.WHITE : Colors.ON_SURFACE, alpha));
             drawPlayerTitle(c, textX, lineY, alpha);
             lineY += title.getHeight() + gap;
         }
         if (artist != null) {
             playerArtistPaint.setColor(Colors.withAlpha(
-                    prismSession && "WHITE".equals(prismPlayer.background)
-                            ? Colors.BLACK : Colors.ON_SURFACE_VARIANT,
-                    (prismSession && "WHITE".equals(prismPlayer.background) ? 0.72f : 0.55f) * alpha));
+                    prismSession ? Colors.WHITE : Colors.ON_SURFACE_VARIANT,
+                    (prismSession ? 0.68f : 0.55f) * alpha));
             IslandView.drawLayout(c, artist, textX, lineY);
             lineY += artist.getHeight() + gap;
         }
@@ -880,7 +878,7 @@ public final class MediaBody extends CardBody {
 
         if (prismSession && item.mediaDuration > 0 && trackWidth > 0.0f
                 && item.mediaCrossfadeStartMs >= 0L && item.mediaCrossfadeLengthMs > 0L
-                && prismPlayer.showsPart("CROSSFADE_MARK")) {
+                && (prismPlayer.showsPart("CROSSFADE_MARK") || prismPlayer.crossfadeShape)) {
             float crossfadeStart = IslandView.clamp01(
                     (float) item.mediaCrossfadeStartMs / (float) item.mediaDuration);
             float crossfadeEnd = IslandView.clamp01(
@@ -910,7 +908,7 @@ public final class MediaBody extends CardBody {
                     c.drawRoundRect(glowRect, radius, radius, glowPaint);
                 }
             }
-            if (prismPlayer.crossfadeMark) {
+            if (prismPlayer.crossfadeMark && prismPlayer.showsPart("CROSSFADE_MARK")) {
                 glowPaint.setStyle(Paint.Style.STROKE);
                 glowPaint.setStrokeWidth(owner.dp(1.5f));
                 glowPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha * 0.88f));
