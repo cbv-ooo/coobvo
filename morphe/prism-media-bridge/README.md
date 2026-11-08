@@ -23,7 +23,7 @@ The route returns a small JSON snapshot from Prism's in-memory state:
 
 The patch does not add another metadata scraper, lyric provider or network request. Prism remains the source of truth. Standard title, artist, album, artwork, duration, playback state and transport actions continue through Android's MediaSession.
 
-The current bridge does not yet export the final translated or romanized lines produced by Prism's Compose helpers, and coobvo does not yet reproduce every Prism lyric style/visual override. Unsynchronized/static lines are not assigned estimated timestamps.
+The current bridge does not yet export final translated or romanized lines produced by Prism's Compose helpers. Coobvo now maps a subset of Prism's appearance settings to Canvas (sung/non-sung colours, opacity, weight emphasis, size scale, uppercase, alignment and one/two-line strip choice), but does not reproduce every Prism style, animation, glow/shadow or background override. Unsynchronized/static lines are not assigned estimated timestamps.
 
 ## Build
 

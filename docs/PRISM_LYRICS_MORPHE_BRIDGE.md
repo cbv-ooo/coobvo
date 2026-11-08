@@ -49,7 +49,7 @@ No timestamp is synthesized. If Prism has only plain/unsynchronized lyrics, coob
 
 ## Not yet exported
 
-The actual rendered translation and romanized line arrays produced by Prism's Compose helpers are not yet included. The current snapshot contains Prism's translation/romanization preference flags and target setting, but not the resulting extra line text/timing. The Canvas renderer also does not yet map every exported LyricsLookPrefs option into Prism's exact visual appearance. These are follow-up tasks, not completed features.
+The actual rendered translation and romanized line arrays produced by Prism's Compose helpers are not yet included. The snapshot contains Prism's translation/romanization preference flags and target setting, but not the resulting extra line text/timing. Canvas now applies a subset of exported LyricsLookPrefs: sung/non-sung/custom colours, other-line opacity, weight emphasis, text size scale, uppercase, strip alignment and one/two-line selection. Full animations, glow/shadow, background modes and style-specific behaviour remain follow-up tasks.
 
 ## Coobvo consumer
 
@@ -65,7 +65,7 @@ It reads the local URI on a worker thread, caches the snapshot briefly, and pass
 
 For com.prism.music, the media card uses only this bridge snapshot. The independent LyricSync provider cascade is disabled for that session. Other media apps can continue using the separate opt-in LyricSync implementation.
 
-The Canvas card currently renders synchronized line/word data using coobvo's renderer. It does not yet implement a complete visual clone of Prism's six styles, colours, layout, translations or romanization. If the bridge is absent, no Prism lyrics are fabricated or independently fetched.
+The Canvas card renders synchronized line/word data and applies a subset of Prism's exported appearance preferences: sung/non-sung/custom colours, non-sung opacity, weight emphasis, text scale, uppercase, strip alignment and one/two-line selection. It does not clone Prism's full six styles, motion, glow/shadow, background modes, translations or romanization. If the bridge is absent, no Prism lyrics are fabricated or independently fetched.
 
 ## Build evidence
 
@@ -80,7 +80,7 @@ The Canvas card currently renders synchronized line/word data using coobvo's ren
 2. Install the patched Prism APK and coobvo debug APK together. Verify System UI-only access, current-song ID, queue changes, empty lyrics, no-lyrics and waiting/loading states.
 3. Verify seeking, pause/resume, track changes, word timings, background vocals, second-voice lines and gaps on the S10e.
 4. Decide whether Prism's rendered translation and romanized lines can be exported safely from the existing app model without invoking Compose UI cross-process.
-5. Map exported LyricsLookPrefs to coobvo's Canvas renderer, keeping the Java/System UI process free of Prism dependencies and Compose.
+5. Extend the partial LyricsLookPrefs mapping to remaining Canvas behaviour (motion, card/halo semantics, backing vocals and supported background choices), keeping the Java/System UI process free of Prism dependencies and Compose.
 6. Recheck fingerprints whenever the Prism target version changes.
 
 ## References

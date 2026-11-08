@@ -37,9 +37,10 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 
 - Debug application ID: dev.android.dynamicisland.coobvo (release ID unchanged).
 - Stable debug-only signing key: app/coobvo-debug.keystore.
-- Current main source version: code 136 / 0.1.34-dev1.
+- Current main source version: code 138 / 0.1.36-dev1.
 - Debug APK run #62 passed for commit 6ba861405271d4b6c5909f77aade4768267cc9b8, including the targeted NotificationCooldownManagerTest and APK artifact upload. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447577459/artifacts/13604291827).
-- Debug APK run #63 passed for documentation commit d5b2dedec1c3f87d7a0b4adfdd6a223b221b71bd; artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447644666/artifacts/13604103064). Run #64 is building the latest documentation update.
+- Debug APK run #63 passed after the Smart Island and Prism documentation update; artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447644666/artifacts/13604103064).
+- Debug APK run #67 passed for version 138 / 0.1.36-dev1, including app compilation, the cooldown unit test and APK upload; latest artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447914833/artifacts/13604711073).
 - The owner removed the older debug installation and is now using coobvo. Do not instruct them to inspect old package settings unless a duplicate returns.
 
 ## Source implementation notes
@@ -50,11 +51,11 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 - **Smart Island:** `TimerStopwatchParser` and `NavigationParser` are wired to `OaCardBuilder`. The ordinary notification burst cooldown is wired through `HeadsUpTakeover`, with an opt-in settings toggle, three-postings/30-second threshold, three-minute quiet period and latest-still-active buffered delivery. Targeted unit tests passed in Debug APK run #62. Notification history, idle widgets and quick-launch shortcuts remain pending.
 - **iMode:** expanded card bodies are drawn by the Canvas renderer; Director owns stepping. The current device appearance and animation have not been confirmed.
 - **LyricSync:** current Java path is a narrow three-provider implementation with line/word models, background lookup, cache and media-card rendering. It is not used for Prism sessions in the new source path.
-- **Prism media bridge:** the Morphe project builds and Morphe run #3 produced artifact `coobvo-prism-media-bridge-mpp`. The patch hooks Prism 1.8.2.1 / versionCode 58, exposes its in-memory stream/player diagnostics and snapshots its native LyricsState (source/status, exact line/word/background-word times, alignment/gap markers and resolved lyric-look preferences). Coobvo consumes the local snapshot only for Prism sessions; LyricSync's separate provider cascade is disabled for Prism. The bridge does not yet export Prism's rendered translated/romanized lines, and coobvo has not mapped all Prism look settings to Canvas. The bundle has not been applied to the exact Prism APK or device-tested.
+- **Prism media bridge:** the Morphe project builds and Morphe run #3 produced artifact `coobvo-prism-media-bridge-mpp`. The patch hooks Prism 1.8.2.1 / versionCode 58, exposes its in-memory stream/player diagnostics and snapshots its native LyricsState (source/status, exact line/word/background-word times, alignment/gap markers and resolved lyric-look preferences). Coobvo consumes the local snapshot only for Prism sessions; LyricSync's separate provider cascade is disabled for Prism. The bridge does not yet export Prism's rendered translated/romanized lines. Canvas now applies a subset of Prism's exported look settings: sung/non-sung/custom colours, other-line opacity, weight emphasis, text size scale, uppercase, strip alignment and one/two-line choice. Full motion, glow/shadow and every background/style behaviour remain unfinished. The bundle has not been applied to the exact Prism APK or device-tested.
 
 ## CI evidence
 
-- Debug APK runs #34–#63 passed their respective compilation/package steps; runs #62 and #63 also passed the focused notification-cooldown JVM unit test.
+- Debug APK runs #34–#67 passed their respective compilation/package steps; runs #62, #63, #65, #66 and #67 passed the focused notification-cooldown JVM unit test.
 - Run #41 passed for commit 67304af64dd1009c814771ce94e4c31c5d9f3d9f; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438321472/artifacts/13600168702). The redundant explicit iMode spring-step call was removed; Director.stepCards() is the single owner of iMode stepping.
 - Run #44 passed for commit 7798e2f9da1d72bec2f87b47e991fb808c251eff; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438606018/artifacts/13599659870).
 - Run #46 passed for commit 599a65094994025a2ff5fe2cb1237ed8472b5f6c; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438935285/artifacts/13600931647).
@@ -68,7 +69,8 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 - **Run #62 passed** for commit `6ba861405271d4b6c5909f77aade4768267cc9b8`, source version 136 / 0.1.34-dev1. The run compiled and packaged the app, ran `NotificationCooldownManagerTest` successfully, and uploaded [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447577459/artifacts/13604291827).
 - **Morphe Patch run #3 passed** and generated [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42446806609/artifacts/13603559103).
 - **Morphe Patch run #4 passed** and generated another [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42447644674/artifacts/13604825171). This verifies patch bundle generation, not application to the original Prism APK.
-- **Run #63 passed** for the documentation commit, including the targeted cooldown test and APK artifact upload. Run #64 is still building the latest documentation commit.
+- **Run #66 passed** for the first Prism Canvas look mapping revision (version 137 / 0.1.35-dev1), including the cooldown test and APK artifact upload: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447859677/artifacts/13603688819).
+- **Run #67 passed** for version 138 / 0.1.36-dev1, including corrected Prism strip defaults, real-word-timing-only highlighting, cooldown test and APK upload: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447914833/artifacts/13604711073).
 - CI proves compilation, APK packaging and artifact upload only. It does not verify bubble touch response, expanded notifications, iMode animation, battery presentation, M3E consistency, Smart Island behavior or lyrics timing on the S10e.
 
 ## Remaining work
