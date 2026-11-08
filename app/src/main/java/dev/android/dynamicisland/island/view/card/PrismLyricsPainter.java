@@ -121,35 +121,12 @@ final class PrismLyricsPainter {
         return age <= 0 ? 0.48f + 0.22f * clamp(transition, 0.0f, 1.0f) : 0.36f;
     }
 
+    /** Exactly three lyric baselines: two previous lines above the active line. */
     static float rowHeightDp(JSONObject look, MediaLyrics lyrics) {
-        if (look == null) {
-            // No preference snapshot: reserve two history rows, the active line and one preview
-            // row for synchronized lyrics using the default 20 dp baseline interval.
-            return lyrics != null && lyrics.type() != MediaLyrics.Type.STATIC
-                    ? 12.0f + (2.0f + 1.0f + 1.0f) * 20.0f
-                    : DEFAULT_ROW_DP;
-        }
-        int mainRows = look.optBoolean("lyricsStripTwoLines", false) ? 2 : 1;
-        int futureRows = aheadLineCount(look);
-        String romanize = romanizeMode(look);
-        int extraRows = "UNDER".equals(romanize) ? 1 : 0;
-        if (look.optBoolean("lyricsTranslate", false)) extraRows++;
-        boolean backing = false;
-        if (lyrics != null) {
-            for (int i = 0; i < lyrics.size(); i++) {
-                if (!lyrics.line(i).background.isEmpty()) { backing = true; break; }
-            }
-        }
-        float extraSize = clamp((float) look.optDouble("extraSize", 1.0d), 0.7f, 1.4f);
-        float backingSize = clamp((float) look.optDouble("backingSize", 0.6d), 0.4f, 0.9f);
-        int historyRows = lyrics != null && lyrics.type() != MediaLyrics.Type.STATIC ? 2 : 0;
         float lineStep = lineHeightDp(look);
-        float height = 12.0f + (mainRows + historyRows + futureRows) * lineStep
-                + extraRows * 10.0f * extraSize + (backing ? 10.0f * backingSize : 0.0f);
-        // LyricsPosition is designed for the full lyrics page. On the compact card it becomes a
-        // small vertical offset rather than an unbounded page-layout transformation.
-        height += 12.0f * clamp((float) look.optDouble("positionFraction", 0.0d), 0.0f, 0.42f);
-        return Math.max(DEFAULT_ROW_DP, height);
+        float positionOffset = look == null ? 0.0f
+                : 12.0f * clamp((float) look.optDouble("positionFraction", 0.0d), 0.0f, 0.42f);
+        return Math.max(DEFAULT_ROW_DP, 12.0f + 3.0f * lineStep + positionOffset);
     }
 
     static void draw(Canvas canvas, IslandView owner, MediaLyrics data, JSONObject look, State state,
@@ -225,182 +202,57 @@ final class PrismLyricsPainter {
         int motion = motion(look);
         int sungColor = lyricColor(look, "sungColor", "sungCustom", accent, Colors.WHITE);
         int otherColor = lyricColor(look, "otherColor", "otherCustom", accent, Colors.ON_SURFACE_VARIANT);
-        int extraColor = lyricColor(look, "extraColor", "otherCustom", accent, Colors.ON_SURFACE_VARIANT);
         float othersAlpha = clamp((float) look.optDouble("othersAlpha", 0.55d), 0.2f, 1.0f);
-        String translated = look.optBoolean("lyricsTranslate", false) ? line.translatedText : null;
-        if (translated != null && translated.trim().equalsIgnoreCase(line.text.trim())) translated = null;
-        String romanUnder = "UNDER".equals(mode) ? line.romanizedText : null;
-        boolean extraAbove = "ABOVE".equalsIgnoreCase(look.optString("extraPlace", "BELOW"));
-        float extraSize = clamp((float) look.optDouble("extraSize", 1.0d), 0.7f, 1.4f);
-        float extraStep = owner.dp(9.5f * extraSize);
-        int aboveCount = extraAbove ? count(romanUnder, translated) : 0;
-        // Reserve the same space Prism uses for ABOVE translations/romanization so they remain
-        // inside the lyric row instead of being clipped into the controls row above.
         float positionOffset = owner.dp(12.0f
                 * clamp((float) look.optDouble("positionFraction", 0.0d), 0.0f, 0.42f));
         float activeBaseline = top + positionOffset + owner.dp(4.0f) - fm.ascent
-                + (extraAbove ? extraStep * aboveCount : 0.0f)
                 + lineHeight * 2.0f;
         float slide = owner.dp(6.0f) * (1.0f - transition);
-        // Keep the two preceding sung lines above the active line. The newest history line
-        // moves up as the new active line fades/slides into place.
-        float blurDp = clamp((float) look.optDouble("blurAmount", 0.0d), 0.0f, 2.0f);
+
+        // Keep the two previous lines above the active line. The current line is always
+        // the bottom line so the strip never grows past three readable lyric lines.
         for (int i = Math.min(1, state.pastLines.size() - 1); i >= 0; i--) {
             String past = state.pastLines.get(i);
             if (past == null || past.trim().isEmpty()) continue;
             float pastBaseline = activeBaseline - lineHeight * (i + 1);
-            float fade = historyLineAlpha(i, transition);
             if (i == 0) pastBaseline -= slide * 0.55f;
+            float fade = historyLineAlpha(i, transition);
             Paint.Align pastAlign = align(look);
             mainPaint.setTextAlign(pastAlign);
-            mainPaint.setColor(Colors.withAlpha(otherColor, alpha * fade));
-            if (blurDp > 0.1f) {
-                mainPaint.setMaskFilter(new BlurMaskFilter(owner.dp(blurDp), BlurMaskFilter.Blur.NORMAL));
-            }
             String fittedPast = fitLine(past, mainPaint, width);
             drawPlain(canvas, mainPaint, fittedPast,
                     anchor(left, width, pastAlign, false, fittedPast), pastBaseline,
                     width, pastAlign, alpha * fade,
                     Colors.withAlpha(otherColor, alpha * fade));
-            mainPaint.setMaskFilter(null);
-        }
-        float mainBaseline = activeBaseline + slide;
-        if (aboveCount > 0) {
-            float y = mainBaseline - extraStep * aboveCount;
-            if (romanUnder != null) {
-                drawExtra(canvas, owner, extraPaint, romanUnder, left, width, y, lineAlign,
-                        alpha * transition, extraColor, look, extraSize, 0.85f, line.alignEnd);
-                y += extraStep;
-            }
-            if (translated != null) {
-                drawExtra(canvas, owner, extraPaint, translated, left, width, y, lineAlign,
-                        alpha * transition, extraColor, look, extraSize, 0.8f, line.alignEnd);
-            }
         }
 
         setShadow(owner, mainPaint, look, sungColor);
-        boolean twoRows = look.optBoolean("lyricsStripTwoLines", false);
-        int rowLimit = twoRows ? 2 : 1;
-        List<Segment> segments = wrapCurrentLine(mainText, mainPaint, width, rowLimit);
-        float firstRowBaseline = mainBaseline + lineHeight * (rowLimit - segments.size());
-        for (Segment segment : segments) {
-            List<MediaLyrics.Word> segmentWords = segment.clipped ? Collections.emptyList()
-                    : wordsForRange(words, segment.start, segment.end, segment.text, look);
-            drawTimedLine(canvas, owner, mainPaint, segment.text, segmentWords, line.startMs, line.endMs,
-                    left, width, firstRowBaseline, lineAlign, line.alignEnd, now, synced, motion,
-                    sungColor, otherColor, othersAlpha, alpha * transition, look);
-            firstRowBaseline += lineHeight;
-        }
+        String fittedCurrent = fitLine(mainText, mainPaint, width);
+        List<MediaLyrics.Word> currentWords = fittedCurrent.equals(mainText)
+                ? words : Collections.emptyList();
+        drawTimedLine(canvas, owner, mainPaint, fittedCurrent, currentWords,
+                line.startMs, line.endMs, left, width, activeBaseline + slide,
+                lineAlign, line.alignEnd, now, synced, motion, sungColor, otherColor,
+                othersAlpha, alpha * transition, look);
 
-        // The two-line switch wraps this current line; extras begin below the full reserved lyric area.
-        float afterBaseline = mainBaseline + rowLimit * lineHeight;
-
-        if (!extraAbove) {
-            if (romanUnder != null) {
-                drawExtra(canvas, owner, extraPaint, romanUnder, left, width, afterBaseline, lineAlign,
-                        alpha * transition, extraColor, look, extraSize, 0.85f, line.alignEnd);
-                afterBaseline += extraStep;
-            }
-        }
-
-        if (!line.background.isEmpty()) {
-            String backing = wordText(line.background, look.optBoolean("uppercase", false));
-            float backingSize = clamp((float) look.optDouble("backingSize", 0.6d), 0.4f, 0.9f);
-            extraPaint.setTextSize(baseSize * backingSize);
-            extraPaint.setTypeface(typeface(owner, look, "REGULAR", false));
-            extraPaint.setTextAlign(lineAlign);
-            setShadow(owner, extraPaint, look, sungColor);
-            drawTimedLine(canvas, owner, extraPaint, backing, line.background, line.startMs,
-                    line.endMs, left, width, afterBaseline, lineAlign, line.alignEnd, now,
-                    synced, motion == 3 ? 3 : 2, sungColor, otherColor,
-                    Math.min(0.8f, othersAlpha * 0.8f), alpha * transition, look);
-            clearShadow(extraPaint);
-            afterBaseline += owner.dp(9.0f * backingSize);
-        }
-
-        if (!extraAbove && translated != null) {
-            drawExtra(canvas, owner, extraPaint, translated, left, width, afterBaseline, lineAlign,
-                    alpha * transition, extraColor, look, extraSize, 0.8f, line.alignEnd);
-            afterBaseline += extraStep;
-        }
-
-        drawUpcomingLines(canvas, owner, data, index + 1, look, mainPaint, left, width,
-                afterBaseline + owner.dp(2.0f), lineHeight, baseSize, alpha,
-                otherColor, othersAlpha, mode);
     }
 
-    /** Applies Prism's requested backdrop/effect without depending on its Compose page being open. */
+    /** Dark accent-only backing for the lyric strip; artwork and blur stay out of lyrics. */
     private static void drawLyricsBackground(Canvas canvas, IslandView owner, MediaLyrics data,
             JSONObject look, float left, float top, float width, float alpha, int accent,
             MediaFx mediaFx, long frameTimeMs) {
-        String background = look.optString("background", "PLAYER");
-        boolean card = look.optBoolean("cardNow", false)
-                || "CARD".equalsIgnoreCase(look.optString("style", ""));
-        if ("PLAYER".equalsIgnoreCase(background) && !card) return;
-        int color;
-        if ("DARK".equalsIgnoreCase(background)) {
-            color = 0xE6000000;
-        } else if ("COLOR".equalsIgnoreCase(background)) {
-            color = look.optInt("bgColor", 0xFF1B1530);
-        } else if ("COVER_COLOR".equalsIgnoreCase(background)) {
-            color = accent != 0 && accent != -1 ? accent : 0xFF252525;
-        } else if ("BLUR".equalsIgnoreCase(background) || "CANVAS".equalsIgnoreCase(background)) {
-            float height = owner.dp(rowHeightDp(look, data));
-            RectF backdrop = new RectF(left - owner.dp(5.0f), top - owner.dp(2.0f),
-                    left + width + owner.dp(5.0f), top + height);
-            if (mediaFx != null) {
-                float size = Math.max(backdrop.width(), backdrop.height());
-                float artLeft = backdrop.centerX() - size * 0.5f;
-                float artTop = backdrop.centerY() - size * 0.5f;
-                if ("BLUR".equalsIgnoreCase(background)
-                        && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                        && LYRICS_BACKGROUND_NODE != null) {
-                    int widthPx = Math.max(1, Math.round(backdrop.width()));
-                    int heightPx = Math.max(1, Math.round(backdrop.height()));
-                    LYRICS_BACKGROUND_NODE.setPosition(0, 0, widthPx, heightPx);
-                    Canvas recording = LYRICS_BACKGROUND_NODE.beginRecording(widthPx, heightPx);
-                    float recordSize = Math.max(widthPx, heightPx);
-                    float recordLeft = (widthPx - recordSize) * 0.5f;
-                    float recordTop = (heightPx - recordSize) * 0.5f;
-                    mediaFx.drawArt(recording, recordLeft, recordTop, recordSize,
-                            alpha, 0.0f, frameTimeMs);
-                    LYRICS_BACKGROUND_NODE.endRecording();
-                    float radius = owner.dp(14.0f);
-                    LYRICS_BACKGROUND_NODE.setRenderEffect(RenderEffect.createBlurEffect(
-                            radius, radius, Shader.TileMode.CLAMP));
-                    canvas.drawRenderNode(LYRICS_BACKGROUND_NODE);
-                    LYRICS_BACKGROUND_NODE.setRenderEffect(null);
-                } else {
-                    // CANVAS is represented by the live media-session cover snapshot; Prism's
-                    // animated Canvas/video frame is not exposed through MediaSession artwork.
-                    mediaFx.drawArt(canvas, artLeft, artTop, size,
-                            alpha * ("BLUR".equalsIgnoreCase(background) ? 0.35f : 0.82f),
-                            0.0f, frameTimeMs);
-                }
-                BACKGROUND_PAINT.setShader(null);
-                BACKGROUND_PAINT.setColor(Colors.withAlpha(Colors.BLACK,
-                        alpha * ("BLUR".equalsIgnoreCase(background) ? 0.42f : 0.18f)));
-                canvas.drawRoundRect(backdrop, owner.dp(12.0f), owner.dp(12.0f), BACKGROUND_PAINT);
-                return;
-            }
-            color = accent != 0 && accent != -1 ? Colors.withAlpha(accent, 0.78f) : 0xCC202020;
-        } else if (card) {
-            color = accent != 0 && accent != -1 ? Colors.withAlpha(accent, 0.72f) : 0xB8242424;
-        } else {
-            return;
-        }
+        int base = accent != 0 && accent != -1 ? accent : 0xFF30243A;
+        int red = Math.round(android.graphics.Color.red(base) * 0.24f);
+        int green = Math.round(android.graphics.Color.green(base) * 0.24f);
+        int blue = Math.round(android.graphics.Color.blue(base) * 0.24f);
+        int darkAccent = android.graphics.Color.rgb(red, green, blue);
         float height = owner.dp(rowHeightDp(look, data));
         RectF bounds = new RectF(left - owner.dp(5.0f), top - owner.dp(2.0f),
                 left + width + owner.dp(5.0f), top + height);
         BACKGROUND_PAINT.setStyle(Paint.Style.FILL);
         BACKGROUND_PAINT.setShader(null);
-        if ("COLOR".equalsIgnoreCase(background) && look.optInt("bgColor2", 0) != 0) {
-            BACKGROUND_PAINT.setShader(new LinearGradient(bounds.left, bounds.top, bounds.right, bounds.bottom,
-                    color, look.optInt("bgColor2", color), Shader.TileMode.CLAMP));
-        }
-        BACKGROUND_PAINT.setAlpha(Math.round(255.0f * clamp(alpha, 0.0f, 1.0f)));
+        BACKGROUND_PAINT.setColor(Colors.withAlpha(darkAccent, alpha));
         canvas.drawRoundRect(bounds, owner.dp(12.0f), owner.dp(12.0f), BACKGROUND_PAINT);
-        BACKGROUND_PAINT.setShader(null);
         BACKGROUND_PAINT.setAlpha(255);
     }
 
@@ -408,61 +260,31 @@ final class PrismLyricsPainter {
             JSONObject look, TextPaint mainPaint, TextPaint extraPaint,
             float left, float top, float width, float alpha, int accent) {
         if (data == null || data.isEmpty()) return;
-        int ahead = aheadLineCount(look);
-        int mainRows = look.optBoolean("lyricsStripTwoLines", false) ? 2 : 1;
-        float spacing = spacing(look);
-        float scale = clamp((float) look.optDouble("sizeScale", 1.0d), 0.7f, 1.4f);
-        float textScale = clamp((float) look.optDouble("textScale", 1.0d), 0.7f, 1.4f);
-        float lineHeight = owner.dp(14.0f * spacing);
+        float lineHeight = owner.dp(lineHeightDp(look));
+        float baseSize = owner.dp(mainTextSizeDp(look));
+        mainPaint.setTextSize(baseSize);
+        mainPaint.setFakeBoldText(look.optBoolean("boldLinesNow",
+                "CARD".equalsIgnoreCase(look.optString("style", ""))));
+        Paint.Align configuredAlign = align(look);
+        int count = Math.min(3, data.size());
+        float firstBaseline = top + owner.dp(4.0f) - mainPaint.getFontMetrics().ascent
+                + lineHeight * (3 - count);
         int sungColor = lyricColor(look, "sungColor", "sungCustom", accent, Colors.WHITE);
         int otherColor = lyricColor(look, "otherColor", "otherCustom", accent, Colors.ON_SURFACE_VARIANT);
-        float othersAlpha = clamp((float) look.optDouble("othersAlpha", 0.55d), 0.2f, 1.0f);
-        Paint.Align configuredAlign = align(look);
-        MediaLyrics.Line first = data.line(0);
-        String text = shown(first.text, look);
-        mainPaint.setTextSize(owner.dp(15.0f * scale * textScale));
-        mainPaint.setColor(Colors.withAlpha(sungColor, alpha));
-        mainPaint.setTextAlign(first.alignEnd ? Paint.Align.RIGHT : configuredAlign);
-        float baseline = firstBaseline(owner, mainPaint,
-                top + owner.dp(12.0f * (float) look.optDouble("positionFraction", 0.0d)));
-        List<Segment> segments = wrapCurrentLine(text, mainPaint, width, mainRows);
-        float y = baseline + lineHeight * Math.max(0, mainRows - segments.size());
-        for (Segment segment : segments) {
-            drawPlain(canvas, mainPaint, segment.text,
-                    anchor(left, width, configuredAlign, first.alignEnd, segment.text), y,
-                    width, first.alignEnd ? Paint.Align.RIGHT : configuredAlign,
-                    alpha, Colors.withAlpha(sungColor, alpha));
-            y += lineHeight;
+        for (int i = 0; i < count; i++) {
+            MediaLyrics.Line line = data.line(i);
+            String text = shown(line.text, look);
+            Paint.Align lineAlign = line.alignEnd ? Paint.Align.RIGHT : configuredAlign;
+            mainPaint.setTextAlign(lineAlign);
+            mainPaint.setColor(Colors.withAlpha(i == count - 1 ? sungColor : otherColor,
+                    alpha * (i == count - 1 ? 1.0f : (i == count - 2 ? 0.62f : 0.42f))));
+            String fitted = fitLine(text, mainPaint, width);
+            drawPlain(canvas, mainPaint, fitted,
+                    anchor(left, width, lineAlign, line.alignEnd, fitted),
+                    firstBaseline + lineHeight * i, width, lineAlign, alpha,
+                    Colors.withAlpha(i == count - 1 ? sungColor : otherColor,
+                            alpha * (i == count - 1 ? 1.0f : (i == count - 2 ? 0.62f : 0.42f))));
         }
-        float after = baseline + lineHeight * mainRows;
-        String mode = romanizeMode(look);
-        String roman = "UNDER".equals(mode) ? first.romanizedText : null;
-        String translated = look.optBoolean("lyricsTranslate", false) ? first.translatedText : null;
-        int extraColor = lyricColor(look, "extraColor", "otherCustom", accent, Colors.ON_SURFACE_VARIANT);
-        float extraSize = clamp((float) look.optDouble("extraSize", 1.0d), 0.7f, 1.4f);
-        if ("ABOVE".equalsIgnoreCase(look.optString("extraPlace", "BELOW"))) {
-            // Static content still honours above/below; reserve space before the main row when above.
-            float extraBaseline = top + owner.dp(4.0f);
-            if (roman != null) drawExtra(canvas, owner, extraPaint, roman, left, width, extraBaseline,
-                    configuredAlign, alpha, extraColor, look, extraSize, 0.85f, first.alignEnd);
-            if (translated != null) drawExtra(canvas, owner, extraPaint, translated, left, width,
-                    extraBaseline + owner.dp(9.5f * extraSize), configuredAlign, alpha,
-                    extraColor, look, extraSize, 0.8f, first.alignEnd);
-        } else {
-            if (roman != null) {
-                drawExtra(canvas, owner, extraPaint, roman, left, width, after, configuredAlign,
-                        alpha, extraColor, look, extraSize, 0.85f, first.alignEnd);
-                after += owner.dp(9.5f * extraSize);
-            }
-            if (translated != null) {
-                drawExtra(canvas, owner, extraPaint, translated, left, width, after, configuredAlign,
-                        alpha, extraColor, look, extraSize, 0.8f, first.alignEnd);
-                after += owner.dp(9.5f * extraSize);
-            }
-        }
-        drawUpcomingLines(canvas, owner, data, 1, look, mainPaint, left, width,
-                after + owner.dp(2.0f), lineHeight, owner.dp(12.0f * scale * textScale),
-                alpha, otherColor, othersAlpha, mode, ahead);
     }
 
     private static void drawUpcomingLines(Canvas canvas, IslandView owner, MediaLyrics data,
