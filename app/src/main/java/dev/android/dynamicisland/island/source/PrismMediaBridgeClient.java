@@ -48,6 +48,11 @@ public final class PrismMediaBridgeClient {
         public final String lyricsLook;
         public final String rawJson;
 
+        public boolean needsLyricsRefresh() {
+            return "UNKNOWN".equals(lyricsStatus) || "LOADING".equals(lyricsStatus)
+                    || "WAITING".equals(lyricsStatus);
+        }
+
         private Snapshot(String info, MediaLyrics lyrics, String lyricsStatus, String lyricsLook, String rawJson) {
             this.info = info;
             this.lyrics = lyrics;
