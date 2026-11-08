@@ -4,7 +4,9 @@ import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.Process;
 import dev.android.dynamicisland.BuildConfig;
 import java.util.ArrayList;
 import java.util.Map;
@@ -17,6 +19,9 @@ import java.util.Set;
 public final class SettingsProvider extends ContentProvider {
     public static final String AUTHORITY = BuildConfig.APPLICATION_ID + ".settings";
     public static final String METHOD_ALL = "all";
+    public static final String METHOD_HISTORY_ADD = "history_add";
+    public static final String METHOD_HISTORY_LIST = "history_list";
+    public static final String METHOD_HISTORY_CLEAR = "history_clear";
     /** Notified whenever a setting is written, so that System UI reads the settings then and not on a timer. */
     public static final Uri CHANGED_URI = Uri.parse("content://" + AUTHORITY + "/changed");
 
@@ -27,9 +32,27 @@ public final class SettingsProvider extends ContentProvider {
 
     @Override
     public Bundle call(String method, String arg, Bundle extras) {
-        if (!METHOD_ALL.equals(method) || getContext() == null) {
-            return null;
+        if (getContext() == null) return null;
+        if (METHOD_HISTORY_ADD.equals(method)) {
+            if (!isSystemUiCaller() || extras == null) return null;
+            Bundle result = new Bundle();
+            result.putBoolean("saved", NotificationHistoryStore.record(getContext(), extras));
+            return result;
         }
+        if (METHOD_HISTORY_LIST.equals(method)) {
+            if (!isOwnAppCaller()) return null;
+            Bundle result = new Bundle();
+            result.putStringArrayList("entries", NotificationHistoryStore.read(getContext(), 100));
+            return result;
+        }
+        if (METHOD_HISTORY_CLEAR.equals(method)) {
+            if (!isOwnAppCaller()) return null;
+            NotificationHistoryStore.clear(getContext());
+            Bundle result = new Bundle();
+            result.putBoolean("cleared", true);
+            return result;
+        }
+        if (!METHOD_ALL.equals(method)) return null;
         Bundle out = new Bundle();
         for (Map.Entry<String, ?> entry : ModuleSettings.openStore(getContext()).getAll().entrySet()) {
             Object value = entry.getValue();
@@ -53,6 +76,23 @@ public final class SettingsProvider extends ContentProvider {
             }
         }
         return out;
+    }
+
+    private boolean isOwnAppCaller() {
+        return Binder.getCallingUid() == Process.myUid();
+    }
+
+    private boolean isSystemUiCaller() {
+        try {
+            String[] packages = getContext().getPackageManager().getPackagesForUid(Binder.getCallingUid());
+            if (packages == null) return false;
+            for (String packageName : packages) {
+                if ("com.android.systemui".equals(packageName)) return true;
+            }
+        } catch (RuntimeException ignored) {
+            // Fail closed when the caller's packages cannot be resolved.
+        }
+        return false;
     }
 
     @Override

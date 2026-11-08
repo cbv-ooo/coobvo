@@ -407,6 +407,7 @@ final class HeadsUpTakeover {
             peeked.clear();
         }
         peeked.put(sbn.getKey(), sbn.getPostTime());
+        NotificationHistoryBridge.record(placement.view().getContext(), sbn, item);
         if (shown.size() > MAX_PEEKED) {
             shown.clear();
         }
