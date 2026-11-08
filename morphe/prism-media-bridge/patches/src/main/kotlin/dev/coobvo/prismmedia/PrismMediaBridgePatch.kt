@@ -39,6 +39,19 @@ private object PrismBrowseMediaItemFingerprint : Fingerprint(
     )
 )
 
+/** Register the state as soon as Prism constructs it, before its async lookup starts. */
+private object PrismLyricsStateConstructorFingerprint : Fingerprint(
+    definingClass = "Lcom/prism/music/ui/player/LyricsState;",
+    name = "<init>",
+    isStatic = false,
+    returnType = "V",
+    parameters = listOf(
+        "Lcom/prism/music/data/lyrics/LyricsRepository;",
+        "Lcom/prism/music/data/model/Song;",
+        "Lkotlinx/coroutines/CoroutineScope;"
+    )
+)
+
 /** Prism's player keeps the authoritative active lyrics in this state object. */
 private object PrismLyricsSetLyricsFingerprint : Fingerprint(
     definingClass = "Lcom/prism/music/ui/player/LyricsState;",
@@ -149,6 +162,24 @@ private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureObje
     }
 }
 
+private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureLyricsStateOnConstruction() {
+    val returnIndexes = instructions.withIndex()
+        .filter { it.value.opcode == Opcode.RETURN_VOID }
+        .map { it.index }
+        .sortedDescending()
+
+    if (returnIndexes.isEmpty()) {
+        throw PatchException("Prism LyricsState constructor has no void return")
+    }
+
+    returnIndexes.forEach { index ->
+        addInstructions(
+            index,
+            "invoke-static { p0 }, $EXTENSION->captureLyricsState(Ljava/lang/Object;)V"
+        )
+    }
+}
+
 private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureLyricsStateOnReturns() {
     val returnIndexes = instructions.withIndex()
         .filter { it.value.opcode == Opcode.RETURN_VOID }
@@ -179,19 +210,30 @@ val prismMediaBridgePatch = patch(
         PrismSongToMediaItemFingerprint.method.decorateMediaItemReturns()
         PrismBrowseMediaItemFingerprint.method.decorateMediaItemReturns()
 
-        // Snapshot Prism's own resolved lyric state after it changes. No Compose UI is called from System UI.
-        PrismLyricsSetLyricsFingerprint.method.captureLyricsStateOnReturns()
-        PrismLyricsSetSourceFingerprint.method.captureLyricsStateOnReturns()
-        PrismLyricsSetLoadingFingerprint.method.captureLyricsStateOnReturns()
-        PrismLyricsSetWaitingFingerprint.method.captureLyricsStateOnReturns()
-        // These hooks observe Prism's own Compose helper return values. They do not call either
-        // provider engine from System UI and preserve Prism's native per-song on/off choices.
-        PrismRomanizedLinesFingerprint.method.captureObjectResultOnReturns(
-            "captureRomanizedLyrics(Ljava/lang/Object;Ljava/lang/Object;)V"
-        )
-        PrismTranslatedLinesFingerprint.method.captureObjectResultOnReturns(
-            "captureTranslatedLyrics(Ljava/lang/Object;Ljava/lang/Object;)V"
-        )
+        // Register the real state object immediately after construction. The extension retains a
+        // small bounded set and refreshes its live getters on each /bridge read, so it does not depend
+        // on a Compose page remaining on screen or on any one setter being a mandatory join point.
+        PrismLyricsStateConstructorFingerprint.method.captureLyricsStateOnConstruction()
+
+        // Setter hooks are accelerators only. The bridge still works when a setter's bytecode shape
+        // differs on a later Prism build because polling reads the registered live object directly.
+        runCatching { PrismLyricsSetLyricsFingerprint.method.captureLyricsStateOnReturns() }
+        runCatching { PrismLyricsSetSourceFingerprint.method.captureLyricsStateOnReturns() }
+        runCatching { PrismLyricsSetLoadingFingerprint.method.captureLyricsStateOnReturns() }
+        runCatching { PrismLyricsSetWaitingFingerprint.method.captureLyricsStateOnReturns() }
+
+        // Prism's own romanization/translation helper results are optional extras; failure to match
+        // either helper must not disable base lyrics, the player settings snapshot or the bridge.
+        runCatching {
+            PrismRomanizedLinesFingerprint.method.captureObjectResultOnReturns(
+                "captureRomanizedLyrics(Ljava/lang/Object;Ljava/lang/Object;)V"
+            )
+        }
+        runCatching {
+            PrismTranslatedLinesFingerprint.method.captureObjectResultOnReturns(
+                "captureTranslatedLyrics(Ljava/lang/Object;Ljava/lang/Object;)V"
+            )
+        }
         // Preserve ArtworkProvider's existing artwork routes. Only /bridge returns a cursor here.
         PrismArtworkQueryFingerprint.method.apply {
             val free = findFreeRegister(0)
