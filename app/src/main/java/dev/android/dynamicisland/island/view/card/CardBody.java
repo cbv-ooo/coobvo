@@ -89,7 +89,12 @@ public abstract class CardBody {
     }
 
     void drawButtons(Canvas c, float x, float y, float alpha) {
-        for (Btn b : buttons) {
+        drawButtons(c, x, y, alpha, buttons);
+    }
+
+    /** Draws one independently positioned button row while preserving the shared hit targets. */
+    void drawButtons(Canvas c, float x, float y, float alpha, List<Btn> rowButtons) {
+        for (Btn b : rowButtons) {
             owner.tmpRect.set(b.r);
             owner.tmpRect.offset(x, y);
             float press = owner.pressOf(b, item);
