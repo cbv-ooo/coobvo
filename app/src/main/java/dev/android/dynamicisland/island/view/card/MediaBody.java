@@ -49,7 +49,8 @@ public final class MediaBody extends CardBody {
     private static final float SIDE_BUTTON_RATIO = 0.84f;
     /** Slide-up distance of a row while it fades in. */
     private static final float ROW_SLIDE_DP = 8.0f;
-    private static final float LYRICS_ROW_DP = 38.0f;
+    /** Extra lines are reserved for SpicyLyrics/other providers that return backing or alternate text. */
+    private static final float LYRICS_ROW_DP = 56.0f;
     private static final String NO_DURATION = "--:--";
 
     final float art;
@@ -88,6 +89,9 @@ public final class MediaBody extends CardBody {
     private int cachedLyricIndex = Integer.MIN_VALUE;
     private String cachedCurrentLine;
     private String cachedNextLine;
+    private String cachedBackgroundLine;
+    private String cachedRomanizedLine;
+    private String cachedTranslatedLine;
     private boolean cachedCurrentLineFull;
     final float pad;
     final float seekTop;
@@ -289,9 +293,10 @@ public final class MediaBody extends CardBody {
             return;
         }
 
-        if (prismSession && data.type() == MediaLyrics.Type.STATIC) {
-            current.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
-            canvas.drawText("Prism lyrics are not synchronized", left, baseline, current);
+        if (data.type() == MediaLyrics.Type.STATIC) {
+            String staticText = data.line(0).text;
+            current.setColor(Colors.withAlpha(Colors.WHITE, alpha));
+            canvas.drawText(fitLyricText(staticText, current, width), left, baseline, current);
             return;
         }
 
@@ -301,6 +306,9 @@ public final class MediaBody extends CardBody {
             cachedLyricIndex = index;
             cachedCurrentLine = null;
             cachedNextLine = null;
+            cachedBackgroundLine = null;
+            cachedRomanizedLine = null;
+            cachedTranslatedLine = null;
             cachedCurrentLineFull = false;
             if (index >= 0) {
                 MediaLyrics.Line line = data.line(index);
@@ -308,6 +316,9 @@ public final class MediaBody extends CardBody {
                 if (prismSession && prismUppercase) raw = raw.toUpperCase(Locale.ROOT);
                 cachedCurrentLine = fitLyricText(raw, current, width);
                 cachedCurrentLineFull = cachedCurrentLine.length() == raw.length();
+                cachedBackgroundLine = mediaWordsText(line.background);
+                cachedRomanizedLine = blankToNull(line.romanizedText);
+                cachedTranslatedLine = blankToNull(line.translatedText);
                 if (index + 1 < data.size()) {
                     String following = data.line(index + 1).text;
                     if (prismSession && prismUppercase && following != null) following = following.toUpperCase(Locale.ROOT);
@@ -336,13 +347,80 @@ public final class MediaBody extends CardBody {
             current.setColor(Colors.withAlpha(prismSungColor, alpha));
             canvas.drawText(cachedCurrentLine == null ? "♪" : cachedCurrentLine, anchorX, baseline, current);
         }
-        if (cachedNextLine != null && (!prismSession || prismTwoLines)) {
+        boolean hasLyricExtras = !prismSession && (cachedBackgroundLine != null
+                || cachedRomanizedLine != null || cachedTranslatedLine != null);
+        if (cachedNextLine != null && (!prismSession || prismTwoLines) && !hasLyricExtras) {
             next.setColor(Colors.withAlpha(otherColor, otherAlpha * 0.70f * alpha));
             next.setTextAlign(prismTextAlignForLine(data, index + 1));
             float nextX = lyricAnchorX(left, width, next.getTextAlign(),
                     prismSession && data.line(index + 1).alignEnd);
             canvas.drawText(cachedNextLine, nextX, baseline + owner.dp(14.0f), next);
         }
+        if (hasLyricExtras) {
+            MediaLyrics.Line line = data.line(index);
+            float extraBaseline = baseline + owner.dp(14.0f);
+            float extraColorAlpha = 0.78f * alpha;
+            if (cachedBackgroundLine != null) {
+                drawLyricAuxiliary(canvas, next, cachedBackgroundLine, line.background,
+                        left, width, extraBaseline, positionMs, alpha, owner.dp(8.0f),
+                        Colors.withAlpha(Colors.ON_SURFACE_VARIANT, extraColorAlpha));
+                extraBaseline += owner.dp(9.5f);
+            }
+            if (cachedRomanizedLine != null) {
+                drawLyricAuxiliary(canvas, next, cachedRomanizedLine, line.romanizedWords,
+                        left, width, extraBaseline, positionMs, alpha, owner.dp(8.5f),
+                        Colors.withAlpha(Colors.ON_SURFACE_VARIANT, extraColorAlpha));
+                extraBaseline += owner.dp(9.5f);
+            }
+            if (cachedTranslatedLine != null) {
+                drawLyricAuxiliary(canvas, next, cachedTranslatedLine, Collections.emptyList(),
+                        left, width, extraBaseline, positionMs, alpha, owner.dp(8.5f),
+                        Colors.withAlpha(Colors.ON_SURFACE_VARIANT, extraColorAlpha));
+            }
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.trim().isEmpty() ? null : value;
+    }
+
+    private static String mediaWordsText(java.util.List<MediaLyrics.Word> words) {
+        if (words == null || words.isEmpty()) return null;
+        StringBuilder text = new StringBuilder();
+        for (MediaLyrics.Word word : words) text.append(word.text);
+        return blankToNull(text.toString());
+    }
+
+    private void drawLyricAuxiliary(Canvas canvas, TextPaint paint, String text,
+            java.util.List<MediaLyrics.Word> words, float left, float width, float baseline,
+            long positionMs, float alpha, float size, int color) {
+        if (text == null || text.isEmpty()) return;
+        float oldSize = paint.getTextSize();
+        Paint.Align oldAlign = paint.getTextAlign();
+        boolean oldBold = paint.isFakeBoldText();
+        paint.setTextSize(size);
+        paint.setTextAlign(Paint.Align.LEFT);
+        paint.setFakeBoldText(false);
+        String fitted = fitLyricText(text, paint, width);
+        paint.setColor(color);
+        canvas.drawText(fitted, left, baseline, paint);
+        if (words != null && !words.isEmpty() && fitted.length() == text.length()) {
+            float prefix = 0.0f;
+            for (MediaLyrics.Word word : words) {
+                if (positionMs >= word.endMs) {
+                    prefix += paint.measureText(word.text);
+                    continue;
+                }
+                if (positionMs >= word.startMs && positionMs < word.endMs) {
+                    paint.setColor(Colors.withAlpha(Colors.WHITE, alpha));
+                    canvas.drawText(word.text, left + prefix, baseline, paint);
+                }
+                break;
+            }
+        }
+        paint.setTextSize(oldSize);
+        paint.setTextAlign(oldAlign);
+        paint.setFakeBoldText(oldBold);
     }
 
     private float lyricAnchorX(float left, float width, Paint.Align align, boolean alignEnd) {
