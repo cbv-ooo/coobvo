@@ -40,8 +40,10 @@ The patch:
 2. Intercepts only the `/bridge/{songId}` route in Prism's existing `ArtworkProvider.query()`; ordinary artwork requests continue through Prism.
 3. Exposes Prism's in-memory stream diagnostics and player/queue state where available.
 4. Snapshots the real LyricsState, its provider/status and original lyric data, plus the actual romanized/translated helper results when Prism has produced them.
-5. Exports the resolved lyric-look preferences and song-specific romanization state.
+5. Exports the resolved lyric-look preferences, song-specific romanization override, and the active Prism player/lyrics settings snapshot. The settings snapshot includes player layout/deck/buttons/hidden parts, title and time presentation, visualizer, background/backdrop options, mini-player and immersive-player switches, lyrics-on-player/source controls, source order/disabled sources, mobile-data behavior, translation/romanization switches, lyrics font and alignment, and relevant behavior toggles. Enum values and ordered lists are serialized as names/arrays so the receiver does not need Prism classes.
 6. Returns snapshots only to callers belonging to Android System UI. The URI is local; this patch adds no external lyric endpoint or network provider.
+
+**Important boundary:** exporting a setting does not mean every corresponding Prism player-page feature is rendered in coobvo. The expanded card consumes the lyric-strip subset. Player page layout, deck arrangement, visualizer, backdrop and immersive-page options are exported for explicit future mapping/diagnostics; they must not be claimed as visually reproduced until implemented and tested.
 
 ## Coobvo consumer and expanded-card rendering
 
