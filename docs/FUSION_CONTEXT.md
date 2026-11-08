@@ -4,7 +4,7 @@ Last updated: 2026-11-08. This file is the project source of truth for architect
 
 ## Product
 
-A Java 17 Xposed/LSPosed module based on this repository's Dynamic Island code. It renders one compact pill, two independent companion bubbles and expandable cards inside Samsung System UI on a Galaxy S10e running the owner's One UI 7 / Android 15 build.
+The target is a Java 17 Xposed/LSPosed Dynamic Island module for Samsung System UI on a Galaxy S10e running the owner's One UI 7 / Android 15 build. The intended UI is one compact pill, two independent companion bubbles and expandable cards.
 
 For the S10e's right-side punch-hole, the compact pill belongs to the right of the camera cutout and both companion bubbles belong to its left. Bubble index 0 is nearest the pill; index 1 is farther out.
 
@@ -17,8 +17,8 @@ The fusion uses the original Dynamic Island event, hook, window and Canvas archi
 - The only CI workflow is .github/workflows/debug-apk.yml. It runs ./gradlew --no-daemon assembleDebug and uploads the DynamicIsland-debug-apk artifact. No tests, lint, release builds, translation checks or extra workflows are part of CI.
 - Read the latest Debug APK result after changes. A green result proves compilation, packaging and artifact upload only.
 - Never claim S10e appearance, cutout alignment, touch behaviour or animation quality was verified without a real-device test.
-- Do not spend turns repeatedly auditing completed files. Pick a backlog item, edit the small set of files it touches, commit, and use CI's first compiler error to guide corrections.
-- Ask the owner only for real-device results, the S10e SystemUI.apk where hook names need verification, or signing material needed to replace the current debug identity.
+- Progress must separate source implementation, build evidence and owner-confirmed device behavior. Do not ask the owner to read raw Java/Kotlin or infer completion from a Settings label; report what is actually visible/usable and what remains unverified.
+- Ask the owner only for real-device observations, the S10e SystemUI.apk where hook names need verification, or signing material needed to replace the current debug identity.
 
 ## Architecture
 
@@ -55,20 +55,15 @@ The supplied SmartIsland-main archive is the Kotlin/Compose application document
 
 Take its parsing rules and local feature behaviour; reimplement them as small Java classes using this repository's existing hooks and event sources. Do not port Compose, Hilt, DataStore, AccessibilityService overlays, Shizuku, its service/window stack or its separate settings UI.
 
-The timer/stopwatch and navigation notification parsers are implemented in Java and connected to the existing OngoingActivity card builder; native Samsung Chronometer data remains preferred. Navigation uses notification extras and Samsung's mirrored primary/secondary activity fields, recognizes supported map apps and guidance categories, and excludes known ride/delivery live activities. Remaining candidates to compare/port are richer live-activity parsing, notification cooldown/history, quick-launch shortcuts, idle widgets, network speed and diagnostics. Check whether a feature already exists before adding another source.
+The timer/stopwatch and navigation notification parsers are implemented in Java and connected to the existing OngoingActivity card builder; native Samsung Chronometer data remains preferred. These two parser integrations do not constitute completion of Smart Island. Remaining candidates to compare/port are richer live-activity parsing, notification cooldown/history, quick-launch shortcuts, idle widgets, network speed and diagnostics. The Smart Island Settings page must not present descriptive text as proof that a feature is implemented or verified.
 
-### LyricSync
+### LyricSync and Prism
 
-The supplied LyricSync-master archive contains the Java model, provider cascade, matching utilities, cache and renderer logic. Its intended provider order is:
+The supplied LyricSync-master archive contains the Java model, provider cascade, matching utilities, cache and renderer logic. The current coobvo implementation is a limited provider path (Kugou KRC, NetEase YRC and LRCLIB LRC/static), not full LyricSync parity.
 
-1. SpicyLyrics (requires a Spotify track ID and an optional user-supplied client key).
-2. Kugou (KRC word timing, with LRC fallback).
-3. Netease (YRC word timing, with LRC fallback).
-4. LRCLIB (synced LRC, then plain/static text).
+A separate Prism-only Morphe bridge is being investigated. The official Morphe v2.1.0 "Third-party lyrics" patch targets YouTube Music (`com.google.android.apps.youtube.music`), not Prism (`com.prism.music`); do not apply its YouTube Music compatibility/fingerprints to Prism. Prism already owns its own source selection, providers, lyric cache, timed-line/word model and visual preferences. The intended design is a Prism-targeted Morphe patch that exports a versioned local-only lyrics/playback/preferences snapshot to coobvo, with no second provider cascade for Prism playback. Full details: docs/PRISM_LYRICS_MORPHE_BRIDGE.md.
 
-The model ranks SYLLABLE above LINE above STATIC. Keep real timed-word data distinct from approximate or line-only data. Preserve track matching, aliases, version rejection, interludes, short timeouts, deduplicated background requests and caching where practical. Do not port LyricSync's AI/chat, translation, transliteration, floating-window UI or separate media-notification service unless separately requested.
-
-Lyrics lookup sends track metadata to external providers. It must be off by default, clearly state the privacy cost in settings, run off the UI thread, and proceed only when the hosting System UI process has network permission. Provider failures must never affect media playback or System UI stability.
+For other media apps, any remaining LyricSync lookup stays opt-in, off by default, with explicit notice that track metadata is sent to external providers. It runs off the UI thread and proceeds only when the hosting System UI process has INTERNET permission. Provider failures must never affect media playback or System UI stability.
 
 ## Hard constraints
 
@@ -87,18 +82,25 @@ Lyrics lookup sends track metadata to external providers. It must be off by defa
 
 ## Installation identity
 
-The older dev.android.dynamicisland installation had a certificate mismatch with CI-signed updates. Debug builds now use the stable package ID dev.android.dynamicisland.coobvo, a stable debug-only keystore, and monotonically increasing version codes. This intentionally installs as a separate module beside the old package; it does not replace the old package. The owner must enable the new coobvo module for the com.android.systemui LSPosed scope and disable the old module. Future builds must reuse the same debug key and increment the version code.
+The debug package is dev.android.dynamicisland.coobvo, separate from the old dev.android.dynamicisland identity, using app/coobvo-debug.keystore and the stable alias coobvoDebug. The owner has deleted the previous debug installation and is now using coobvo. The older dual-install situation is the likely explanation for the earlier duplicate full island; do not keep assuming both module installs remain active. If two full islands appear with only coobvo installed/enabled, investigate the current System UI window lifecycle.
 
-Current accepted build at last update: version code 130 / version name 0.1.28-dev1. Debug APK run #50 passed compilation, packaging and upload; artifact: https://github.com/cbv-ooo/coobvo/actions/runs/42439603938/artifacts/13600578084.
+Current source version before the next docs handoff: version code 131 / version name 0.1.29-dev1. The latest accepted debug artifact is run #51 for commit f3046b390d4b6f6a9b8fd70c0fd23c62564bdb44; CI passed compilation, packaging and upload. Artifact: https://github.com/cbv-ooo/coobvo/actions/runs/42439738832/artifacts/13601441127.
 
 ## Backlog
 
-1. Finish one shared Material 3 Expressive token source for corner radii, spatial/effects motion and semantic colours. Apply the same primitives to compact glyphs, bubbles, buttons and expanded cards. Keep the pill opaque black and the card fills opaque.
-2. Finish Lottie coverage for useful compact and expanded icon state changes. Preserve static fallback, stillIcons and low-performance behaviour.
-3. Port remaining Smart Island capabilities one at a time in Java: richer live activities, notification cooldown/history, quick-launch shortcuts, idle widgets, network speed and diagnostics. Timer/stopwatch and navigation parsing now feed existing activity cards; improve only from concrete missing cases.
-4. Complete LyricSync parity: robust TrackQuery/matching, SpicyLyrics when configured, Kugou KRC, Netease YRC, LRCLIB LRC/static, interludes and word-level highlighting only where real word timing exists. Keep privacy opt-in.
-5. Prepare the owner's short S10e check: install/enable the new package in LSPosed; verify cutout awareness, pill/bubble positions, equal bubble spacing, independent tap/swipe, expanded notification cards, iMode motion, media controls and lyric timing.
-6. Only after device results, fix any specific Samsung/ROM hook or geometry issue. Do not invent hook names.
+1. Make the dual-bubble layout fully visible and usable: verify simultaneous display, equal spacing, independent touch and animation. Owner has already confirmed S10e cutout alignment and that bubbles move to the left of a right-anchored pill; do not generalize this to touch/animation completion.
+2. Complete the whole battery feature, not merely shared gauge geometry/tint, and expose/verify every intended battery presentation and interaction.
+3. Finish one coherent Material 3 Expressive system across compact glyphs, both bubbles, buttons, and expanded cards; shared tokens currently form a foundation, not a completed system.
+4. Port remaining Smart Island capabilities as working Java event/card/settings behavior. The two parser ports alone are not completion.
+5. Implement the Prism-only Morphe bridge and Prism-style compact renderer as specified in docs/PRISM_LYRICS_MORPHE_BRIDGE.md. Do not send Prism track metadata through LyricSync's independent providers.
+6. Complete LyricSync parity for non-Prism media sessions only if still needed.
+
+## Owner-confirmed device facts
+
+- S10e camera cutout alignment works.
+- With the pill anchored on the right, the companion bubbles move to the left.
+
+These are the only new device confirmations recorded in this update. Do not infer additional touch, animation, spacing or feature completion.
 
 ## Device test target
 

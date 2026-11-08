@@ -2,58 +2,77 @@
 
 Last updated: 2026-11-08
 
-## Repository and working rules
-- Repository: cbv-ooo/coobvo; all work is directly on main.
-- Dynamic Island's Java/Xposed implementation remains the base. System UI code is Java/Canvas only.
-- The only workflow is .github/workflows/debug-apk.yml: ./gradlew --no-daemon assembleDebug, then upload artifact DynamicIsland-debug-apk. It does not run tests, lint, translations or release tasks.
-- A green CI run means compile/package/upload only. Galaxy S10e rendering, cutout placement, gestures and animation remain unverified until the owner tests the APK.
+This file reports what is visible/usable, what is only present in source, and what the owner has confirmed. A green CI run is not a feature-completion check.
+
+## Evidence labels
+
+- **Owner-confirmed:** the owner has observed the behavior on the S10e.
+- **Build-confirmed:** the exact main commit compiled, packaged and uploaded. This says nothing about System UI runtime behavior.
+- **Implemented, not device-verified:** source code exists and is connected, but the owner has not confirmed the visible result.
+- **Incomplete:** only a foundation, subset or descriptive placeholder exists. Do not present it as finished.
+
+## Current owner-confirmed results
+
+- **S10e cutout alignment — owner-confirmed.** The owner reports the island is positioned relative to the camera cutout.
+- **Right-anchor bubble side — owner-confirmed.** When the pill is on the right, the bubbles move to the left.
+- **Duplicate full island — likely install-identity issue cleaned up.** The older debug installation was deleted and the owner is now using coobvo. The duplicate was likely caused by both debug identities being enabled; do not assume that old copy remains. A second full island after this cleanup would need a fresh current-runtime investigation.
+
+These confirmations do not verify both bubbles visibly render together, exact spacing, independent touch, or animation.
+
+## Feature status
+
+| Feature | Honest status | What remains before completion |
+|---|---|---|
+| Cutout positioning | **Owner-confirmed for the S10e** | Keep this verified result; revisit only if a regression appears. |
+| Bubble sidedness | **Owner-confirmed for right anchor** | Verify both bubbles together, gap, tap/swipe targets and animation. |
+| Full Dual Bubbles feature | **Partially implemented; not fully verified** | Real-device confirmation of simultaneous rendering, spacing, independent input and lifecycle/animation. |
+| Battery feature | **Incomplete** | Current source work shares gauge geometry and semantic tint across several views. That is one implementation detail, not the complete battery feature, all battery states, cards, actions and presentation. |
+| Material 3 Expressive | **Foundation only; incomplete** | Centralize and apply a consistent system across pill, both bubbles, compact glyphs, buttons, cards and motion; then inspect actual UI. |
+| Smart Island | **Incomplete** | Timer/stopwatch and navigation parsers are connected to the existing ongoing-activity card path. The Settings page's descriptive rows are not features. Remaining Smart Island behavior must become actual visible/usable Java features before it is listed as active. |
+| iMode | **Source implementation only; device verification outstanding** | Confirm expanded activity/notification content and animation on the S10e. |
+| LyricSync | **Partial provider implementation** | Current coobvo path covers Kugou KRC, NetEase YRC and LRCLIB LRC/static. It is not full LyricSync parity and is not a Prism integration. |
+| Prism lyrics integration | **Not implemented** | A Prism-targeted Morphe bridge and Java Canvas consumer are still design work. See docs/PRISM_LYRICS_MORPHE_BRIDGE.md. |
 
 ## Current debug install identity
+
 - Debug application ID: dev.android.dynamicisland.coobvo (release ID unchanged).
 - Stable debug-only signing key: app/coobvo-debug.keystore.
-- Current main version: code 130 / 0.1.28-dev1.
-- This is a separate package from the older dev.android.dynamicisland installation, deliberately avoiding the existing certificate mismatch. Disable the old LSPosed module and enable the new coobvo module for com.android.systemui before testing. Future debug builds must keep the same package ID/key and increment version code.
+- Current main version before this documentation commit: code 131 / 0.1.29-dev1.
+- The owner removed the older debug installation and is now using coobvo. Do not instruct them to inspect old package settings unless a duplicate returns.
 
-## Implemented on main
-- Two companion bubbles have independent scene layers, drawing, indexed geometry and touch handling. Index 0 is nearest the pill; index 1 sits farther out. The S10e right anchor places both bubbles left of the compact pill.
-- The second bubble uses the same edge-to-edge spacing rule as the first. It is included in the footprint touch region and TouchController has an independent downOnBubble2 path. Real touch confirmation is still required.
-- S10e cutout placement checks display insets and the framework resource-approximation API, with a model fallback. Alignment is not device-verified.
-- iMode uses its own Canvas renderer and now draws the expanded card bodies as well as its compact activity nodes. Its animation springs are advanced by Director.stepCards() via the existing iMode delegation; do not add a second IMode.step() call in IslandView.
-- Battery icons share BatteryGauge geometry and semantic charge tint across compact battery UI, notification glyphs and expanded battery/event cards.
-- Existing Material 3 Expressive work includes six motion tokens in graphics/Motion, opaque semantic colour roles in graphics/Colors, opaque surface-container cards, artwork-derived primary-container media controls, shared battery glyph rendering and a 32dp default expanded-card radius. Consolidation into a single expressive token source and complete compact glyph coverage remain unfinished.
-- Smart Island settings distinguish capabilities available in the Java runtime from features not yet ported. A Java `TimerStopwatchParser` classifies clock-app, timer, alarm and stopwatch notifications, extracts elapsed/remaining values and paused state, and feeds the existing `OaCardBuilder`/`TimerBody` path when a native Chronometer view is unavailable; the native Samsung Chronometer remains preferred. A Java `NavigationParser` recognizes supported map apps and navigation-category guidance, excludes known delivery/ride apps, parses maneuver/distance/trip text, and maps it into existing live card fields. It reads notification extras and falls back to Samsung `mPrimaryInfo`/`mSecondaryInfo`. Map-app behaviour remains unverified on-device.
-- LyricSync has a background provider cascade for Kugou KRC, Netease YRC and LRCLIB LRC/static text, shared line/word models, cache, a media-card lyric row and current timed-word highlighting where source word timings exist. This pass also precomputes the normalized track key and caches ellipsized current/next line text on line changes, avoiding key normalization and prefix-string construction during drawing. SpicyLyrics requires an optional client key/Spotify track ID and is not yet connected. Provider matching and exact source parity still need work.
-- Lyrics lookup is opt-in and defaults off. The settings summary discloses that track title/artist are sent to external lyric providers. The runtime checks the hosting process's INTERNET permission before making requests.
-- The Smart Island and LyricSync archives were inspected directly; only Java behaviour/models are being ported into the existing Dynamic Island architecture.
+## Source implementation notes
 
-## Material 3 Expressive progress
-- Shared spatial/effects spring tokens are applied to the island, cards, iMode and Director transitions.
-- Opaque semantic colour roles cover surface containers, on-surface, on-surface-variant, on-primary-container and outline-variant.
-- Card fills are opaque; media accent controls use an opaque primary-container role.
-- Module-owned glyphs and embedded Lottie paths use shared tint and rounded stroke caps/joins. Original app notification icons and album art remain unchanged.
-- Expanded-card default corner radius is 32dp; the custom roundness preference still overrides it.
-- Remaining: centralize shape/motion/colour constants and apply consistent M3 Expressive sizing to compact glyphs, buttons and bubble content.
+- **Dual bubble geometry:** two companion layers have indexed drawing and independent touch paths. Index 0 is nearest the pill; index 1 is farther out. S10e right anchor places them to the left of the pill. Only cutout positioning and side selection are owner-confirmed.
+- **Battery:** BatteryGauge geometry/tint is shared among compact battery, notification glyph and expanded battery/event rendering. This is not end-to-end battery feature completion.
+- **M3 Expressive:** six motion tokens, opaque semantic colors, opaque card fills, artwork-derived media accent and a 32dp default expanded-card radius exist. A single coherent token system and complete compact/bubble/button coverage do not.
+- **Smart Island:** `TimerStopwatchParser` and `NavigationParser` are wired to `OaCardBuilder`. They do not represent the full reference app. Descriptive Settings text must not be counted as feature delivery.
+- **iMode:** expanded card bodies are drawn by the Canvas renderer; Director owns stepping. The current device appearance and animation have not been confirmed.
+- **LyricSync:** current Java path is a narrow three-provider implementation with line/word models, background lookup, cache and media-card rendering. Prism integration is separately specified and not yet built.
 
 ## CI evidence
-- Runs #34–#50 passed compile, APK packaging and artifact upload for their respective commits.
+
+- Runs #34–#51 passed compilation, APK packaging and artifact upload for their respective commits.
 - Run #41 passed for commit 67304af64dd1009c814771ce94e4c31c5d9f3d9f; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438321472/artifacts/13600168702). The redundant explicit iMode spring-step call was removed; Director.stepCards() is the single owner of iMode stepping.
-- Run #44 passed for commit 7798e2f9da1d72bec2f87b47e991fb808c251eff; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438606018/artifacts/13599659870). It includes the timer/stopwatch parser and stable debug install identity.
-- Run #46 passed for commit 599a65094994025a2ff5fe2cb1237ed8472b5f6c; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438935285/artifacts/13600931647). It adds the initial Java navigation parser.
-- Run #47 passed for commit d83c071201accd162348b6862b48711e273e7fa9; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439111297/artifacts/13600339730). It adds Samsung ongoing-activity primary/secondary text fallback for navigation.
-- Run #48 passed for commit d91d785d4a4d732f004c7b810e5ca0f99c3af704; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439210788/artifacts/13600454452). It records the accepted navigation change and increments the debug version.
-- Run #49 passed for commit e7747fbb4040d1d695e181c2c9d4d36d0eabed55; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439401274/artifacts/13600594237). It includes the LyricSync draw-path cache improvements and version 129.
-- Run #50 passed for commit `2ddbc6f1feff15a8ac1067d6db9e253765606f72`; both build and upload succeeded. Artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439603938/artifacts/13600578084). It is the version-130 build after refreshing the fusion handoff and backlog.
-- Earlier runs #26–#33 failed on malformed literal newline escapes in a Java import and the manifest. Those were corrected in fc54f66; subsequent runs #34–#49 are green.
-- CI proves compilation, APK packaging and upload only. It does not verify installation over the old package, LSPosed activation, camera alignment, bubble touch response, animation quality or lyrics against a live media session.
+- Run #44 passed for commit 7798e2f9da1d72bec2f87b47e991fb808c251eff; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438606018/artifacts/13599659870).
+- Run #46 passed for commit 599a65094994025a2ff5fe2cb1237ed8472b5f6c; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438935285/artifacts/13600931647).
+- Run #47 passed for commit d83c071201accd162348b6862b48711e273e7fa9; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439111297/artifacts/13600339730).
+- Run #48 passed for commit d91d785d4a4d732f004c7b810e5ca0f99c3af704; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439210788/artifacts/13600454452).
+- Run #49 passed for commit e7747fbb4040d1d695e181c2c9d4d36d0eabed55; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439401274/artifacts/13600594237).
+- Run #50 passed for commit 2ddbc6f1feff15a8ac1067d6db9e253765606f72; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439603938/artifacts/13600578084).
+- **Run #51 passed** for commit `f3046b390d4b6f6a9b8fd70c0fd23c62564bdb44`, source version 131 / 0.1.29-dev1. Build and upload both succeeded. Artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439738832/artifacts/13601441127).
+- CI proves compilation, APK packaging and artifact upload only. It does not verify bubble touch response, expanded notifications, iMode animation, battery presentation, M3E consistency, Smart Island behavior or lyrics timing on the S10e.
 
 ## Remaining work
-1. Validate the current debug package and LSPosed scope on the phone; confirm the installer upgrades the coobvo package in place across builds.
-2. Test the second bubble's real touch target and spacing, camera-hole placement, expanded notifications and compact/expanded iMode animations on the S10e.
-3. Port remaining Smart Island features in Java: richer live-activity parsing, notification cooldown/history, quick-launch shortcuts, idle widgets, network speed and diagnostics.
-4. Consolidate Material 3 Expressive tokens and finish consistent compact/expanded icon components.
-5. Complete LyricSync provider parity and track matching while keeping network lookup disabled by default.
+
+1. Finish and visibly expose both bubble contents, spacing and independent touch/animation behavior; preserve the owner-confirmed cutout/side result.
+2. Complete the actual battery experiences, not just the shared gauge component.
+3. Complete the M3 Expressive token and component system across the real compact/expanded UI.
+4. Implement Smart Island features as actual cards/behaviors and real settings controls; remove or label descriptive-only entries.
+5. Implement and test the Prism-only Morphe bridge and Canvas renderer.
+6. Decide whether more LyricSync work is needed for media apps other than Prism.
 
 ## Constraints
+
 - No blur, frosted glass, backdrop capture, RenderEffect or transparency effects.
 - No new dependencies in System UI/Xposed.
 - Keep each hook isolated through the existing safe hook/reflection wrappers.
