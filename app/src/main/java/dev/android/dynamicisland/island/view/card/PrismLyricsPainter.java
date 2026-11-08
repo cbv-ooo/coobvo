@@ -20,6 +20,9 @@ import dev.android.dynamicisland.island.view.media.MediaFx;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Iterator;
 import java.io.File;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -42,6 +45,34 @@ final class PrismLyricsPainter {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                     ? new RenderNode("CoobvoPrismLyricsBackdrop") : null;
     private static final ConcurrentHashMap<String, Typeface> TYPEFACE_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, CachedState> LYRIC_STATES = new LinkedHashMap<>();
+
+    private static final class CachedState {
+        final String trackId;
+        final State state = new State();
+        CachedState(String trackId) { this.trackId = trackId; }
+    }
+
+    /** Keeps lyric history across card rebuilds, but starts clean when the media session changes tracks. */
+    static State stateFor(String sessionKey, String trackId) {
+        String key = sessionKey == null ? "" : sessionKey;
+        synchronized (LYRIC_STATES) {
+            CachedState cached = LYRIC_STATES.get(key);
+            boolean sameTrack = cached != null && (trackId == null
+                    ? cached.trackId == null : trackId.equals(cached.trackId));
+            if (!sameTrack) {
+                cached = new CachedState(trackId);
+                LYRIC_STATES.put(key, cached);
+            }
+            while (LYRIC_STATES.size() > 12) {
+                Iterator<String> oldest = LYRIC_STATES.keySet().iterator();
+                if (!oldest.hasNext()) break;
+                oldest.next();
+                oldest.remove();
+            }
+            return cached.state;
+        }
+    }
 
     private PrismLyricsPainter() {}
 
