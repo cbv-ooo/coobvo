@@ -341,6 +341,15 @@ public final class MediaSource {
         private MediaLyrics prismLyrics;
         private String prismLyricsStatus = "UNKNOWN";
         private String prismLyricsLook;
+        private float[] prismVisualizerBands;
+        private float prismVisualizerLevel;
+        private long prismCrossfadeStartMs = -1L;
+        private long prismCrossfadeLengthMs;
+        private String prismCrossfadeSongId;
+        private String prismCrossfadeFromId;
+        private String prismCrossfadeToId;
+        private float prismCrossfadeProgress;
+        private float prismPlayerVolume = 1.0f;
         private boolean prismRefreshScheduled;
         private int prismExtraRefreshes;
         private static final int MAX_PRISM_EXTRA_REFRESHES = 8;
@@ -568,6 +577,15 @@ public final class MediaSource {
                 prismLyrics = null;
                 prismLyricsStatus = "UNKNOWN";
                 prismLyricsLook = null;
+                prismVisualizerBands = null;
+                prismVisualizerLevel = 0.0f;
+                prismCrossfadeStartMs = -1L;
+                prismCrossfadeLengthMs = 0L;
+                prismCrossfadeSongId = null;
+                prismCrossfadeFromId = null;
+                prismCrossfadeToId = null;
+                prismCrossfadeProgress = 0.0f;
+                prismPlayerVolume = 1.0f;
                 prismRefreshScheduled = false;
                 prismExtraRefreshes = 0;
                 prismInfoUpdatedAt = 0L;
@@ -576,7 +594,17 @@ public final class MediaSource {
             it.mediaLyrics = prismLyrics;
             it.mediaLyricsStatus = prismLyricsStatus;
             it.mediaLyricsLook = prismLyricsLook;
-            if (SystemClock.elapsedRealtime() - prismInfoUpdatedAt < 1000L) return;
+            it.mediaVisualizerBands = prismVisualizerBands;
+            it.mediaVisualizerLevel = prismVisualizerLevel;
+            it.mediaCrossfadeStartMs = prismCrossfadeStartMs;
+            it.mediaCrossfadeLengthMs = prismCrossfadeLengthMs;
+            it.mediaCrossfadeSongId = prismCrossfadeSongId;
+            it.mediaCrossfadeFromId = prismCrossfadeFromId;
+            it.mediaCrossfadeToId = prismCrossfadeToId;
+            it.mediaCrossfadeProgress = prismCrossfadeProgress;
+            it.mediaPlayerVolume = prismPlayerVolume;
+            long refreshMs = prismRefreshIntervalMs();
+            if (SystemClock.elapsedRealtime() - prismInfoUpdatedAt < refreshMs) return;
 
             if (bridgeExtras == null) return;
             MediaSession.Token token = controller.getSessionToken();
@@ -590,6 +618,15 @@ public final class MediaSource {
                     prismLyrics = details.lyrics;
                     prismLyricsStatus = details.lyricsStatus;
                     prismLyricsLook = details.lyricsLook;
+                    prismVisualizerBands = details.visualizerBands;
+                    prismVisualizerLevel = details.visualizerLevel;
+                    prismCrossfadeStartMs = details.crossfadeStartMs;
+                    prismCrossfadeLengthMs = details.crossfadeLengthMs;
+                    prismCrossfadeSongId = details.crossfadeSongId;
+                    prismCrossfadeFromId = details.crossfadeFromId;
+                    prismCrossfadeToId = details.crossfadeToId;
+                    prismCrossfadeProgress = details.crossfadeProgress;
+                    prismPlayerVolume = details.playerVolume;
                     card = null;
                     onChange.run();
                 }
@@ -600,6 +637,20 @@ public final class MediaSource {
                     }
                 }
             });
+        }
+
+        private long prismRefreshIntervalMs() {
+            if (prismLyricsLook == null) return 1000L;
+            try {
+                org.json.JSONObject settings = new org.json.JSONObject(prismLyricsLook);
+                if (!"OFF".equalsIgnoreCase(settings.optString("visualizer", "OFF"))) return 45L;
+                org.json.JSONObject view = settings.optJSONObject("view");
+                boolean crossfadeMark = view != null && view.optBoolean("crossfadeMark", false);
+                if (crossfadeMark || settings.optBoolean("mix", false)) return 250L;
+            } catch (Throwable ignored) {
+                // A malformed optional preferences snapshot must not affect media playback.
+            }
+            return 1000L;
         }
 
         private void schedulePrismLyricsRefresh(String key, MediaSession.Token token) {
