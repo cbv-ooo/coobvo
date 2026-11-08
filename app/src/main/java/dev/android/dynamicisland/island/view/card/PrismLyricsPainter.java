@@ -109,6 +109,7 @@ final class PrismLyricsPainter {
             if ("LOADING".equals(status)) message = "Loading Prism lyrics…";
             else if ("WAITING".equals(status)) message = "Open Prism to load lyrics";
             else if ("UNAVAILABLE".equals(status)) message = "No lyrics available in Prism";
+            else if ("BRIDGE_UNAVAILABLE".equals(status)) message = "Prism bridge not connected";
             else message = "Prism lyrics not available yet";
             drawPlain(canvas, mainPaint, message, left, top + owner.dp(4.0f) - mainPaint.getFontMetrics().ascent,
                     width, Paint.Align.LEFT, alpha, Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
