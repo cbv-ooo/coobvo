@@ -41,8 +41,13 @@ public final class PrismMediaBridge {
     private static final Runnable VISUALIZER_TICK = PrismMediaBridge::updateVisualizer;
     private static final Runnable STOP_VISUALIZER = () -> setVisualizerListening(false);
     private static final Map<String, JSONObject> LYRICS_BY_SONG = new ConcurrentHashMap<>();
-    /** Weak handles let /bridge reads refresh plain state fields that have no stable setter hook. */
-    private static final Map<String, WeakReference<Object>> LYRICS_STATE_BY_SONG = new ConcurrentHashMap<>();
+    /**
+     * Strong, bounded handles keep Prism's active LyricsState readable after its player Compose
+     * page is recomposed or temporarily disposed. The constructor hook registers the object, and
+     * every /bridge read refreshes its live properties before returning the snapshot.
+     */
+    private static final Map<String, Object> LYRICS_STATE_BY_SONG = new ConcurrentHashMap<>();
+    private static final int MAX_RETAINED_LYRICS_STATES = 8;
     /** Results returned by Prism's own Compose helpers; null means the listener has it disabled/not ready. */
     private static final Map<String, JSONArray> ROMANIZED_LINES_BY_SONG = new ConcurrentHashMap<>();
     private static final Map<String, JSONObject> TRANSLATION_BY_SONG = new ConcurrentHashMap<>();
@@ -127,12 +132,22 @@ public final class PrismMediaBridge {
             if (!requestedSongId.isEmpty()) {
                 // Prism 1.8.2.1 updates `settled` as a private plain property. Its setter is not
                 // a reliable bytecode join point, so sample the live LyricsState on each poll.
-                WeakReference<Object> stateReference = LYRICS_STATE_BY_SONG.get(requestedSongId);
-                Object liveState = stateReference == null ? null : stateReference.get();
+                Object liveState = LYRICS_STATE_BY_SONG.get(requestedSongId);
                 if (liveState != null) captureLyricsState(liveState);
                 lyrics = LYRICS_BY_SONG.get(requestedSongId);
             }
-            if (lyrics != null) snapshot.put("prismLyrics", new JSONObject(lyrics.toString()));
+            String lyricsBridgeStatus;
+            if (lyrics != null) {
+                snapshot.put("prismLyrics", new JSONObject(lyrics.toString()));
+                lyricsBridgeStatus = lyrics.optString("status", "UNKNOWN");
+            } else if (requestedSongId.isEmpty()) {
+                lyricsBridgeStatus = "NO_MEDIA_ID";
+            } else if (LYRICS_STATE_BY_SONG.containsKey(requestedSongId)) {
+                lyricsBridgeStatus = "NO_LYRICS_SNAPSHOT";
+            } else {
+                lyricsBridgeStatus = "NO_LYRICS_STATE";
+            }
+            snapshot.put("lyricsBridgeStatus", lyricsBridgeStatus);
 
             MatrixCursor result = new MatrixCursor(new String[]{SNAPSHOT_COLUMN});
             result.addRow(new Object[]{snapshot.toString()});
@@ -152,7 +167,15 @@ public final class PrismMediaBridge {
         try {
             String songId = songId(state);
             if (songId.isEmpty()) return;
-            LYRICS_STATE_BY_SONG.put(songId, new WeakReference<>(state));
+            LYRICS_STATE_BY_SONG.put(songId, state);
+            if (LYRICS_STATE_BY_SONG.size() > MAX_RETAINED_LYRICS_STATES) {
+                for (String oldId : LYRICS_STATE_BY_SONG.keySet()) {
+                    if (!songId.equals(oldId)) {
+                        LYRICS_STATE_BY_SONG.remove(oldId);
+                        break;
+                    }
+                }
+            }
             Object lyrics = property(state, "lyrics");
             boolean loading = asBoolean(property(state, "loading"));
             boolean waiting = asBoolean(property(state, "waiting"));
