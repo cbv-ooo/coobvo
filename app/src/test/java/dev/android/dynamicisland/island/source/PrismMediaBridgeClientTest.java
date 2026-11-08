@@ -40,9 +40,12 @@ public class PrismMediaBridgeClientTest {
     }
 
     @Test public void preservesLyricsRegistrationDiagnosticsUntilPrismStateAppears() throws Exception {
-        org.json.JSONObject snapshot = new org.json.JSONObject("{\\"lyricsBridgeStatus\\":\\"NO_LYRICS_STATE\\"}");
+        org.json.JSONObject snapshot = new org.json.JSONObject();
+        snapshot.put("lyricsBridgeStatus", "NO_LYRICS_STATE");
         assertEquals("NO_LYRICS_STATE", PrismMediaBridgeClient.lyricsStatus(snapshot));
-        snapshot.put("prismLyrics", new org.json.JSONObject("{\\"status\\":\\"LOADING\\"}"));
+        org.json.JSONObject prismLyrics = new org.json.JSONObject();
+        prismLyrics.put("status", "LOADING");
+        snapshot.put("prismLyrics", prismLyrics);
         assertEquals("LOADING", PrismMediaBridgeClient.lyricsStatus(snapshot));
     }
 
