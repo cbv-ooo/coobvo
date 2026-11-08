@@ -28,6 +28,29 @@ final class PrismLyricsPainter {
 
     private PrismLyricsPainter() {}
 
+    /** Per-card lyric line transition state; Prism uses a 340 ms fade/vertical slide. */
+    static final class State {
+        int index = Integer.MIN_VALUE;
+        String text;
+        String previousText;
+        long changedAt;
+        float update(int nextIndex, String nextText, long now) {
+            if (index == Integer.MIN_VALUE) {
+                index = nextIndex; text = nextText; previousText = null; changedAt = now;
+                return 1.0f;
+            }
+            if (index != nextIndex || !same(text, nextText)) {
+                previousText = text; index = nextIndex; text = nextText; changedAt = now;
+            }
+            if (previousText == null) return 1.0f;
+            float progress = clamp((now - changedAt) / 340.0f, 0.0f, 1.0f);
+            if (progress >= 1.0f) previousText = null;
+            return progress;
+        }
+        void reset() { index = Integer.MIN_VALUE; text = null; previousText = null; changedAt = 0L; }
+        private static boolean same(String a, String b) { return a == null ? b == null : a.equals(b); }
+    }
+
     static float rowHeightDp(JSONObject look, MediaLyrics lyrics) {
         if (look == null) return DEFAULT_ROW_DP;
         int mainRows = look.optBoolean("lyricsStripTwoLines", false) ? 2 : 1;
@@ -48,7 +71,7 @@ final class PrismLyricsPainter {
         return Math.max(DEFAULT_ROW_DP, height);
     }
 
-    static void draw(Canvas canvas, IslandView owner, MediaLyrics data, JSONObject look,
+    static void draw(Canvas canvas, IslandView owner, MediaLyrics data, JSONObject look, State state,
                      TextPaint mainPaint, TextPaint extraPaint, String status,
                      float left, float top, float width, float alpha, long positionMs, int accent) {
         if (look == null) look = new JSONObject();
@@ -56,6 +79,7 @@ final class PrismLyricsPainter {
         configureExtraPaint(owner, extraPaint, look);
 
         if (data == null || data.isEmpty()) {
+            state.reset();
             String message;
             if ("LOADING".equals(status)) message = "Loading Prism lyrics…";
             else if ("WAITING".equals(status)) message = "Open Prism to load lyrics";
@@ -68,24 +92,22 @@ final class PrismLyricsPainter {
 
         boolean synced = data.type() != MediaLyrics.Type.STATIC;
         long now = Math.max(0L, positionMs);
-        int index = synced ? data.currentIndex(now) : 0;
+        if (!synced) {
+            state.reset();
+            drawStatus(canvas, owner, look, mainPaint, "♫  Open Prism lyrics", left, top, width, alpha);
+            return;
+        }
+        int index = data.prismCurrentIndex(now);
         if (index < 0) {
-            drawGapMark(canvas, owner, look, mainPaint, left, top, width, alpha, now, null);
+            state.reset();
+            drawStatus(canvas, owner, look, mainPaint, "♫  Intro", left, top, width, alpha);
             return;
         }
 
         MediaLyrics.Line line = data.line(index);
-        if (line.interlude) {
-            MediaLyrics.Line next = index + 1 < data.size() ? data.line(index + 1) : null;
-            drawGapMark(canvas, owner, look, mainPaint, left, top, width, alpha, now, line);
-            if (look.optBoolean("lyricsStripTwoLines", false) && next != null && !next.interlude) {
-                float baseline = firstBaseline(owner, mainPaint, top);
-                float step = owner.dp(14.0f * spacing(look));
-                String text = mainText(next, look, romanizeMode(look));
-                drawPlain(canvas, mainPaint, text, anchor(left, width, align(look), next.alignEnd, text),
-                        baseline + step, width, next.alignEnd ? Paint.Align.RIGHT : align(look),
-                        alpha, Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
-            }
+        if (line.interlude || line.text.trim().isEmpty()) {
+            state.reset();
+            drawStatus(canvas, owner, look, mainPaint, "♫  Instrumental", left, top, width, alpha);
             return;
         }
 
@@ -93,6 +115,7 @@ final class PrismLyricsPainter {
         boolean romanInstead = "INSTEAD".equals(mode) && line.romanizedText != null;
         String mainText = romanInstead ? line.romanizedText : line.text;
         mainText = shown(mainText, look);
+        float transition = state.update(index, mainText, SystemClock.elapsedRealtime());
         List<MediaLyrics.Word> words = romanInstead && !line.romanizedWords.isEmpty()
                 ? line.romanizedWords : line.words;
         boolean wordByWord = look.optBoolean("wordByWordNow", false);
@@ -110,9 +133,17 @@ final class PrismLyricsPainter {
         int motion = motion(look);
         int sungColor = lyricColor(look, "sungColor", "sungCustom", accent, Colors.WHITE);
         int otherColor = lyricColor(look, "otherColor", "otherCustom", accent, Colors.ON_SURFACE_VARIANT);
-        int extraColor = lyricColor(look, "extraColor", "extraCustom", accent, Colors.ON_SURFACE_VARIANT);
+        int extraColor = lyricColor(look, "extraColor", "otherCustom", accent, Colors.ON_SURFACE_VARIANT);
         float othersAlpha = clamp((float) look.optDouble("othersAlpha", 0.55d), 0.2f, 1.0f);
         float mainBaseline = top + owner.dp(4.0f) - fm.ascent;
+        float slide = owner.dp(5.0f) * (1.0f - transition);
+        if (state.previousText != null && transition < 1.0f) {
+            drawPlain(canvas, mainPaint, state.previousText,
+                    anchor(left, width, lineAlign, line.alignEnd), mainBaseline - slide,
+                    left, width, lineAlign, 1.0f,
+                    Colors.withAlpha(Colors.WHITE, alpha * (1.0f - transition)));
+        }
+        mainBaseline += slide;
 
         String translated = look.optBoolean("lyricsTranslate", false) ? line.translatedText : null;
         if (translated != null && translated.trim().equalsIgnoreCase(line.text.trim())) translated = null;
@@ -125,38 +156,27 @@ final class PrismLyricsPainter {
             float y = mainBaseline - extraStep * aboveCount;
             if (romanUnder != null) {
                 drawExtra(canvas, owner, extraPaint, romanUnder, left, width, y, lineAlign,
-                        alpha, extraColor, look, extraSize, 0.85f, line.alignEnd);
+                        alpha * transition, extraColor, look, extraSize, 0.85f, line.alignEnd);
                 y += extraStep;
             }
             if (translated != null) {
                 drawExtra(canvas, owner, extraPaint, translated, left, width, y, lineAlign,
-                        alpha, extraColor, look, extraSize, 0.8f, line.alignEnd);
+                        alpha * transition, extraColor, look, extraSize, 0.8f, line.alignEnd);
             }
         }
 
         setShadow(owner, mainPaint, look, sungColor);
         drawTimedLine(canvas, owner, mainPaint, mainText, words, line.startMs, line.endMs,
                 left, width, mainBaseline, lineAlign, line.alignEnd, now, synced, motion,
-                sungColor, otherColor, othersAlpha, alpha, look);
+                sungColor, otherColor, othersAlpha, alpha * transition, look);
 
-        float afterBaseline = mainBaseline + lineHeight;
-        if (look.optBoolean("lyricsStripTwoLines", false) && index + 1 < data.size()) {
-            MediaLyrics.Line next = data.line(index + 1);
-            if (!next.interlude) {
-                String nextText = shown(mainText(next, look, mode), look);
-                Paint.Align nextAlign = next.alignEnd ? Paint.Align.RIGHT
-                        : (configuredAlign == Paint.Align.LEFT && isRtl(nextText) ? Paint.Align.RIGHT : configuredAlign);
-                drawPlain(canvas, extraPaint, nextText, anchor(left, width, nextAlign, next.alignEnd, nextText),
-                        afterBaseline, width, nextAlign, alpha,
-                        Colors.withAlpha(otherColor, othersAlpha * 0.72f * alpha));
-            }
-            afterBaseline += lineHeight;
-        }
+        // Prism's two-line setting limits wrapping of this current line; it does not show the next lyric.
+        float afterBaseline = mainBaseline + (look.optBoolean("lyricsStripTwoLines", false) ? lineHeight * 2.0f : lineHeight);
 
         if (!extraAbove) {
             if (romanUnder != null) {
                 drawExtra(canvas, owner, extraPaint, romanUnder, left, width, afterBaseline, lineAlign,
-                        alpha, extraColor, look, extraSize, 0.85f, line.alignEnd);
+                        alpha * transition, extraColor, look, extraSize, 0.85f, line.alignEnd);
                 afterBaseline += extraStep;
             }
         }
@@ -171,14 +191,14 @@ final class PrismLyricsPainter {
             drawTimedLine(canvas, owner, extraPaint, backing, line.background, line.startMs,
                     line.endMs, left, width, afterBaseline, lineAlign, line.alignEnd, now,
                     synced, motion == 3 ? 3 : 2, sungColor, otherColor,
-                    Math.min(0.8f, othersAlpha * 0.8f), alpha, look);
+                    Math.min(0.8f, othersAlpha * 0.8f), alpha * transition, look);
             clearShadow(extraPaint);
             afterBaseline += owner.dp(9.0f * backingSize);
         }
 
         if (!extraAbove && translated != null) {
             drawExtra(canvas, owner, extraPaint, translated, left, width, afterBaseline, lineAlign,
-                    alpha, extraColor, look, extraSize, 0.8f, line.alignEnd);
+                    alpha * transition, extraColor, look, extraSize, 0.8f, line.alignEnd);
         }
     }
 
@@ -215,7 +235,7 @@ final class PrismLyricsPainter {
         if (text == null || text.isEmpty()) return;
         boolean hasTiming = synced && words != null && !words.isEmpty();
         if (!hasTiming || motion == 4) {
-            int color = motion == 4 ? Colors.WHITE : (hasTiming ? sungColor : Colors.WHITE);
+            int color = sungColor;
             drawPlain(canvas, paint, text, anchor(left, width, align, alignEnd, text), baseline,
                     width, align, alpha, Colors.withAlpha(color, alpha));
             return;
@@ -253,8 +273,8 @@ final class PrismLyricsPainter {
             return;
         }
 
-        int dimColor = motion == 1 ? Colors.WHITE : otherColor;
-        float dimAlpha = motion == 1 ? 0.92f : Math.min(0.9f, othersAlpha);
+        int dimColor = Colors.WHITE;
+        float dimAlpha = motion == 1 ? 0.92f : 0.38f;
         drawPlain(canvas, paint, text, anchor(left, width, align, alignEnd, text), baseline,
                 width, align, alpha, Colors.withAlpha(dimColor, dimAlpha * alpha));
 
@@ -329,6 +349,16 @@ final class PrismLyricsPainter {
         paint.setTextSize(oldSize);
         paint.setTypeface(oldTypeface);
         paint.setTextAlign(oldAlign);
+    }
+
+    private static void drawStatus(Canvas canvas, IslandView owner, JSONObject look, TextPaint paint,
+            String message, float left, float top, float width, float alpha) {
+        Paint.Align textAlign = align(look);
+        paint.setTextSize(owner.dp(12.0f));
+        paint.setTextAlign(textAlign);
+        paint.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
+        float x = textAlign == Paint.Align.CENTER ? left + width * 0.5f : left;
+        canvas.drawText(message, x, firstBaseline(owner, paint, top), paint);
     }
 
     private static void drawGapMark(Canvas canvas, IslandView owner, JSONObject look, TextPaint paint,
@@ -413,10 +443,8 @@ final class PrismLyricsPainter {
     }
 
     private static Paint.Align align(JSONObject look) {
-        String value = look.optString("lyricsStripAlign", look.optString("lyricsAlign", "START"));
-        if ("CENTER".equalsIgnoreCase(value)) return Paint.Align.CENTER;
-        if ("END".equalsIgnoreCase(value) || "RIGHT".equalsIgnoreCase(value)) return Paint.Align.RIGHT;
-        return Paint.Align.LEFT;
+        return "CENTER".equalsIgnoreCase(look.optString("lyricsStripAlign", "START"))
+                ? Paint.Align.CENTER : Paint.Align.LEFT;
     }
 
     private static float firstBaseline(IslandView owner, TextPaint paint, float top) {
