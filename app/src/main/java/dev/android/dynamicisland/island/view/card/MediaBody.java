@@ -447,13 +447,14 @@ public final class MediaBody extends CardBody {
                 drawSeekRow(c, x, y + seekTop + ((1.0f - seekRowProgress) * owner.dp(ROW_SLIDE_DP))
                         + owner.dp(7.0f), alpha * seekRowProgress, fx, now);
             }
+            float controlsRowProgress = rowAlpha(elapsed, 2);
+            drawButtons(c, x, y + ((1.0f - controlsRowProgress) * owner.dp(ROW_SLIDE_DP)),
+                    alpha * controlsRowProgress);
             if (lyricsEnabled) {
                 drawLyrics(c, x + pad, y + lyricsTop, w - pad * 2,
-                        alpha * rowAlpha(elapsed, 2),
+                        alpha * controlsRowProgress,
                         fx.shownPosition(item, SystemClock.elapsedRealtime()));
             }
-            drawButtons(c, x, y + ((1.0f - rowAlpha(elapsed, 2)) * owner.dp(ROW_SLIDE_DP)),
-                    alpha * rowAlpha(elapsed, 2));
             return;
         }
 
