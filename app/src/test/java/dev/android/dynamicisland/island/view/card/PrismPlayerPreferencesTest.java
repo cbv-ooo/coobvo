@@ -9,6 +9,8 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
+import java.util.Arrays;
+
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 35)
 public class PrismPlayerPreferencesTest {
@@ -78,6 +80,20 @@ public class PrismPlayerPreferencesTest {
     }
 
 
+
+    @Test public void preservesVisiblePlayerDeckOrderAndVolumeVisibility() {
+        PrismPlayerPreferences prismVolume = PrismPlayerPreferences.fromLyricsLook(
+                "{\\\"playerPreferences\\\":{\\\"playerDeck\\\":[\\\"VOLUME\\\",\\\"STRIP\\\",\\\"TRANSPORT\\\",\\\"SCRUBBER\\\",\\\"BUTTONS\\\"],"
+                        + "\\\"hiddenParts\\\":[\\\"TRANSPORT\\\"],\\\"hideVolumeBar\\\":true,\\\"volumeControl\\\":\\\"PRISM\\\"}}");
+        assertEquals(Arrays.asList("VOLUME", "STRIP", "SCRUBBER", "BUTTONS"),
+                prismVolume.orderedDeckParts());
+
+        PrismPlayerPreferences phoneVolume = PrismPlayerPreferences.fromLyricsLook(
+                "{\\\"playerPreferences\\\":{\\\"playerDeck\\\":[\\\"STRIP\\\",\\\"SCRUBBER\\\",\\\"VOLUME\\\",\\\"TRANSPORT\\\"],"
+                        + "\\\"hideVolumeBar\\\":true,\\\"volumeControl\\\":\\\"PHONE\\\"}}");
+        assertEquals(Arrays.asList("STRIP", "SCRUBBER", "TRANSPORT"),
+                phoneVolume.orderedDeckParts());
+    }
 
     @Test public void volumeLevelUsesTheSelectedPrismOrPhoneVolumeSource() {
         PrismPlayerPreferences prismVolume = PrismPlayerPreferences.fromLyricsLook(
