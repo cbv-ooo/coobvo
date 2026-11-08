@@ -47,18 +47,27 @@ public final class PrismMediaBridgeClient {
         public final String lyricsStatus;
         public final String lyricsLook;
         public final String rawJson;
+        private final boolean lyricsExtrasPending;
 
         public boolean needsLyricsRefresh() {
             return "UNKNOWN".equals(lyricsStatus) || "LOADING".equals(lyricsStatus)
-                    || "WAITING".equals(lyricsStatus);
+                    || "WAITING".equals(lyricsStatus) || lyricsExtrasPending;
         }
 
-        private Snapshot(String info, MediaLyrics lyrics, String lyricsStatus, String lyricsLook, String rawJson) {
+        /** Prism computes romanization/translation after LyricsState has already become AVAILABLE. */
+        public boolean needsLyricsExtrasRefresh() {
+            return lyricsExtrasPending;
+        }
+        }
+
+        private Snapshot(String info, MediaLyrics lyrics, String lyricsStatus, String lyricsLook,
+                         String rawJson, boolean lyricsExtrasPending) {
             this.info = info;
             this.lyrics = lyrics;
             this.lyricsStatus = lyricsStatus == null ? "UNKNOWN" : lyricsStatus;
             this.lyricsLook = lyricsLook;
             this.rawJson = rawJson;
+            this.lyricsExtrasPending = lyricsExtrasPending;
         }
     }
 
@@ -108,13 +117,24 @@ public final class PrismMediaBridgeClient {
             MediaLyrics lyrics = null;
             String status = "UNKNOWN";
             String look = null;
+            boolean extrasPending = false;
             if (prismLyrics != null) {
                 status = prismLyrics.optString("status", "UNKNOWN");
                 lyrics = MediaLyrics.fromPrismSnapshot(prismLyrics.optJSONObject("lyrics"));
                 JSONObject lyricLook = prismLyrics.optJSONObject("look");
-                if (lyricLook != null) look = lyricLook.toString();
+                if (lyricLook != null) {
+                    look = lyricLook.toString();
+                    boolean wantsRomanized = lyricLook.optBoolean("romanizeEnabledForSong", false);
+                    boolean wantsTranslated = lyricLook.optBoolean("lyricsTranslate", false);
+                    extrasPending = (wantsRomanized && (lyrics == null || !lyrics.hasRomanizedLines()))
+                            || (wantsTranslated && (lyrics == null || !lyrics.hasTranslatedLines()));
+                }
             }
-            return new Snapshot(format(data), lyrics, status, look, json);
+            // The extension's elapsed timestamp changes on every poll. Exclude it so callers can
+            // tell an actual lyric/preference change from an unchanged bridge response.
+            JSONObject stable = new JSONObject(data.toString());
+            stable.remove("updatedAtElapsedRealtime");
+            return new Snapshot(format(data), lyrics, status, look, stable.toString(), extrasPending);
         } catch (Throwable ignored) {
             // The bridge is optional. Missing/incompatible patch must never break media cards.
             return null;

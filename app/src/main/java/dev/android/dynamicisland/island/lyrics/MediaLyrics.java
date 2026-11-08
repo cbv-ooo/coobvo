@@ -101,6 +101,16 @@ public final class MediaLyrics {
         return -1;
     }
 
+    public boolean hasRomanizedLines() {
+        for (Line line : lines) if (line.romanizedText != null) return true;
+        return false;
+    }
+
+    public boolean hasTranslatedLines() {
+        for (Line line : lines) if (line.translatedText != null) return true;
+        return false;
+    }
+
     public int currentWordIndex(Line line,long positionMs) {
         if(line==null || line.words.isEmpty()) return -1;
         for(int i=0;i<line.words.size();i++) {

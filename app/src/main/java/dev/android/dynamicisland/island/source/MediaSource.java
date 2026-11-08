@@ -342,6 +342,8 @@ public final class MediaSource {
         private String prismLyricsStatus = "UNKNOWN";
         private String prismLyricsLook;
         private boolean prismRefreshScheduled;
+        private int prismExtraRefreshes;
+        private static final int MAX_PRISM_EXTRA_REFRESHES = 8;
 
         Session(MediaController controller) {
             this.controller = controller;
@@ -564,6 +566,7 @@ public final class MediaSource {
                 prismLyricsStatus = "UNKNOWN";
                 prismLyricsLook = null;
                 prismRefreshScheduled = false;
+                prismExtraRefreshes = 0;
                 prismInfoUpdatedAt = 0L;
             }
             it.mediaInfo = prismInfo;
@@ -576,15 +579,22 @@ public final class MediaSource {
             PrismMediaBridgeClient.request(ctx, extras, key, details -> {
                 if (details == null || sessions.get(token) != this || !key.equals(prismInfoKey)) return;
                 prismInfoUpdatedAt = SystemClock.elapsedRealtime();
-                if (details.rawJson.equals(prismSnapshotJson)) return;
-                prismSnapshotJson = details.rawJson;
-                prismInfo = details.info;
-                prismLyrics = details.lyrics;
-                prismLyricsStatus = details.lyricsStatus;
-                prismLyricsLook = details.lyricsLook;
-                card = null;
-                onChange.run();
-                if (details.needsLyricsRefresh()) schedulePrismLyricsRefresh(key, token);
+                boolean changed = !details.rawJson.equals(prismSnapshotJson);
+                if (changed) {
+                    prismSnapshotJson = details.rawJson;
+                    prismInfo = details.info;
+                    prismLyrics = details.lyrics;
+                    prismLyricsStatus = details.lyricsStatus;
+                    prismLyricsLook = details.lyricsLook;
+                    card = null;
+                    onChange.run();
+                }
+                if (details.needsLyricsRefresh()) {
+                    if (!details.needsLyricsExtrasRefresh() || prismExtraRefreshes < MAX_PRISM_EXTRA_REFRESHES) {
+                        if (details.needsLyricsExtrasRefresh()) prismExtraRefreshes++;
+                        schedulePrismLyricsRefresh(key, token);
+                    }
+                }
             });
         }
 
