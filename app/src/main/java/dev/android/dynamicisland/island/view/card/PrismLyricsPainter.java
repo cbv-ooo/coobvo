@@ -1,5 +1,6 @@
 package dev.android.dynamicisland.island.view.card;
 
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Typeface;
@@ -11,6 +12,8 @@ import dev.android.dynamicisland.island.view.IslandView;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.io.File;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.json.JSONObject;
@@ -26,6 +29,7 @@ final class PrismLyricsPainter {
     private static final Pattern WORDS = Pattern.compile("\\S+\\s*");
     private static final long TYPE_IN_MS = 140L;
     private static final float DEFAULT_ROW_DP = 38.0f;
+    private static final ConcurrentHashMap<String, Typeface> TYPEFACE_CACHE = new ConcurrentHashMap<>();
 
     private PrismLyricsPainter() {}
 
@@ -143,7 +147,17 @@ final class PrismLyricsPainter {
         int otherColor = lyricColor(look, "otherColor", "otherCustom", accent, Colors.ON_SURFACE_VARIANT);
         int extraColor = lyricColor(look, "extraColor", "otherCustom", accent, Colors.ON_SURFACE_VARIANT);
         float othersAlpha = clamp((float) look.optDouble("othersAlpha", 0.55d), 0.2f, 1.0f);
-        float mainBaseline = top + owner.dp(4.0f) - fm.ascent;
+        String translated = look.optBoolean("lyricsTranslate", false) ? line.translatedText : null;
+        if (translated != null && translated.trim().equalsIgnoreCase(line.text.trim())) translated = null;
+        String romanUnder = "UNDER".equals(mode) ? line.romanizedText : null;
+        boolean extraAbove = "ABOVE".equalsIgnoreCase(look.optString("extraPlace", "BELOW"));
+        float extraSize = clamp((float) look.optDouble("extraSize", 1.0d), 0.7f, 1.4f);
+        float extraStep = owner.dp(9.5f * extraSize);
+        int aboveCount = extraAbove ? count(romanUnder, translated) : 0;
+        // Reserve the same space Prism uses for ABOVE translations/romanization so they remain
+        // inside the lyric row instead of being clipped into the controls row above.
+        float mainBaseline = top + owner.dp(4.0f) - fm.ascent
+                + (extraAbove ? extraStep * aboveCount : 0.0f);
         float slide = owner.dp(5.0f) * (1.0f - transition);
         if (state.previousText != null && transition < 1.0f) {
             drawPlain(canvas, mainPaint, state.previousText,
@@ -152,14 +166,6 @@ final class PrismLyricsPainter {
                     Colors.withAlpha(Colors.WHITE, alpha * (1.0f - transition)));
         }
         mainBaseline += slide;
-
-        String translated = look.optBoolean("lyricsTranslate", false) ? line.translatedText : null;
-        if (translated != null && translated.trim().equalsIgnoreCase(line.text.trim())) translated = null;
-        String romanUnder = "UNDER".equals(mode) ? line.romanizedText : null;
-        boolean extraAbove = "ABOVE".equalsIgnoreCase(look.optString("extraPlace", "BELOW"));
-        float extraSize = clamp((float) look.optDouble("extraSize", 1.0d), 0.7f, 1.4f);
-        float extraStep = owner.dp(9.5f * extraSize);
-        int aboveCount = extraAbove ? count(romanUnder, translated) : 0;
         if (aboveCount > 0) {
             float y = mainBaseline - extraStep * aboveCount;
             if (romanUnder != null) {
@@ -202,7 +208,7 @@ final class PrismLyricsPainter {
             String backing = wordText(line.background, look.optBoolean("uppercase", false));
             float backingSize = clamp((float) look.optDouble("backingSize", 0.6d), 0.4f, 0.9f);
             extraPaint.setTextSize(baseSize * backingSize);
-            extraPaint.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+            extraPaint.setTypeface(typeface(owner, look, "REGULAR", false));
             extraPaint.setTextAlign(lineAlign);
             setShadow(owner, extraPaint, look, sungColor);
             drawTimedLine(canvas, owner, extraPaint, backing, line.background, line.startMs,
@@ -381,8 +387,7 @@ final class PrismLyricsPainter {
         Typeface oldTypeface = paint.getTypeface();
         Paint.Align oldAlign = paint.getTextAlign();
         paint.setTextSize(owner.dp(12.0f * sizeScale * 0.52f));
-        paint.setTypeface(Typeface.create("sans-serif", look.optBoolean("extraItalic", false)
-                ? Typeface.ITALIC : Typeface.NORMAL));
+        paint.setTypeface(typeface(owner, look, "REGULAR", look.optBoolean("extraItalic", false)));
         paint.setTextAlign(alignEnd ? Paint.Align.RIGHT : align);
         setShadow(owner, paint, look, color);
         drawPlain(canvas, paint, text, anchor(left, width, paint.measureText(text), align, alignEnd),
@@ -438,25 +443,75 @@ final class PrismLyricsPainter {
 
     private static void configureMainPaint(IslandView owner, TextPaint paint, JSONObject look) {
         float size = clamp((float) look.optDouble("sizeScale", 1.0d), 0.7f, 1.4f);
-        paint.setTextSize(owner.dp(12.0f * size));
-        paint.setTypeface(typeface(look.optString("weightNow", look.optString("weight", "LIGHT"))));
-        paint.setFakeBoldText("CARD".equalsIgnoreCase(look.optString("style", "")));
+        float textScale = clamp((float) look.optDouble("textScale", 1.0d), 0.7f, 1.4f);
+        paint.setTextSize(owner.dp(12.0f * size * textScale));
+        paint.setTypeface(typeface(owner, look,
+                look.optString("weightNow", look.optString("weight", "LIGHT")), false));
+        paint.setFakeBoldText(look.optBoolean("boldLinesNow", "CARD".equalsIgnoreCase(look.optString("style", ""))));
+        paint.setLetterSpacing((float) look.optDouble("typeSpacingEm", 0.0d));
         paint.setTextAlign(align(look));
         paint.clearShadowLayer();
     }
 
     private static void configureExtraPaint(IslandView owner, TextPaint paint, JSONObject look) {
-        paint.setTextSize(owner.dp(6.2f * clamp((float) look.optDouble("extraSize", 1.0d), 0.7f, 1.4f)));
-        paint.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+        float textScale = clamp((float) look.optDouble("textScale", 1.0d), 0.7f, 1.4f);
+        paint.setTextSize(owner.dp(6.2f * clamp((float) look.optDouble("extraSize", 1.0d), 0.7f, 1.4f) * textScale));
+        paint.setTypeface(typeface(owner, look, "REGULAR", false));
+        paint.setLetterSpacing((float) look.optDouble("typeSpacingEm", 0.0d));
         paint.setFakeBoldText(false);
     }
 
-    private static Typeface typeface(String weight) {
-        if ("THIN".equalsIgnoreCase(weight)) return Typeface.create("sans-serif-thin", Typeface.NORMAL);
-        if ("LIGHT".equalsIgnoreCase(weight)) return Typeface.create("sans-serif-light", Typeface.NORMAL);
-        if ("MEDIUM".equalsIgnoreCase(weight)) return Typeface.create("sans-serif-medium", Typeface.NORMAL);
-        if ("BOLD".equalsIgnoreCase(weight)) return Typeface.create("sans-serif", Typeface.BOLD);
-        return Typeface.create("sans-serif", Typeface.NORMAL);
+    /**
+     * Resolves Prism's selected Lyrics font from Prism's own resources/files. The System UI process
+     * never imports Prism classes or Compose; it only loads the exact packaged Typeface where the
+     * OS permits the media-session caller to read it. A safe system fallback is used otherwise.
+     */
+    private static Typeface typeface(IslandView owner, JSONObject look, String weightName, boolean italic) {
+        String lyricChoice = look.optString("lyricsFont", "");
+        String choice = lyricChoice.isEmpty() ? look.optString("fontChoice", "PRISM") : lyricChoice;
+        String slot = lyricChoice.isEmpty() ? "app.font" : "lyrics.font";
+        long stamp = look.optLong("fontStamp", 0L);
+        int weight = fontWeight(weightName);
+        String key = choice + "|" + slot + "|" + stamp + "|" + weight + "|" + italic;
+        Typeface cached = TYPEFACE_CACHE.get(key);
+        if (cached != null) return cached;
+
+        Typeface base = Typeface.DEFAULT;
+        try {
+            Context prism = owner.getContext().createPackageContext("com.prism.music", 0);
+            if ("CUSTOM".equalsIgnoreCase(choice)) {
+                File file = new File(new File(prism.getFilesDir(), "fonts"), slot);
+                if (file.isFile() && file.canRead()) base = Typeface.createFromFile(file);
+            } else if (!"SYSTEM".equalsIgnoreCase(choice)) {
+                String resource = switch (choice.toUpperCase(java.util.Locale.ROOT)) {
+                    case "CLEAN" -> "manrope";
+                    case "GEOMETRIC" -> "plus_jakarta_sans";
+                    case "AIRY" -> "urbanist";
+                    case "ROUNDED" -> "nunito";
+                    case "SERIF" -> "fraunces";
+                    case "MONO" -> "geist_mono";
+                    case "LEGIBLE" -> "atkinson_hyperlegible_next";
+                    case "DYSLEXIC" -> weight >= 600 ? "opendyslexic_bold" : "opendyslexic_regular";
+                    default -> "outfit";
+                };
+                int id = prism.getResources().getIdentifier(resource, "font", "com.prism.music");
+                if (id != 0) base = prism.getResources().getFont(id);
+            }
+        } catch (Throwable ignored) {
+            // The bridge must keep working if Prism's resource context or imported font isn't readable.
+        }
+        Typeface resolved = Typeface.create(base, weight, italic);
+        if (TYPEFACE_CACHE.size() > 48) TYPEFACE_CACHE.clear();
+        TYPEFACE_CACHE.put(key, resolved);
+        return resolved;
+    }
+
+    private static int fontWeight(String value) {
+        if ("THIN".equalsIgnoreCase(value)) return 200;
+        if ("LIGHT".equalsIgnoreCase(value)) return 300;
+        if ("MEDIUM".equalsIgnoreCase(value)) return 500;
+        if ("BOLD".equalsIgnoreCase(value)) return 700;
+        return 400;
     }
 
     private static int motion(JSONObject look) {

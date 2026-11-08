@@ -324,9 +324,17 @@ public final class PrismMediaBridge {
 
             String[] settingsFields = {
                     "lyricsAlign", "lyricsStripAlign", "lyricsStripTwoLines",
-                    "romanize", "romanizeAll", "lyricsTranslate", "lyricsTranslateTo"
+                    "romanize", "romanizeAll", "lyricsTranslate", "lyricsTranslateTo",
+                    "lyricsFont", "lyricsFontName", "fontChoice", "appFontName", "fontStamp", "textScale"
             };
             for (String field : settingsFields) putProperty(result, field, settings, field);
+
+            // TextStyle.titleMedium inherits Prism's typography tracking. The expanded Canvas row
+            // reads the same application-level letter-spacing preference directly.
+            Object appType = property(settings, "type");
+            Object typeSpacing = property(appType, "spacing");
+            Object tracking = property(typeSpacing, "em");
+            if (tracking instanceof Number) result.put("typeSpacingEm", ((Number) tracking).floatValue());
 
             // Romanization is a global setting with a per-song on/off override in Prism's Romanizer.
             Object romanizer = property(container, "romanizer");
