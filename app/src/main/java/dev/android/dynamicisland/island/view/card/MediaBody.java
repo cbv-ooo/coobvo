@@ -70,6 +70,8 @@ public final class MediaBody extends CardBody {
     private final boolean prismSession;
     private final MediaLyrics prismLyrics;
     private final String prismLyricsStatus;
+    private final JSONObject prismLook;
+    private final float prismLyricsRowDp;
     private final int prismSungColor;
     private final int prismOtherColor;
     private final float prismOtherAlpha;
@@ -106,7 +108,8 @@ public final class MediaBody extends CardBody {
         prismSession = "com.prism.music".equals(item.packageName);
         prismLyrics = item.mediaLyrics;
         prismLyricsStatus = item.mediaLyricsStatus == null ? "UNKNOWN" : item.mediaLyricsStatus;
-        JSONObject prismLook = parsePrismLook(item.mediaLyricsLook);
+        prismLook = parsePrismLook(item.mediaLyricsLook);
+        prismLyricsRowDp = PrismLyricsPainter.rowHeightDp(prismLook, prismLyrics);
         prismSungColor = prismColor(prismLook, "sungColor", "sungCustom", item.accent, Colors.ON_SURFACE);
         prismOtherColor = prismColor(prismLook, "otherColor", "otherCustom", item.accent, Colors.ON_SURFACE_VARIANT);
         prismOtherAlpha = clamp(prismLook == null ? 0.55f : (float) prismLook.optDouble("othersAlpha", 0.55d), 0.2f, 1.0f);
@@ -165,7 +168,7 @@ public final class MediaBody extends CardBody {
         if (item.mediaCustom.size() > 1) {
             addCustom(item.mediaCustom.get(1), pad + (CUSTOM_RIGHT_AT * span));
         }
-        h = lyricsTop + (lyricsEnabled ? owner.dp(LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
+        h = lyricsTop + (lyricsEnabled ? owner.dp(prismSession ? prismLyricsRowDp : LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
         if (lyricsEnabled && !prismSession && item.title != null && item.subtitle != null) {
             LyricsManager.request(owner.getContext(), lyricsTitle, lyricsArtist,
                     item.mediaDuration, owner::postInvalidateOnAnimation);
@@ -255,7 +258,12 @@ public final class MediaBody extends CardBody {
 
     /** Current and next line of synced lyrics, using the playback clock shared with the seek row. */
     private void drawLyrics(Canvas canvas, float left, float top, float width, float alpha, long positionMs) {
-        MediaLyrics data = prismSession ? prismLyrics : LyricsManager.getByKey(lyricsKey);
+        if (prismSession) {
+            PrismLyricsPainter.draw(canvas, owner, prismLyrics, prismLook, lyricsCurrentPaint, lyricsNextPaint,
+                    prismLyricsStatus, left, top, width, alpha, positionMs, item.accent);
+            return;
+        }
+        MediaLyrics data = LyricsManager.getByKey(lyricsKey);
         TextPaint current = lyricsCurrentPaint;
         TextPaint next = lyricsNextPaint;
         current.setTextSize(owner.dp(12.0f * (prismSession ? prismSizeScale : 1.0f)));
