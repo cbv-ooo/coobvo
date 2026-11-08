@@ -124,9 +124,7 @@ public final class MediaBody extends CardBody {
         playerTitlePaint = new TextPaint(owner.mediaTitlePaint());
         playerArtistPaint = new TextPaint(owner.mediaArtistPaint());
         if (prismSession) {
-            float titleScale = prismPlayer.titleScale();
-            playerTitlePaint.setTextSize(playerTitlePaint.getTextSize() * titleScale);
-            playerArtistPaint.setTextSize(playerArtistPaint.getTextSize() * titleScale);
+            playerTitlePaint.setTextSize(playerTitlePaint.getTextSize() * prismPlayer.titleScale());
             if ("BOLD".equals(prismPlayer.titleWeight)) {
                 playerTitlePaint.setFakeBoldText(true);
                 playerArtistPaint.setFakeBoldText(true);
