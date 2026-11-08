@@ -24,4 +24,14 @@ public class PrismLyricsPainterTest {
         assertTrue(PrismLyricsPainter.synthesizeWords("Plain words", -1L, -1L).isEmpty());
         assertTrue(PrismLyricsPainter.synthesizeWords("Plain words", 0L, 0L).isEmpty());
     }
+
+    @Test public void lyricLineChangesUsePrisms340msFadeAndSlideWindow() {
+        PrismLyricsPainter.State state = new PrismLyricsPainter.State();
+        assertEquals(1.0f, state.update(0, "first line", 1000L), 0.001f);
+        assertEquals(0.0f, state.update(1, "second line", 1100L), 0.001f);
+        assertEquals("first line", state.previousText);
+        assertEquals(0.5f, state.update(1, "second line", 1270L), 0.001f);
+        assertEquals(1.0f, state.update(1, "second line", 1440L), 0.001f);
+        assertEquals(null, state.previousText);
+    }
 }

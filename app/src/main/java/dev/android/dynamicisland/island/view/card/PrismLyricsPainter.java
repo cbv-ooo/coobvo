@@ -148,7 +148,7 @@ final class PrismLyricsPainter {
         if (state.previousText != null && transition < 1.0f) {
             drawPlain(canvas, mainPaint, state.previousText,
                     anchor(left, width, lineAlign, line.alignEnd, state.previousText), mainBaseline - slide,
-                    left, width, lineAlign, 1.0f,
+                    width, lineAlign, alpha * (1.0f - transition),
                     Colors.withAlpha(Colors.WHITE, alpha * (1.0f - transition)));
         }
         mainBaseline += slide;

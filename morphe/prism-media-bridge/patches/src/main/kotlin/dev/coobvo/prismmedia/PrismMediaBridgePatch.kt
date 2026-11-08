@@ -39,20 +39,6 @@ private object PrismBrowseMediaItemFingerprint : Fingerprint(
     )
 )
 
-/** Captures the first state (especially loading=true) as soon as Prism remembers it for the player. */
-private object PrismRememberLyricsStateFingerprint : Fingerprint(
-    definingClass = "Lcom/prism/music/ui/player/PlayerLyricsKt;",
-    name = "rememberLyricsState",
-    isStatic = true,
-    returnType = "Lcom/prism/music/ui/player/LyricsState;",
-    parameters = listOf(
-        "Lcom/prism/music/data/model/Song;",
-        "Z",
-        "Landroidx/compose/runtime/Composer;",
-        "I"
-    )
-)
-
 /** Prism's player keeps the authoritative active lyrics in this state object. */
 private object PrismLyricsSetLyricsFingerprint : Fingerprint(
     definingClass = "Lcom/prism/music/ui/player/LyricsState;",
@@ -163,18 +149,6 @@ private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureObje
     }
 }
 
-private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureStateObjectOnReturns() {
-    val returnIndexes = instructions.withIndex()
-        .filter { it.value.opcode == Opcode.RETURN_OBJECT }
-        .map { it.index }
-        .sortedDescending()
-    if (returnIndexes.isEmpty()) throw PatchException("Prism rememberLyricsState has no object return")
-    returnIndexes.forEach { index ->
-        val register = getInstruction<OneRegisterInstruction>(index).registerA
-        addInstructions(index, "invoke-static { v$register }, $EXTENSION->captureLyricsState(Ljava/lang/Object;)V")
-    }
-}
-
 private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureLyricsStateOnReturns() {
     val returnIndexes = instructions.withIndex()
         .filter { it.value.opcode == Opcode.RETURN_VOID }
@@ -205,8 +179,6 @@ val prismMediaBridgePatch = patch(
         PrismSongToMediaItemFingerprint.method.decorateMediaItemReturns()
         PrismBrowseMediaItemFingerprint.method.decorateMediaItemReturns()
 
-        // Capture the remembered player state immediately (including loading/waiting), then refresh after mutations.
-        PrismRememberLyricsStateFingerprint.method.captureStateObjectOnReturns()
         // Snapshot Prism's own resolved lyric state after it changes. No Compose UI is called from System UI.
         PrismLyricsSetLyricsFingerprint.method.captureLyricsStateOnReturns()
         PrismLyricsSetSourceFingerprint.method.captureLyricsStateOnReturns()
