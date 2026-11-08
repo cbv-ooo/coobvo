@@ -18,12 +18,14 @@ The route returns a small JSON snapshot from Prism's in-memory state:
 - Video resolution/codec, dropped frames and audio underruns.
 - Playback position/duration/speed and queue index/count when Prism's active player service is reachable.
 - Shuffle and repeat state when available.
-- Current Prism LyricsState: provider, loading/waiting/settled state, sync flag, ordered line times, word times, background-vocal word times, alignment and gap markers.
+- Current Prism LyricsState: provider, loading/waiting/settled state, sync flag, ordered line times, word times, background-vocal word times, alignment and gap markers. The patch keeps a weak reference from the real LyricsState setter hooks and refreshes its current getters when System UI polls, so a private plain `settled` property does not need a synthetic or guessed setter hook.
 - Resolved Prism lyric-look settings and translation/romanization preference flags.
 
 The patch does not add another metadata scraper, lyric provider or network request. Prism remains the source of truth. Standard title, artist, album, artwork, duration, playback state and transport actions continue through Android's MediaSession.
 
-The current bridge does not yet export final translated or romanized lines produced by Prism's Compose helpers. Coobvo now maps a subset of Prism's appearance settings to Canvas (sung/non-sung colours, opacity, weight emphasis, size scale, uppercase, alignment and one/two-line strip choice), but does not reproduce every Prism style, animation, glow/shadow or background override. Unsynchronized/static lines are not assigned estimated timestamps.
+The current bridge does not yet export final translated or romanized lines produced by Prism's Compose helpers.
+
+The owner's Prism 1.8.2.1 Morphe log identified a `setSettled(boolean)` fingerprint mismatch. That fingerprint is deliberately not used: the extension refreshes the live state's `settled` getter during each local bridge query. The resulting `.mpp` still needs to be applied to the exact Prism APK; bundle compilation is not proof of successful patching. Coobvo now maps a subset of Prism's appearance settings to Canvas (sung/non-sung colours, opacity, weight emphasis, size scale, uppercase, alignment and one/two-line strip choice), but does not reproduce every Prism style, animation, glow/shadow or background override. Unsynchronized/static lines are not assigned estimated timestamps.
 
 ## Build
 

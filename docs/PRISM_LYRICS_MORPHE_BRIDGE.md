@@ -31,10 +31,12 @@ The patch currently:
 1. Decorates Prism's Song-to-MediaItem and browse MediaItem results with a versioned local bridge marker and URI while preserving original metadata.
 2. Hooks Prism's existing ArtworkProvider.query() and intercepts only the /bridge/{songId} route. Other artwork routes are left alone.
 3. Reads Prism's current in-memory stream diagnostics and player/queue state.
-4. Hooks the return from Prism LyricsState setters for lyrics, source, loading, waiting and settled. After those state mutations it serializes the authoritative state for that song.
+4. Hooks the return from Prism LyricsState setters for lyrics, source, loading and waiting. Those hooks retain a weak reference to the live state object. Each permitted /bridge/{songId} read refreshes the snapshot from Prism's current getters, including the plain `settled` property. This avoids relying on a `setSettled(boolean)` method that the reported Prism 1.8.2.1 APK does not expose as a matching patch target.
 5. Exports a bounded, in-memory JSON snapshot to callers whose UID belongs to Android System UI. Other callers receive an empty cursor. The route is local and does not add a network lyric provider.
 
 The lyric snapshot includes:
+
+The owner reported Morphe's exact failure at `PrismLyricsSetSettledFingerprint`. That fingerprint has been removed rather than weakened. The bridge now reads the live `settled` getter when System UI polls, using the state reference retained by the other setter hooks. This is a source-level correction; the rebuilt `.mpp` still must be applied to the exact Prism 1.8.2.1 APK to confirm the remaining fingerprints and runtime export.
 
 - Selected provider/source name when present.
 - Loading, waiting, settled and unavailable state.
@@ -72,7 +74,7 @@ The Canvas card renders synchronized line/word data and applies a subset of Pris
 - Dedicated Morphe workflow: Prism Morphe Patch run #3 at https://github.com/cbv-ooo/coobvo/actions/runs/42446806609
 - The run passed Morphe's :patches:buildAndroid task and produced coobvo-prism-media-bridge-mpp, artifact https://github.com/cbv-ooo/coobvo/actions/runs/42446806609/artifacts/13603559103
 - Coobvo consumer source passed Debug APK run #61 for commit ef0633627ee3c939695dbbf59e5f8d424944fb48, artifact https://github.com/cbv-ooo/coobvo/actions/runs/42447445219/artifacts/13604575694
-- These runs prove source compilation, patch bundle generation and app APK packaging. They do not prove bytecode fingerprints match the installed Prism APK, that Morphe successfully applies the bundle to that APK, or that the bridge works on the S10e.
+- These runs prove source compilation, patch bundle generation and app APK packaging. They do not prove bytecode fingerprints match the installed Prism APK, that Morphe successfully applies the bundle to that APK, or that the bridge works on the S10e. The `setSettled` fingerprint reported by the owner has now been removed; the new bundle must still be applied to the exact APK to validate the remaining targets.
 
 ## Remaining validation and work
 
