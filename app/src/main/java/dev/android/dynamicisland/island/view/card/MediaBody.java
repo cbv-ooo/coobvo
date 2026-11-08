@@ -276,10 +276,6 @@ public final class MediaBody extends CardBody {
                 if (rowHeight <= 0.0f) continue;
                 if (placedRow) cursor += owner.dp(5.0f);
                 // The first row starts at deckStart; later rows get their own gap.
-                if (placedRow) {
-                    float shift = owner.dp(5.0f);
-                    cursor += 0.0f; // Keep the row top calculation explicit for review.
-                }
                 if ("STRIP".equals(part) && lyricsEnabled) lyricsTopValue = cursor;
                 else if ("SCRUBBER".equals(part) && prismShowProgress) seekTopValue = cursor;
                 else if ("TRANSPORT".equals(part) && prismShowTransport) transportTopValue = cursor;
