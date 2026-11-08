@@ -142,13 +142,13 @@ public class PrismPlayerPreferencesTest {
 
     @Test public void alwaysKeepsLyricsBelowTheHeaderAndNeverAllocatesVolume() {
         PrismPlayerPreferences prefs = PrismPlayerPreferences.fromLyricsLook(
-                "{\\"playerPreferences\\":{\\"playerDeck\\":[\\"TRANSPORT\\",\\"VOLUME\\",\\"SCRUBBER\\"],"
-                        + "\\"hideVolumeBar\\":false,\\"volumeControl\\":\\"PRISM\\"}}");
+                "{\"playerPreferences\":{\"playerDeck\":[\"TRANSPORT\",\"VOLUME\",\"SCRUBBER\"],"
+                        + "\"hideVolumeBar\":false,\"volumeControl\":\"PRISM\"}}");
         assertEquals(Arrays.asList("STRIP", "TRANSPORT", "SCRUBBER"), prefs.orderedDeckParts());
 
         PrismPlayerPreferences hiddenLyrics = PrismPlayerPreferences.fromLyricsLook(
-                "{\\"playerPreferences\\":{\\"playerDeck\\":[\\"VOLUME\\",\\"TRANSPORT\\"],"
-                        + "\\"hiddenParts\\":[\\"LYRIC_LINE\\"]}}");
+                "{\"playerPreferences\":{\"playerDeck\":[\"VOLUME\",\"TRANSPORT\"],"
+                        + "\"hiddenParts\":[\"LYRIC_LINE\"]}}");
         assertEquals(Arrays.asList("TRANSPORT"), hiddenLyrics.orderedDeckParts());
     }
 
