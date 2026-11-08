@@ -221,6 +221,12 @@ public final class IslandItem {
     public Drawable mediaOutputIcon;
     /** Battery percent of the output device, -1 = unknown. */
     public int mediaOutputBattery = -1;
+    /** Album title supplied by the media session. */
+    public CharSequence mediaAlbum;
+    /** Optional Prism playback flags such as LIVE, EPISODE or EXPLICIT. */
+    public CharSequence mediaFlags;
+    /** Technical stream information supplied by the Prism Morphe bridge. */
+    public CharSequence mediaInfo;
 
     /** What the compact pill shows at its trailing edge. */
     public enum Trailing {

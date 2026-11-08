@@ -57,11 +57,13 @@ Take its parsing rules and local feature behaviour; reimplement them as small Ja
 
 The timer/stopwatch and navigation notification parsers are implemented in Java and connected to the existing OngoingActivity card builder; native Samsung Chronometer data remains preferred. These two parser integrations do not constitute completion of Smart Island. Remaining candidates to compare/port are richer live-activity parsing, notification cooldown/history, quick-launch shortcuts, idle widgets, network speed and diagnostics. The Smart Island Settings page must not present descriptive text as proof that a feature is implemented or verified.
 
-### LyricSync and Prism
+### LyricSync, Prism media and Morphe
 
 The supplied LyricSync-master archive contains the Java model, provider cascade, matching utilities, cache and renderer logic. The current coobvo implementation is a limited provider path (Kugou KRC, NetEase YRC and LRCLIB LRC/static), not full LyricSync parity.
 
-A separate Prism-only Morphe bridge is being investigated. The official Morphe v2.1.0 "Third-party lyrics" patch targets YouTube Music (`com.google.android.apps.youtube.music`), not Prism (`com.prism.music`); do not apply its YouTube Music compatibility/fingerprints to Prism. Prism already owns its own source selection, providers, lyric cache, timed-line/word model and visual preferences. The intended design is a Prism-targeted Morphe patch that exports a versioned local-only lyrics/playback/preferences snapshot to coobvo, with no second provider cascade for Prism playback. Full details: docs/PRISM_LYRICS_MORPHE_BRIDGE.md.
+The Prism Morphe patch's primary job is to expose richer Prism-owned media data to Dynamic Island. Standard title, artist, album, artwork, duration, playback state and transport actions continue to come from Prism's existing MediaSession. The additional bridge exposes Prism's Song extras and its live stream diagnostics (source/container/codec/decoder, bitrate, sample/bit depth/channels, output encoding/device/effects, loudness, video data and player/queue state) through a versioned local-only route. A Java consumer formats this data into the existing media card. Prism remains the owner of its metadata, stream and lyrics lookup.
+
+The official Morphe v2.1.0 "Third-party lyrics" patch targets YouTube Music (`com.google.android.apps.youtube.music`), not Prism (`com.prism.music`); its compatibility/fingerprints cannot be reused. A separate Prism target is staged under `morphe/prism-media-bridge/`. The coobvo consumer suppresses the independent LyricSync lookup for Prism sessions. The staged patch is not yet a built `.mpp` bundle or a tested patched Prism APK; lyric-line/style export is a later bridge phase, not yet implemented. Full details and evidence: docs/PRISM_LYRICS_MORPHE_BRIDGE.md.
 
 For other media apps, any remaining LyricSync lookup stays opt-in, off by default, with explicit notice that track metadata is sent to external providers. It runs off the UI thread and proceeds only when the hosting System UI process has INTERNET permission. Provider failures must never affect media playback or System UI stability.
 
@@ -84,7 +86,7 @@ For other media apps, any remaining LyricSync lookup stays opt-in, off by defaul
 
 The debug package is dev.android.dynamicisland.coobvo, separate from the old dev.android.dynamicisland identity, using app/coobvo-debug.keystore and the stable alias coobvoDebug. The owner has deleted the previous debug installation and is now using coobvo. The older dual-install situation is the likely explanation for the earlier duplicate full island; do not keep assuming both module installs remain active. If two full islands appear with only coobvo installed/enabled, investigate the current System UI window lifecycle.
 
-Current source version before the next docs handoff: version code 131 / version name 0.1.29-dev1. The latest accepted debug artifact is run #51 for commit f3046b390d4b6f6a9b8fd70c0fd23c62564bdb44; CI passed compilation, packaging and upload. Artifact: https://github.com/cbv-ooo/coobvo/actions/runs/42439738832/artifacts/13601441127.
+Current source version in the pending Prism media integration commit: version code 133 / version name 0.1.31-dev1. The latest passing build before that commit is run #52 for commit d09ef5625096e998fe9abc67a474fc6e2ee7663f (version 132 / 0.1.30-dev1); CI passed compilation, packaging and upload. Artifact: https://github.com/cbv-ooo/coobvo/actions/runs/42442152143/artifacts/13602555320. The Prism bridge changes still require their own CI run.
 
 ## Backlog
 
@@ -92,7 +94,7 @@ Current source version before the next docs handoff: version code 131 / version 
 2. Complete the whole battery feature, not merely shared gauge geometry/tint, and expose/verify every intended battery presentation and interaction.
 3. Finish one coherent Material 3 Expressive system across compact glyphs, both bubbles, buttons, and expanded cards; shared tokens currently form a foundation, not a completed system.
 4. Port remaining Smart Island capabilities as working Java event/card/settings behavior. The two parser ports alone are not completion.
-5. Implement the Prism-only Morphe bridge and Prism-style compact renderer as specified in docs/PRISM_LYRICS_MORPHE_BRIDGE.md. Do not send Prism track metadata through LyricSync's independent providers.
+5. Package and validate the staged Prism media Morphe patch, then expand its bridge to expose Prism lyrics and resolved lyric-look preferences. The coobvo-side media fields/consumer are source-staged; no .mpp or patched Prism APK is confirmed yet. Do not send Prism tracks through LyricSync's independent providers.
 6. Complete LyricSync parity for non-Prism media sessions only if still needed.
 
 ## Owner-confirmed device facts

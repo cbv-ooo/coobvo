@@ -10,6 +10,7 @@ import android.media.session.MediaController;
 import android.media.session.MediaSession;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
 import dev.android.dynamicisland.island.graphics.ArtworkPalette;
@@ -332,6 +333,9 @@ public final class MediaSource {
         IslandItem card;
         private Bitmap paletteArt;
         private ArtworkPalette palette;
+        private String prismInfoKey;
+        private String prismInfo;
+        private long prismInfoUpdatedAt;
 
         Session(MediaController controller) {
             this.controller = controller;
@@ -440,6 +444,9 @@ public final class MediaSource {
         public void onMetadataChanged(MediaMetadata newMeta) {
             blockedByRecording();
             meta = newMeta;
+            prismInfoKey = null;
+            prismInfo = null;
+            prismInfoUpdatedAt = 0L;
             allowFreshPlayback();
             card = null;
             onChange.run();
@@ -488,6 +495,7 @@ public final class MediaSource {
             bindImages(it, pkg, title + "|" + artist);
             bindOutput(it);
             bindPlayback(it);
+            bindPrismDetails(it, pkg, title, artist);
             bindCustomActions(it, pkg);
             return it;
         }
@@ -500,6 +508,68 @@ public final class MediaSource {
                 }
             }
             return null;
+        }
+
+        private void bindPrismDetails(IslandItem it, String pkg, CharSequence title, CharSequence artist) {
+            if (!"com.prism.music".equals(pkg) || meta == null) return;
+
+            it.mediaAlbum = meta.getString(MediaMetadata.METADATA_KEY_ALBUM);
+            Bundle extras = null;
+            android.media.MediaDescription description = meta.getDescription();
+            if (description != null) extras = description.getExtras();
+            if (extras == null) return;
+
+            try {
+                String songJson = extras.getString("prism.song");
+                if (songJson != null && !songJson.isEmpty()) {
+                    org.json.JSONObject song = new org.json.JSONObject(songJson);
+                    StringBuilder flags = new StringBuilder();
+                    if (it.mediaAlbum == null || it.mediaAlbum.length() == 0) {
+                        org.json.JSONObject album = song.optJSONObject("album");
+                        if (album != null) it.mediaAlbum = album.optString("title", null);
+                    }
+                    if (song.optBoolean("isLive")) flags.append("LIVE");
+                    if (song.optBoolean("isEpisode")) appendMediaFlag(flags, "EPISODE");
+                    if (song.optBoolean("explicit")) appendMediaFlag(flags, "EXPLICIT");
+                    if (song.optBoolean("isVideo") || extras.getString("prism.video") != null) appendMediaFlag(flags, "VIDEO");
+                    if (song.optBoolean("isUpload")) appendMediaFlag(flags, "UPLOAD");
+                    String songId = song.optString("id", "");
+                    if (songId.startsWith("local:")) appendMediaFlag(flags, "LOCAL");
+                    if (song.optString("podcastId", "").length() > 0) appendMediaFlag(flags, "PODCAST");
+                    if (it.mediaDuration <= 0L) {
+                        long durationMs = Math.max(0L, song.optLong("durationSec", 0L)) * 1000L;
+                        if (durationMs > 0L) it.mediaDuration = durationMs;
+                    }
+                    if (flags.length() > 0) it.mediaFlags = flags.toString();
+                }
+            } catch (Throwable ignored) {
+                // Prism metadata extras are optional; standard MediaSession data remains usable.
+            }
+
+            String key = String.valueOf(title) + "|" + String.valueOf(artist) + "|"
+                    + String.valueOf(it.mediaAlbum);
+            if (!key.equals(prismInfoKey)) {
+                prismInfoKey = key;
+                prismInfo = null;
+                prismInfoUpdatedAt = 0L;
+            }
+            it.mediaInfo = prismInfo;
+            if (SystemClock.elapsedRealtime() - prismInfoUpdatedAt < 1000L) return;
+
+            MediaSession.Token token = controller.getSessionToken();
+            PrismMediaBridgeClient.request(ctx, extras, key, details -> {
+                if (details == null || sessions.get(token) != this || !key.equals(prismInfoKey)) return;
+                prismInfoUpdatedAt = SystemClock.elapsedRealtime();
+                if (details.equals(prismInfo)) return;
+                prismInfo = details;
+                card = null;
+                onChange.run();
+            });
+        }
+
+        private void appendMediaFlag(StringBuilder flags, String flag) {
+            if (flags.length() > 0) flags.append(" · ");
+            flags.append(flag);
         }
 
         private void bindImages(IslandItem it, String pkg, String track) {

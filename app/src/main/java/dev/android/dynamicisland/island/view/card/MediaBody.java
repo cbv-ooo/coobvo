@@ -65,6 +65,7 @@ public final class MediaBody extends CardBody {
     private final String lyricsTitle;
     private final String lyricsArtist;
     private final String lyricsKey;
+    private final boolean lyricsEnabled;
     /** Prepared text is rebuilt only when the track or current line changes, never per frame. */
     private MediaLyrics cachedLyrics;
     private int cachedLyricIndex = Integer.MIN_VALUE;
@@ -87,7 +88,9 @@ public final class MediaBody extends CardBody {
         lyricsNextPaint = new TextPaint(owner.mediaArtistPaint());
         lyricsTitle = item.title == null ? "" : item.title.toString();
         lyricsArtist = item.subtitle == null ? "" : item.subtitle.toString();
-        lyricsKey = LyricsManager.keyFor(lyricsTitle, lyricsArtist);
+        // Prism owns its own lyrics providers. Never run the separate coobvo lookup for Prism sessions.
+        lyricsEnabled = ModuleSettings.mediaLyricsEnabled() && !"com.prism.music".equals(item.packageName);
+        lyricsKey = lyricsEnabled ? LyricsManager.keyFor(lyricsTitle, lyricsArtist) : "";
         pad = owner.dp(18.0f);
         art = owner.dp(56.0f);
         tile = owner.dp(32.0f);
@@ -96,10 +99,21 @@ public final class MediaBody extends CardBody {
         glowRect = new RectF();
         int textWidth = Math.max(1, Math.round(((((w - (pad * 2.0f)) - art) - owner.dp(ART_TEXT_GAP_DP)) - tile) - owner.dp(10.0f)));
         title = item.title == null ? null : IslandView.layout(item.title, owner.mediaTitlePaint(), textWidth, 1);
-        artist = item.subtitle != null ? IslandView.layout(item.subtitle, owner.mediaArtistPaint(), textWidth, 1) : null;
+        CharSequence artistText = item.subtitle;
+        if (artistText != null && item.mediaAlbum != null && item.mediaAlbum.length() > 0) {
+            artistText = artistText + " · " + item.mediaAlbum;
+        }
+        artist = artistText != null ? IslandView.layout(artistText, owner.mediaArtistPaint(), textWidth, 1) : null;
         String outputText = null;
+        if (item.mediaFlags != null && item.mediaFlags.length() > 0) {
+            outputText = item.mediaFlags.toString();
+        }
+        if (item.mediaInfo != null && item.mediaInfo.length() > 0) {
+            outputText = outputText == null ? item.mediaInfo.toString() : outputText + " · " + item.mediaInfo;
+        }
         if (item.mediaOutput != null) {
-            outputText = item.mediaOutput.toString() + (item.mediaOutputBattery >= 0 ? " · " + item.mediaOutputBattery + "%" : "");
+            String device = item.mediaOutput.toString() + (item.mediaOutputBattery >= 0 ? " · " + item.mediaOutputBattery + "%" : "");
+            outputText = outputText == null ? device : outputText + " · " + device;
         }
         output = outputText == null ? null
                 : IslandView.layout(outputText, owner.smallPaint, Math.max(1, textWidth - Math.round(owner.dp(18.0f))), 1);
@@ -119,8 +133,8 @@ public final class MediaBody extends CardBody {
         if (item.mediaCustom.size() > 1) {
             addCustom(item.mediaCustom.get(1), pad + (CUSTOM_RIGHT_AT * span));
         }
-        h = lyricsTop + (ModuleSettings.mediaLyricsEnabled() ? owner.dp(LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
-        if (ModuleSettings.mediaLyricsEnabled() && item.title != null && item.subtitle != null) {
+        h = lyricsTop + (lyricsEnabled ? owner.dp(LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
+        if (lyricsEnabled && item.title != null && item.subtitle != null) {
             LyricsManager.request(owner.getContext(), lyricsTitle, lyricsArtist,
                     item.mediaDuration, owner::postInvalidateOnAnimation);
         }
@@ -183,7 +197,7 @@ public final class MediaBody extends CardBody {
         drawSeekRow(c, x, y + seekTop + ((1.0f - seekRowProgress) * owner.dp(ROW_SLIDE_DP)) + owner.dp(7.0f), alpha * seekRowProgress, fx, now);
         float controlsRowProgress = rowAlpha(elapsed, 2);
         drawButtons(c, x, y + ((1.0f - controlsRowProgress) * owner.dp(ROW_SLIDE_DP)), alpha * controlsRowProgress);
-        if (ModuleSettings.mediaLyricsEnabled()) {
+        if (lyricsEnabled) {
             drawLyrics(c, x + pad, y + lyricsTop, w - pad * 2, alpha * controlsRowProgress,
                     fx.shownPosition(item, SystemClock.elapsedRealtime()));
         }
