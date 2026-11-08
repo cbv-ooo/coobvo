@@ -25,6 +25,7 @@ final class PrismPlayerPreferences {
     final String titleWeight;
     final boolean titleScroll;
     final int artCornersDp;
+    final String coverSize;
     final String coverShape;
 
     private PrismPlayerPreferences(JSONObject player) {
@@ -45,6 +46,7 @@ final class PrismPlayerPreferences {
                 "LIGHT", "REGULAR", "BOLD");
         titleScroll = player.optBoolean("playerTitleScroll", true);
         artCornersDp = Math.max(0, Math.min(32, player.optInt("playerArtCorners", 20)));
+        coverSize = choice(player, "coverSize", "STANDARD", "STANDARD", "LARGE", "FULL");
         JSONObject shapes = player.optJSONObject("shapes");
         coverShape = choice(shapes == null ? player : shapes, "player",
                 player.optString("coverShape", "ROUNDED"),
@@ -77,6 +79,16 @@ final class PrismPlayerPreferences {
 
     boolean showRemainingTime() {
         return showRightTime() && !showTrackLength;
+    }
+
+    int titleFontWeight() {
+        if ("BOLD".equals(titleWeight)) return 700;
+        // Prism's LIGHT default leaves the large title to its normal Material typography weight.
+        return 400;
+    }
+
+    int artistFontWeight() {
+        return "BOLD".equals(titleWeight) ? 600 : 400;
     }
 
     String effectiveThumb() {
