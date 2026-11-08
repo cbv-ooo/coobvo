@@ -361,6 +361,7 @@ public final class SettingsActivity extends Activity {
         ui.actionRow(active, "Live notifications and activities", "Heads-up cards, ongoing activities, progress, media sessions, calls and system events.", null);
         ui.actionRow(active, "Smart activity rules", "Classifies delivery, ride, route and device notifications into staged cards.", null);
         ui.actionRow(active, "Timers and playback", "Timer/chronometer cards, media controls, seeking and playback-aware lyrics.", null);
+        ui.actionRow(active, getString(R.string.smart_navigation_title), getString(R.string.smart_navigation_summary), null);
         ui.category(page, "Feature controls");
         LinearLayout controls = ui.card(page);
         toggle(controls, R.string.setting_smart_rules, R.string.setting_smart_rules_desc, ModuleSettings.KEY_SMART_RULES, true);

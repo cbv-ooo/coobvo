@@ -66,7 +66,7 @@ final class OaCardBuilder {
 
     static IslandItem.Kind kindOf(Notification n, String pkg) {
         String category = n == null ? null : n.category;
-        if ("navigation".equals(category)) {
+        if (NavigationParser.isNavigation(n, pkg)) {
             return IslandItem.Kind.NAVIGATION;
         }
         if ("com.sec.android.app.voicenote".equals(pkg)) {
@@ -86,6 +86,7 @@ final class OaCardBuilder {
         Notification n = a.notification;
         String pkg = a.pkg;
         Bundle extras = n != null ? n.extras : new Bundle();
+        NavigationParser.Info navigation = NavigationParser.parse(n, pkg);
 
         IslandItem it = new IslandItem("oa:" + a.key);
         it.sourceKey = a.sbn == null ? null : a.sbn.getKey();
@@ -129,6 +130,16 @@ final class OaCardBuilder {
         }
 
         bindDescription(it, data, subtitle, pkg);
+        if (navigation != null) {
+            it.kind = IslandItem.Kind.NAVIGATION;
+            it.title = navigation.instruction;
+            if (!navigation.detail.isEmpty()) it.subtitle = navigation.detail;
+            if (!navigation.eta.isEmpty()) it.detail = navigation.eta;
+            if (!navigation.distance.isEmpty()) {
+                it.trailing = IslandItem.Trailing.TEXT;
+                it.trailingText = navigation.distance;
+            }
+        }
         Object when = Refl.get(data, "mWhen");
         if (when instanceof Long && (Long) when > 0) {
             it.whenMillis = (Long) when;

@@ -8,6 +8,8 @@
     <string name="app_name" translatable="false">Dynamic Island</string>
     <string name="xposed_description">Dynamic Island in the style of ColorOS / HyperOS: replaces the One UI Now Bar status bar capsule.</string>
     <string name="settings_hint">Enable the module for System UI in LSPosed. Changes apply within a few seconds.</string>
+    <string name="smart_navigation_title">Turn-by-turn navigation</string>
+    <string name="smart_navigation_summary">Recognizes map guidance notifications and reads maneuver, distance and trip information in the existing live card.</string>
     <string name="setting_card_header">Card header</string>
     <string name="setting_card_header_desc">Show the app name and time above live notification cards.</string>
     <string name="setting_color_icons">Original compact icon colours</string>
