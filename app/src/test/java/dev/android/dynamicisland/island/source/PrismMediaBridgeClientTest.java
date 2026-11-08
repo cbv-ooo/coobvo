@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNull;
 
 import android.net.Uri;
 import android.os.Bundle;
+import org.json.JSONArray;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -36,5 +37,18 @@ public class PrismMediaBridgeClientTest {
 
     @Test public void returnsNullWhenNeitherPrismExtrasNorMediaIdCanIdentifyTheSong() {
         assertNull(PrismMediaBridgeClient.ensureBridgeExtras(null, null));
+    }
+
+    @Test public void readsOnlyCompleteNormalizedPrismSongWaveforms() {
+        JSONArray json = new JSONArray();
+        for (int i = 0; i < 100; i++) json.put(i / 99.0d);
+        float[] values = PrismMediaBridgeClient.readWaveform(json);
+        assertNotNull(values);
+        assertEquals(100, values.length);
+        assertEquals(0.0f, values[0], 0.001f);
+        assertEquals(1.0f, values[99], 0.001f);
+
+        assertNull(PrismMediaBridgeClient.readWaveform(new JSONArray("[0.2,0.4]")));
+        assertNull(PrismMediaBridgeClient.readWaveform(null));
     }
 }
