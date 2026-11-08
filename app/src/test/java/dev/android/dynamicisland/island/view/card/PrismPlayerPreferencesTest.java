@@ -83,14 +83,14 @@ public class PrismPlayerPreferencesTest {
 
     @Test public void preservesVisiblePlayerDeckOrderAndVolumeVisibility() {
         PrismPlayerPreferences prismVolume = PrismPlayerPreferences.fromLyricsLook(
-                "{\\\"playerPreferences\\\":{\\\"playerDeck\\\":[\\\"VOLUME\\\",\\\"STRIP\\\",\\\"TRANSPORT\\\",\\\"SCRUBBER\\\",\\\"BUTTONS\\\"],"
-                        + "\\\"hiddenParts\\\":[\\\"TRANSPORT\\\"],\\\"hideVolumeBar\\\":true,\\\"volumeControl\\\":\\\"PRISM\\\"}}");
+                "{\"playerPreferences\":{\"playerDeck\":[\"VOLUME\",\"STRIP\",\"TRANSPORT\",\"SCRUBBER\",\"BUTTONS\"],"
+                        + "\"hiddenParts\":[\"TRANSPORT\"],\"hideVolumeBar\":true,\"volumeControl\":\"PRISM\"}}");
         assertEquals(Arrays.asList("VOLUME", "STRIP", "SCRUBBER", "BUTTONS"),
                 prismVolume.orderedDeckParts());
 
         PrismPlayerPreferences phoneVolume = PrismPlayerPreferences.fromLyricsLook(
-                "{\\\"playerPreferences\\\":{\\\"playerDeck\\\":[\\\"STRIP\\\",\\\"SCRUBBER\\\",\\\"VOLUME\\\",\\\"TRANSPORT\\\"],"
-                        + "\\\"hideVolumeBar\\\":true,\\\"volumeControl\\\":\\\"PHONE\\\"}}");
+                "{\"playerPreferences\":{\"playerDeck\":[\"STRIP\",\"SCRUBBER\",\"VOLUME\",\"TRANSPORT\"],"
+                        + "\"hideVolumeBar\":true,\"volumeControl\":\"PHONE\"}}");
         assertEquals(Arrays.asList("STRIP", "SCRUBBER", "TRANSPORT"),
                 phoneVolume.orderedDeckParts());
     }
