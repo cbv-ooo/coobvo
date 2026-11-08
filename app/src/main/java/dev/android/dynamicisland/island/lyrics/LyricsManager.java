@@ -128,8 +128,10 @@ public final class LyricsManager {
             // Other sessions and builds without a user key immediately continue to the existing providers.
             result=fetchSpicy(mediaTrackId);
             // Better word timing wins. Try independent catalogues even if one returns only LRC.
-            MediaLyrics kugou=fetchKugou(title,artist,durationMs);
-            if(better(kugou,result))result=kugou;
+            if(result==null||result.type()!=MediaLyrics.Type.SYLLABLE) {
+                MediaLyrics kugou=fetchKugou(title,artist,durationMs);
+                if(better(kugou,result))result=kugou;
+            }
             if(result==null||result.type()!=MediaLyrics.Type.SYLLABLE){
                 MediaLyrics netease=fetchNetease(title,artist,durationMs);
                 if(better(netease,result))result=netease;
@@ -406,6 +408,7 @@ public final class LyricsManager {
         int hits=0;for(String part:left)if(right.contains(part))hits++;
         return 2.0*hits/(left.size()+right.size());
     }
+    private static String key(String title,String artist){return key(title,artist,null);}
     private static String key(String title,String artist,String mediaTrackId){
         String normalizedTitle=normalize(title),normalizedArtist=normalize(artist);
         if(normalizedTitle.isEmpty()||normalizedArtist.isEmpty())return "";

@@ -427,7 +427,7 @@ public final class MediaLyrics {
                 if (!value.isEmpty()) return value;
             }
         }
-        return null;
+        return "";
     }
 
     private static boolean containsCjk(String text) {
