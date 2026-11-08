@@ -159,7 +159,6 @@ public final class PrismMediaBridgeClient {
             boolean extrasPending = false;
             JSONObject lyricLook = null;
             if (prismLyrics != null) {
-                status = lyricsStatus(data);
                 lyrics = MediaLyrics.fromPrismSnapshot(prismLyrics.optJSONObject("lyrics"));
                 lyricLook = prismLyrics.optJSONObject("look");
             }
