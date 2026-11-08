@@ -14,6 +14,8 @@ import dev.android.dynamicisland.island.model.IslandItem;
 import dev.android.dynamicisland.island.view.IslandView;
 import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.island.view.media.MediaFx;
+import org.json.JSONObject;
+import java.util.Locale;
 
 /**
  * Music player card, drawn on top of the animated glow of {@link MediaFx}.
@@ -68,6 +70,15 @@ public final class MediaBody extends CardBody {
     private final boolean prismSession;
     private final MediaLyrics prismLyrics;
     private final String prismLyricsStatus;
+    private final int prismSungColor;
+    private final int prismOtherColor;
+    private final float prismOtherAlpha;
+    private final float prismSizeScale;
+    private final boolean prismUppercase;
+    private final boolean prismBoldLines;
+    private final boolean prismTwoLines;
+    private final boolean prismWordByWord;
+    private final Paint.Align prismTextAlign;
     private final boolean lyricsEnabled;
     /** Prepared text is rebuilt only when the track or current line changes, never per frame. */
     private MediaLyrics cachedLyrics;
@@ -94,6 +105,19 @@ public final class MediaBody extends CardBody {
         prismSession = "com.prism.music".equals(item.packageName);
         prismLyrics = item.mediaLyrics;
         prismLyricsStatus = item.mediaLyricsStatus == null ? "UNKNOWN" : item.mediaLyricsStatus;
+        JSONObject prismLook = parsePrismLook(item.mediaLyricsLook);
+        prismSungColor = prismColor(prismLook, "sungColor", "sungCustom", item.accent, Colors.ON_SURFACE);
+        prismOtherColor = prismColor(prismLook, "otherColor", "otherCustom", item.accent, Colors.ON_SURFACE_VARIANT);
+        prismOtherAlpha = clamp(prismLook == null ? 0.55f : (float) prismLook.optDouble("othersAlpha", 0.55d), 0.2f, 1.0f);
+        prismSizeScale = clamp(prismLook == null ? 1.0f : (float) prismLook.optDouble("sizeScale", 1.0d), 0.7f, 1.4f);
+        prismUppercase = prismLook != null && prismLook.optBoolean("uppercase", false);
+        prismBoldLines = prismLook != null && ("BOLD".equalsIgnoreCase(prismLook.optString("weightNow", prismLook.optString("weight", "LIGHT")))
+                || "CARD".equalsIgnoreCase(prismLook.optString("style", "")));
+        prismTwoLines = prismLook == null || prismLook.optBoolean("lyricsStripTwoLines", true);
+        prismWordByWord = prismLook == null || prismLook.optBoolean("wordByWordNow", true);
+        String align = prismLook == null ? "START" : prismLook.optString("lyricsStripAlign",
+                prismLook.optString("lyricsAlign", "START"));
+        prismTextAlign = "CENTER".equalsIgnoreCase(align) ? Paint.Align.CENTER : Paint.Align.LEFT;
         // Prism's bridge is the sole lyric source for Prism sessions; never run a second provider cascade.
         lyricsEnabled = prismSession ? !"UNKNOWN".equals(prismLyricsStatus) : ModuleSettings.mediaLyricsEnabled();
         lyricsKey = !prismSession && lyricsEnabled ? LyricsManager.keyFor(lyricsTitle, lyricsArtist) : "";
@@ -144,6 +168,24 @@ public final class MediaBody extends CardBody {
             LyricsManager.request(owner.getContext(), lyricsTitle, lyricsArtist,
                     item.mediaDuration, owner::postInvalidateOnAnimation);
         }
+    }
+
+    private static JSONObject parsePrismLook(String raw) {
+        if (raw == null || raw.isEmpty()) return null;
+        try { return new JSONObject(raw); } catch (Exception ignored) { return null; }
+    }
+
+    private static int prismColor(JSONObject look, String colorKey, String customKey, int accent, int fallback) {
+        if (look == null) return fallback;
+        String kind = look.optString(colorKey, "WHITE");
+        if ("CUSTOM".equalsIgnoreCase(kind)) return look.optInt(customKey, fallback);
+        if ("ACCENT".equalsIgnoreCase(kind) || "COVER".equalsIgnoreCase(kind)
+                || "SPECTRUM".equalsIgnoreCase(kind)) return accent != 0 && accent != -1 ? accent : fallback;
+        return fallback;
+    }
+
+    private static float clamp(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     /** Whether ({@code lx}, {@code ly}) in body coordinates is on the seek bar and the item can seek. */
@@ -214,10 +256,12 @@ public final class MediaBody extends CardBody {
         MediaLyrics data = prismSession ? prismLyrics : LyricsManager.getByKey(lyricsKey);
         TextPaint current = lyricsCurrentPaint;
         TextPaint next = lyricsNextPaint;
-        current.setTextSize(owner.dp(12.0f));
-        next.setTextSize(owner.dp(10.5f));
-        current.setTextAlign(Paint.Align.LEFT);
-        next.setTextAlign(Paint.Align.LEFT);
+        current.setTextSize(owner.dp(12.0f * (prismSession ? prismSizeScale : 1.0f)));
+        next.setTextSize(owner.dp(10.5f * (prismSession ? prismSizeScale : 1.0f)));
+        current.setFakeBoldText(prismSession && prismBoldLines);
+        next.setFakeBoldText(prismSession && prismBoldLines);
+        current.setTextAlign(prismSession ? prismTextAlign : Paint.Align.LEFT);
+        next.setTextAlign(prismSession ? prismTextAlign : Paint.Align.LEFT);
         Paint.FontMetrics fm = current.getFontMetrics();
         float baseline = top + owner.dp(5.0f) - fm.ascent;
         if (data == null || data.isEmpty()) {
@@ -251,10 +295,12 @@ public final class MediaBody extends CardBody {
             if (index >= 0) {
                 MediaLyrics.Line line = data.line(index);
                 String raw = line.text == null || line.text.isEmpty() ? "♪" : line.text;
+                if (prismSession && prismUppercase) raw = raw.toUpperCase(Locale.ROOT);
                 cachedCurrentLine = fitLyricText(raw, current, width);
                 cachedCurrentLineFull = cachedCurrentLine.length() == raw.length();
                 if (index + 1 < data.size()) {
                     String following = data.line(index + 1).text;
+                    if (prismSession && prismUppercase && following != null) following = following.toUpperCase(Locale.ROOT);
                     cachedNextLine = fitLyricText(following == null || following.isEmpty() ? "♪" : following, next, width);
                 }
             }
@@ -266,13 +312,44 @@ public final class MediaBody extends CardBody {
             return;
         }
 
-        current.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
-        canvas.drawText(cachedCurrentLine == null ? "♪" : cachedCurrentLine, left, baseline, current);
-        drawActiveLyricWord(canvas, data, data.line(index), left, baseline, width, alpha, positionMs);
-        if (cachedNextLine != null) {
-            next.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.70f * alpha));
-            canvas.drawText(cachedNextLine, left, baseline + owner.dp(14.0f), next);
+        int otherColor = prismSession ? prismOtherColor : Colors.ON_SURFACE_VARIANT;
+        float otherAlpha = prismSession ? prismOtherAlpha : 0.78f;
+        current.setColor(Colors.withAlpha(otherColor, otherAlpha * alpha));
+        float anchorX = lyricAnchorX(left, width, prismSession ? prismTextAlign : Paint.Align.LEFT,
+                prismSession && data.line(index).alignEnd);
+        current.setTextAlign(prismSession && data.line(index).alignEnd ? Paint.Align.RIGHT
+                : (prismSession ? prismTextAlign : Paint.Align.LEFT));
+        canvas.drawText(cachedCurrentLine == null ? "♪" : cachedCurrentLine, anchorX, baseline, current);
+        if (!prismSession || prismWordByWord || data.type() == MediaLyrics.Type.SYLLABLE) {
+            drawActiveLyricWord(canvas, data, data.line(index), left, baseline, width, alpha, positionMs);
+        } else if (prismSession && "CALM".equalsIgnoreCase(prismLyricsLookStyle())) {
+            current.setColor(Colors.withAlpha(prismSungColor, alpha));
+            canvas.drawText(cachedCurrentLine == null ? "♪" : cachedCurrentLine, anchorX, baseline, current);
         }
+        if (cachedNextLine != null && (!prismSession || prismTwoLines)) {
+            next.setColor(Colors.withAlpha(otherColor, otherAlpha * 0.70f * alpha));
+            next.setTextAlign(prismTextAlignForLine(data, index + 1));
+            float nextX = lyricAnchorX(left, width, next.getTextAlign(),
+                    prismSession && data.line(index + 1).alignEnd);
+            canvas.drawText(cachedNextLine, nextX, baseline + owner.dp(14.0f), next);
+        }
+    }
+
+    private float lyricAnchorX(float left, float width, Paint.Align align, boolean alignEnd) {
+        if (alignEnd) return left + width;
+        if (align == Paint.Align.CENTER) return left + width * 0.5f;
+        return left;
+    }
+
+    private Paint.Align prismTextAlignForLine(MediaLyrics data, int index) {
+        if (prismSession && data != null && index >= 0 && index < data.size()
+                && data.line(index).alignEnd) return Paint.Align.RIGHT;
+        return prismSession ? prismTextAlign : Paint.Align.LEFT;
+    }
+
+    private String prismLyricsLookStyle() {
+        JSONObject look = parsePrismLook(item.mediaLyricsLook);
+        return look == null ? "PRISM" : look.optString("style", "PRISM");
     }
 
     /** Ellipsize once per line change, not on every animation frame. */
@@ -293,12 +370,27 @@ public final class MediaBody extends CardBody {
         if (active < 0 || active >= line.words.size()) return;
         TextPaint paint = lyricsCurrentPaint;
         float prefixWidth = 0.0f;
-        for (int i = 0; i < active; i++) prefixWidth += paint.measureText(line.words.get(i).text);
+        float lineWidth = 0.0f;
+        for (MediaLyrics.Word value : line.words) {
+            String text = prismSession && prismUppercase ? value.text.toUpperCase(Locale.ROOT) : value.text;
+            lineWidth += paint.measureText(text);
+        }
+        for (int i = 0; i < active; i++) {
+            String text = line.words.get(i).text;
+            if (prismSession && prismUppercase) text = text.toUpperCase(Locale.ROOT);
+            prefixWidth += paint.measureText(text);
+        }
         String word = line.words.get(active).text;
-        float wordX = left + prefixWidth;
+        if (prismSession && prismUppercase) word = word.toUpperCase(Locale.ROOT);
+        float startX = lyricAnchorX(left, width, prismSession ? prismTextAlign : Paint.Align.LEFT, line.alignEnd);
+        float wordX;
+        if (line.alignEnd) wordX = startX - lineWidth + prefixWidth;
+        else if (prismSession && prismTextAlign == Paint.Align.CENTER) wordX = startX - lineWidth * 0.5f + prefixWidth;
+        else wordX = startX + prefixWidth;
         float wordWidth = paint.measureText(word);
-        if (wordWidth <= 0.0f || wordX + wordWidth > left + width) return;
-        paint.setColor(Colors.withAlpha(Colors.ON_SURFACE, alpha));
+        if (wordWidth <= 0.0f || wordX < left || wordX + wordWidth > left + width) return;
+        paint.setTextAlign(Paint.Align.LEFT);
+        paint.setColor(Colors.withAlpha(prismSession ? prismSungColor : Colors.ON_SURFACE, alpha));
         canvas.drawText(word, wordX, baseline, paint);
     }
 
