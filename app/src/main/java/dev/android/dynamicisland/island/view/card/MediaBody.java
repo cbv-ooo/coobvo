@@ -101,7 +101,7 @@ public final class MediaBody extends CardBody {
     private final int prismLyricsRow;
     private final TextPaint playerArtistPaint;
     private final float prismLyricsRowDp;
-    private final PrismLyricsPainter.State prismLyricState = new PrismLyricsPainter.State();
+    private final PrismLyricsPainter.State prismLyricState;
     private final int prismSungColor;
     private final int prismOtherColor;
     private final float prismOtherAlpha;
@@ -139,6 +139,9 @@ public final class MediaBody extends CardBody {
         lyricsTitle = item.title == null ? "" : item.title.toString();
         lyricsArtist = item.subtitle == null ? "" : item.subtitle.toString();
         prismSession = "com.prism.music".equals(item.packageName);
+        prismLyricState = prismSession
+                ? PrismLyricsPainter.stateFor(item.key, item.mediaTrackId)
+                : new PrismLyricsPainter.State();
         prismLyrics = item.mediaLyrics;
         prismLyricsStatus = item.mediaLyricsStatus == null ? "UNKNOWN" : item.mediaLyricsStatus;
         prismLook = parsePrismLook(item.mediaLyricsLook);
