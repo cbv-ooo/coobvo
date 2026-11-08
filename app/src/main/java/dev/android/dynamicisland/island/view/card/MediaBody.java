@@ -125,7 +125,7 @@ public final class MediaBody extends CardBody {
         prismTextAlign = "CENTER".equalsIgnoreCase(align) ? Paint.Align.CENTER : Paint.Align.LEFT;
         // Prism's bridge is the sole lyric source for Prism sessions; never run a second provider cascade.
         lyricsEnabled = prismSession ? !"UNKNOWN".equals(prismLyricsStatus) : ModuleSettings.mediaLyricsEnabled();
-        lyricsKey = !prismSession && lyricsEnabled ? LyricsManager.keyFor(lyricsTitle, lyricsArtist) : "";
+        lyricsKey = !prismSession && lyricsEnabled ? LyricsManager.keyFor(lyricsTitle, lyricsArtist, item.mediaTrackId) : "";
         pad = owner.dp(18.0f);
         art = owner.dp(56.0f);
         tile = owner.dp(32.0f);
@@ -171,7 +171,7 @@ public final class MediaBody extends CardBody {
         h = lyricsTop + (lyricsEnabled ? owner.dp(prismSession ? prismLyricsRowDp : LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
         if (lyricsEnabled && !prismSession && item.title != null && item.subtitle != null) {
             LyricsManager.request(owner.getContext(), lyricsTitle, lyricsArtist,
-                    item.mediaDuration, owner::postInvalidateOnAnimation);
+                    item.mediaDuration, item.mediaTrackId, owner::postInvalidateOnAnimation);
         }
     }
 

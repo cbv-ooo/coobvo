@@ -193,6 +193,8 @@ public final class IslandItem {
 
     /** The item is a media session (compact look is shared between sessions, see {@link #sameCompactLook}). */
     public boolean isMedia;
+    /** Raw media-session ID (Spotify track URI/id when the source exposes one). */
+    public String mediaTrackId;
     public boolean playing;
     /** Album art. */
     public Bitmap art;
