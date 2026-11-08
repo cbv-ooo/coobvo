@@ -65,7 +65,7 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 - `IMode.java` was not part of the corrupting commit and is unchanged from that commit's parent. Its methods used by `Director` (`update`, `step`, `open`, `visibleItems`, `relayout`, `dispose`, `finishSleeping`) are present. No Smart Island feature code was changed during this repair.
 - The intended sticky-peek change in the corrupting commit was lost when the affected files were restored; do not treat that commit as an implemented feature.
 - The full pre-corruption Director at commit `cb76d6c75f102674cb6d6f94ecfb53ad2f2f29f9` was included in successful debug run [#42474855696](https://github.com/cbv-ooo/coobvo/actions/runs/42474855696), which finished before the truncating commit. This confirms that the full Director implementation compiled before Grok's later overwrite; it does not verify the new version-153 revision.
-- Director source repair: [\`be6a32a\`](https://github.com/cbv-ooo/coobvo/commit/be6a32abf82155d0f40d67f5d53b137173112fd8). Debug build identity: \`0.1.50-dev2\` / versionCode \`153\`; CrashGuard marker synchronized. Build result and artifact are still pending verification.
+- Director source repair: [`be6a32a`](https://github.com/cbv-ooo/coobvo/commit/be6a32abf82155d0f40d67f5d53b137173112fd8). Debug build identity: `0.1.50-dev2` / versionCode `153`; CrashGuard marker synchronized. Build result and artifact are still pending verification.
 
 ## CI evidence
 
