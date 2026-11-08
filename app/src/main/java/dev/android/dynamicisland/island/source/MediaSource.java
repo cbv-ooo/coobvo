@@ -569,6 +569,7 @@ public final class MediaSource {
                 // Prism metadata extras are optional; standard MediaSession data remains usable.
             }
             if (prismTrackId.isEmpty() && mediaId != null) prismTrackId = mediaId;
+            it.mediaTrackId = prismTrackId.isEmpty() ? null : prismTrackId;
 
             String key = prismTrackId + "|" + String.valueOf(title) + "|" + String.valueOf(artist) + "|"
                     + String.valueOf(it.mediaAlbum);
