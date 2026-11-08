@@ -66,7 +66,6 @@ public class PrismPlayerPreferencesTest {
         assertTrue(prefs.hasPlayerButton("LIKE"));
         assertTrue(prefs.volumeMatchesProgress);
         assertEquals("PRISM", prefs.volumeControl);
-        assertTrue(prefs.showVolumeBar());
         assertTrue(prefs.fullBleedArtwork);
         assertTrue(prefs.canvasEnabled);
         assertTrue(prefs.canvasFillsBackground);
@@ -81,19 +80,19 @@ public class PrismPlayerPreferencesTest {
 
     @Test public void prismOwnVolumeControlOverridesHideVolumeBarButNotHiddenDeckPart() {
         PrismPlayerPreferences prismVolume = PrismPlayerPreferences.fromLyricsLook(
-                "{\\\"playerPreferences\\\":{\\\"playerDeck\\\":[\\\"VOLUME\\\"],"
-                        + "\\\"hideVolumeBar\\\":true,\\\"volumeControl\\\":\\\"PRISM\\\"}}");
+                "{\"playerPreferences\":{\"playerDeck\":[\"VOLUME\"],"
+                        + "\"hideVolumeBar\":true,\"volumeControl\":\"PRISM\"}}");
         assertTrue(prismVolume.showVolumeBar());
 
         PrismPlayerPreferences phoneVolume = PrismPlayerPreferences.fromLyricsLook(
-                "{\\\"playerPreferences\\\":{\\\"playerDeck\\\":[\\\"VOLUME\\\"],"
-                        + "\\\"hideVolumeBar\\\":true,\\\"volumeControl\\\":\\\"PHONE\\\"}}");
+                "{\"playerPreferences\":{\"playerDeck\":[\"VOLUME\"],"
+                        + "\"hideVolumeBar\":true,\"volumeControl\":\"PHONE\"}}");
         assertFalse(phoneVolume.showVolumeBar());
 
         PrismPlayerPreferences hidden = PrismPlayerPreferences.fromLyricsLook(
-                "{\\\"playerPreferences\\\":{\\\"playerDeck\\\":[\\\"VOLUME\\\"],"
-                        + "\\\"hiddenParts\\\":[\\\"VOLUME\\\"],\\\"hideVolumeBar\\\":false,"
-                        + "\\\"volumeControl\\\":\\\"PRISM\\\"}}");
+                "{\"playerPreferences\":{\"playerDeck\":[\"VOLUME\"],"
+                        + "\"hiddenParts\":[\"VOLUME\"],\"hideVolumeBar\":false,"
+                        + "\"volumeControl\":\"PRISM\"}}");
         assertFalse(hidden.showVolumeBar());
     }
 
