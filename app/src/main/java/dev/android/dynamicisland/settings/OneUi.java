@@ -1,1 +1,449 @@
-PLACEHOLDER
+package dev.android.dynamicisland.settings;
+
+import android.content.Context;
+import android.content.res.ColorStateList;
+import android.content.res.Configuration;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
+import android.graphics.text.LineBreakConfig;
+import android.text.InputType;
+import android.text.TextUtils;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.Switch;
+import android.widget.TextView;
+import dev.android.dynamicisland.R;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+/**
+ * Material 3 Expressive settings chrome (Track B / pure Java Views).
+ * Tonal surfaces, larger corner radii, emphasized category labels, and 48 dp touch targets.
+ * Row types: {@link #switchRow}, {@link #valueRow}, {@link #linkRow}, {@link #actionRow}. Main thread only.
+ */
+final class OneUi {
+    final int background;
+    final int cardColor;
+    final int textColor;
+    final int muted;
+    final int accent;
+    final int divider;
+    final int good;
+    final int warn;
+    final boolean dark;
+
+    private final Context ctx;
+    private final float density;
+    private Runnable searchAction;
+
+    void setSearchAction(Runnable action) { searchAction=action; }
+
+    OneUi(Context ctx) {
+        this.ctx = ctx;
+        density = ctx.getResources().getDisplayMetrics().density;
+        dark = (ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        // M3E tonal surfaces (static fallback; dynamic accent still applied where ModuleSettings provides it)
+        background = dark ? 0xff0e0e11 : 0xfff5f5f8;
+        cardColor = dark ? 0xff1c1c21 : 0xffffffff;
+        textColor = dark ? 0xfff2f0f4 : 0xff1a1b1f;
+        muted = dark ? 0xffb0aeb6 : 0xff5d5e66;
+        accent = dark ? 0xffa8c8ff : 0xff0058ca;
+        divider = dark ? 0xff2e2e35 : 0xffe4e2ea;
+        good = dark ? 0xff7ddfad : 0xff0f7a4a;
+        warn = dark ? 0xffffb77c : 0xffb06000;
+    }
+
+    int dp(int v) {
+        return Math.round(v * density);
+    }
+
+    TextView text(CharSequence value, int sp, int color) {
+        TextView v = new TextView(ctx);
+        v.setText(value);
+        v.setTextSize(sp);
+        v.setTextColor(color);
+        v.setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE);
+        return v;
+    }
+
+    GradientDrawable round(int color, int radius) {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(color);
+        d.setCornerRadius(radius);
+        return d;
+    }
+
+    private RippleDrawable ripple() {
+        int ripple = dark ? 0x33a8c8ff : 0x330058ca;
+        return new RippleDrawable(ColorStateList.valueOf(ripple), null, round(Color.WHITE, 0));
+    }
+
+    /** Big centred title with an optional line under it; {@code top} is the space above in dp. */
+    void title(LinearLayout page, CharSequence title, CharSequence tagline, int top) {
+        TextView t = text(title, 32, textColor);
+        t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(0, dp(top), 0, dp(6));
+        page.addView(t, new LinearLayout.LayoutParams(-1, -2));
+        TextView sub = text(tagline == null ? "" : tagline, 14, muted);
+        sub.setGravity(Gravity.CENTER);
+        sub.setPadding(dp(24), 0, dp(24), dp(tagline == null ? 12 : 32));
+        if (tagline == null) {
+            sub.setVisibility(View.GONE);
+        }
+        page.addView(sub, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    void pageHeader(LinearLayout page, CharSequence title, Runnable back) {
+        LinearLayout bar = new LinearLayout(ctx);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(0, dp(10), dp(8), dp(12));
+        TextView arrow = text("‹", 34, textColor);
+        arrow.setGravity(Gravity.CENTER);
+        arrow.setContentDescription(ctx.getString(R.string.back));
+        arrow.setBackground(ripple());
+        arrow.setOnClickListener(v -> back.run());
+        bar.addView(arrow, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        TextView name = text(title, 23, textColor);
+        name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        name.setPadding(dp(8), 0, 0, 0);
+        bar.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+        if(searchAction!=null&&!title.toString().equals(ctx.getString(R.string.search_title))) {
+            android.widget.ImageView search=new android.widget.ImageView(ctx);
+            search.setImageResource(android.R.drawable.ic_menu_search);search.setImageTintList(ColorStateList.valueOf(textColor));
+            search.setPadding(dp(12),dp(12),dp(12),dp(12));search.setBackground(ripple());search.setFocusable(true);
+            search.setContentDescription(ctx.getString(R.string.search_title));search.setOnClickListener(v->searchAction.run());
+            bar.addView(search,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        }
+        page.addView(bar, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    void details(LinearLayout page, CharSequence title, CharSequence description) {
+        LinearLayout card = card(page);
+        linkRow(card, title, title.equals(ctx.getString(R.string.ui_details)) ? null : ctx.getString(R.string.ui_details), () ->
+                new android.app.AlertDialog.Builder(ctx).setTitle(title).setMessage(description)
+                        .setPositiveButton(android.R.string.ok, null).show());
+    }
+
+    TextView backButton(LinearLayout page, CharSequence description, Runnable onBack) {
+        TextView back = text("‹", 34, textColor);
+        back.setGravity(Gravity.CENTER);
+        back.setContentDescription(description);
+        back.setBackground(ripple());
+        back.setOnClickListener(v -> onBack.run());
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(48), dp(48));
+        p.topMargin = dp(8);
+        page.addView(back, p);
+        return back;
+    }
+
+    LinearLayout hero(LinearLayout page) {
+        LinearLayout card = card(page);
+        card.setPadding(dp(20), dp(18), dp(20), dp(18));
+        LinearLayout line = new LinearLayout(ctx);
+        line.setGravity(Gravity.CENTER_VERTICAL);
+        View dot = new View(ctx);
+        dot.setBackground(round(muted, dp(6)));
+        line.addView(dot, new LinearLayout.LayoutParams(dp(10), dp(10)));
+        TextView status = text("", 18, textColor);
+        status.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        status.setPadding(dp(10), 0, 0, 0);
+        line.addView(status, new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(line);
+        TextView detail = text("", 13, muted);
+        detail.setPadding(dp(20), dp(6), 0, 0);
+        card.addView(detail);
+        return card;
+    }
+
+    void setHero(LinearLayout hero, boolean ok, CharSequence status, CharSequence detail) {
+        LinearLayout line = (LinearLayout) hero.getChildAt(0);
+        line.getChildAt(0).setBackground(round(ok ? good : warn, dp(6)));
+        ((TextView) line.getChildAt(1)).setText(status);
+        ((TextView) hero.getChildAt(1)).setText(detail);
+    }
+
+    void category(LinearLayout page, CharSequence title) {
+        TextView label = text(title, 13, accent);
+        label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        label.setPadding(dp(20), dp(28), 0, dp(4));
+        page.addView(label);
+    }
+
+    void category(LinearLayout page, CharSequence title, CharSequence description) {
+        category(page, title);
+        if (description == null || description.length() == 0) return;
+        TextView sub = text(description, 13, muted);
+        sub.setPadding(dp(22), dp(2), dp(22), 0);
+        page.addView(sub);
+    }
+
+    LinearLayout card(LinearLayout page) {
+        LinearLayout c = new LinearLayout(ctx);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setBackground(round(cardColor, dp(28)));
+        c.setClipToOutline(true);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
+        p.topMargin = dp(10);
+        page.addView(c, p);
+        return c;
+    }
+
+    void searchEntry(LinearLayout page,Runnable open) {
+        LinearLayout bar=card(page);bar.setOrientation(LinearLayout.HORIZONTAL);bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setMinimumHeight(dp(56));bar.setPadding(dp(20),0,dp(20),0);
+        android.widget.ImageView icon=new android.widget.ImageView(ctx);
+        icon.setImageResource(android.R.drawable.ic_menu_search);icon.setImageTintList(ColorStateList.valueOf(muted));
+        bar.addView(icon,new LinearLayout.LayoutParams(dp(24),dp(24)));
+        TextView label=text(ctx.getString(R.string.search_title),17,muted);label.setPadding(dp(12),0,0,0);bar.addView(label);
+        bar.setForeground(ripple());bar.setFocusable(true);bar.setContentDescription(ctx.getString(R.string.search_title));
+        bar.setOnClickListener(v->open.run());
+    }
+
+    void note(LinearLayout page, CharSequence content) {
+        TextView t = text(content, 13, muted);
+        t.setLineSpacing(dp(2), 1f);
+        t.setPadding(dp(22), dp(10), dp(22), 0);
+        page.addView(t);
+    }
+
+    private void separator(LinearLayout group) {
+        if (group.getChildCount() == 0) {
+            return;
+        }
+        View line = new View(ctx);
+        line.setBackgroundColor(divider);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, Math.max(1, dp(1) / 2));
+        p.leftMargin = dp(22);
+        p.rightMargin = dp(22);
+        group.addView(line, p);
+    }
+
+    private LinearLayout box(LinearLayout group, CharSequence title, CharSequence summary, int summaryColor, Runnable action, boolean chevron) {
+        separator(group);
+        LinearLayout box = new LinearLayout(ctx);
+        box.setTag(title.toString());
+        box.setGravity(Gravity.CENTER_VERTICAL);
+        box.setPadding(dp(20), dp(16), dp(16), dp(16));
+        box.setMinimumHeight(dp(64));
+        LinearLayout words = new LinearLayout(ctx);
+        words.setOrientation(LinearLayout.VERTICAL);
+        words.addView(text(title, 17, textColor));
+        TextView detail = text(summary == null ? "" : summary, 14, summaryColor);
+        detail.setPadding(0, dp(2), dp(8), 0);
+        detail.setMaxLines(2);
+        detail.setEllipsize(TextUtils.TruncateAt.END);
+        if (summary == null || summary.length() == 0) {
+            detail.setVisibility(View.GONE);
+        }
+        words.addView(detail);
+        box.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
+        if (chevron) {
+            TextView arrow = text("›", 26, muted);
+            box.addView(arrow);
+        }
+        if (action != null) {
+            box.setBackground(ripple());
+            box.setOnClickListener(v -> action.run());
+        }
+        group.addView(box, new LinearLayout.LayoutParams(-1, -2));
+        return box;
+    }
+
+    Switch switchRow(LinearLayout group, CharSequence title, CharSequence summary, boolean checked, Consumer<Boolean> onChange) {
+        LinearLayout box = box(group, title, summary, muted, null, false);
+        Switch sw = new GalaxySwitch(ctx, accent);
+        sw.setMinHeight(dp(48));
+        sw.setMinWidth(dp(48));
+        sw.setContentDescription(title);
+        sw.setChecked(checked);
+        box.addView(sw);
+        box.setBackground(ripple());
+        List<Consumer<Boolean>> listeners = new ArrayList<>();
+        listeners.add(onChange);
+        sw.setTag(listeners);
+        sw.setOnCheckedChangeListener((button, on) -> {
+            for (Consumer<Boolean> listener : listeners) listener.accept(on);
+        });
+        box.setOnClickListener(v -> sw.toggle());
+        return sw;
+    }
+
+    @SuppressWarnings("unchecked")
+    static void listen(Switch sw, Consumer<Boolean> listener) {
+        ((List<Consumer<Boolean>>) sw.getTag()).add(listener);
+    }
+
+    Switch ruleRow(LinearLayout group, CharSequence title, CharSequence summary, boolean checked,
+            Consumer<Boolean> onChange, Runnable open) {
+        LinearLayout box = box(group, title, summary, muted, open, false);
+        View divider = new View(ctx);
+        divider.setBackgroundColor(this.divider);
+        LinearLayout.LayoutParams line = new LinearLayout.LayoutParams(Math.max(1, dp(1) / 2), dp(32));
+        line.leftMargin = dp(4);
+        line.rightMargin = dp(12);
+        box.addView(divider, line);
+        Switch sw = new GalaxySwitch(ctx, accent);
+        sw.setMinHeight(dp(48));
+        sw.setMinWidth(dp(48));
+        sw.setContentDescription(title);
+        sw.setChecked(checked);
+        sw.setOnCheckedChangeListener((button, on) -> onChange.accept(on));
+        box.addView(sw);
+        return sw;
+    }
+
+    EditText inputRow(LinearLayout group, CharSequence label, CharSequence hint, boolean multiline, boolean monospace) {
+        separator(group);
+        LinearLayout box = new LinearLayout(ctx);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(22), dp(14), dp(22), dp(14));
+        box.setMinimumHeight(dp(64));
+        TextView caption = text(label, 14, accent);
+        box.addView(caption);
+        EditText edit = new EditText(ctx);
+        edit.setBackground(null);
+        edit.setPadding(0, dp(4), 0, 0);
+        edit.setTextSize(17);
+        edit.setTextColor(textColor);
+        edit.setHintTextColor(muted);
+        edit.setHint(hint);
+        edit.setSingleLine(!multiline);
+        edit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                | (multiline ? InputType.TYPE_TEXT_FLAG_MULTI_LINE : 0));
+        if (multiline) {
+            edit.setMinLines(2);
+            edit.setGravity(Gravity.TOP);
+        }
+        if (monospace) {
+            edit.setTypeface(Typeface.MONOSPACE);
+        }
+        box.addView(edit, new LinearLayout.LayoutParams(-1, -2));
+        group.addView(box, new LinearLayout.LayoutParams(-1, -2));
+        return edit;
+    }
+
+    static void clear(LinearLayout group) {
+        group.removeAllViews();
+    }
+
+    static View rowOf(Switch sw) {
+        return (View) sw.getParent();
+    }
+
+    TextView valueRow(LinearLayout group, CharSequence title, CharSequence value, Runnable open) {
+        LinearLayout box = box(group, title, value, accent, open, false);
+        return (TextView) ((LinearLayout) box.getChildAt(0)).getChildAt(1);
+    }
+
+    static final int TAG_DEFAULT = 1, TAG_RECOMMENDED = 2;
+
+    LinearLayout radioGroup(LinearLayout page, CharSequence title, CharSequence description, CharSequence[] labels, int[] tags, int selected, java.util.function.IntConsumer onSelect) {
+        category(page, title, description);
+        LinearLayout card = card(page);
+        card.setTag(title.toString());
+        RadioDot[] dots = new RadioDot[labels.length];
+        for (int i = 0; i < labels.length; i++) {
+            separator(card);
+            LinearLayout row = new LinearLayout(ctx);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(22), dp(10), dp(16), dp(10));
+            row.setMinimumHeight(dp(56));
+            row.setBackground(ripple());
+            LinearLayout line = new LinearLayout(ctx);
+            line.setGravity(Gravity.CENTER_VERTICAL);
+            line.addView(text(labels[i], 17, textColor));
+            int flags = tags == null ? 0 : tags[i];
+            if ((flags & TAG_DEFAULT) != 0) line.addView(tagPill(ctx.getString(R.string.ui_default), accent));
+            if ((flags & TAG_RECOMMENDED) != 0) line.addView(tagPill(ctx.getString(R.string.tag_recommended), good));
+            row.addView(line, new LinearLayout.LayoutParams(0, -2, 1));
+            RadioDot dot = new RadioDot(ctx, i == selected);
+            dots[i] = dot;
+            row.addView(dot, new LinearLayout.LayoutParams(dp(24), dp(24)));
+            row.setSelected(i == selected);
+            row.setContentDescription(labels[i]);
+            final int index = i;
+            row.setOnClickListener(v -> {
+                for (int k = 0; k < dots.length; k++) dots[k].set(k == index);
+                onSelect.accept(index);
+            });
+            card.addView(row, new LinearLayout.LayoutParams(-1, -2));
+        }
+        return card;
+    }
+
+    private TextView tagPill(CharSequence label, int colour) {
+        TextView pill = text(label, 12, colour);
+        pill.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        pill.setPadding(dp(8), dp(2), dp(8), dp(2));
+        GradientDrawable bg = round(colour, dp(8));
+        bg.setAlpha(36);
+        pill.setBackground(bg);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-2, -2);
+        p.leftMargin = dp(10);
+        pill.setLayoutParams(p);
+        return pill;
+    }
+
+    private final class RadioDot extends View {
+        private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private boolean on;
+        RadioDot(Context context, boolean on) { super(context); this.on = on; setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO); }
+        void set(boolean value) { on = value; invalidate(); }
+        @Override protected void onDraw(android.graphics.Canvas c) {
+            float r = getWidth() / 2f - dp(2);
+            float cx = getWidth() / 2f, cy = getHeight() / 2f;
+            if (on) {
+                paint.setStyle(android.graphics.Paint.Style.FILL);
+                paint.setColor(accent);
+                c.drawCircle(cx, cy, r, paint);
+                paint.setColor(Color.WHITE);
+                paint.setStrokeWidth(dp(2));
+                paint.setStyle(android.graphics.Paint.Style.STROKE);
+                paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+                c.drawLine(cx - r * 0.35f, cy, cx - r * 0.05f, cy + r * 0.35f, paint);
+                c.drawLine(cx - r * 0.05f, cy + r * 0.35f, cx + r * 0.4f, cy - r * 0.3f, paint);
+            } else {
+                paint.setStyle(android.graphics.Paint.Style.STROKE);
+                paint.setStrokeWidth(dp(2));
+                paint.setColor(muted);
+                c.drawCircle(cx, cy, r, paint);
+            }
+        }
+    }
+
+    void linkRow(LinearLayout group, CharSequence title, CharSequence summary, Runnable open) {
+        box(group, title, summary, muted, open, true);
+    }
+
+    void actionRow(LinearLayout group, CharSequence title, CharSequence summary, Runnable action) {
+        box(group, title, summary, muted, action, false);
+    }
+
+    TextView valueRowMuted(LinearLayout group, CharSequence title, CharSequence value, Runnable open) {
+        LinearLayout box = box(group, title, value, muted, open, false);
+        return (TextView) ((LinearLayout) box.getChildAt(0)).getChildAt(1);
+    }
+
+    static void setDependentsEnabled(boolean on, View... views) {
+        for (View v : views) {
+            v.setAlpha(on ? 1f : 0.4f);
+            setEnabledDeep(v, on);
+        }
+    }
+
+    private static void setEnabledDeep(View v, boolean on) {
+        v.setEnabled(on);
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                setEnabledDeep(g.getChildAt(i), on);
+            }
+        }
+    }
+}
