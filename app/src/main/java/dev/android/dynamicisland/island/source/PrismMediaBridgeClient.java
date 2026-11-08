@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import dev.android.dynamicisland.island.lyrics.MediaLyrics;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -25,7 +26,7 @@ public final class PrismMediaBridgeClient {
     private static final String VERSION_KEY = "coobvo.prism.bridge.version";
     private static final String URI_KEY = "coobvo.prism.bridge.uri";
     private static final String SNAPSHOT_COLUMN = "snapshot";
-    private static final long CACHE_MS = 1200L;
+    private static final long CACHE_MS = 35L;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "CoobvoPrismMedia");
@@ -63,6 +64,15 @@ public final class PrismMediaBridgeClient {
         public final String lyricsStatus;
         public final String lyricsLook;
         public final String rawJson;
+        public final float[] visualizerBands;
+        public final float visualizerLevel;
+        public final long crossfadeStartMs;
+        public final long crossfadeLengthMs;
+        public final String crossfadeSongId;
+        public final String crossfadeFromId;
+        public final String crossfadeToId;
+        public final float crossfadeProgress;
+        public final float playerVolume;
         private final boolean lyricsExtrasPending;
 
         public boolean needsLyricsRefresh() {
@@ -76,13 +86,22 @@ public final class PrismMediaBridgeClient {
         }
 
         private Snapshot(String info, MediaLyrics lyrics, String lyricsStatus, String lyricsLook,
-                         String rawJson, boolean lyricsExtrasPending) {
+                         String rawJson, boolean lyricsExtrasPending, JSONObject data) {
             this.info = info;
             this.lyrics = lyrics;
             this.lyricsStatus = lyricsStatus == null ? "UNKNOWN" : lyricsStatus;
             this.lyricsLook = lyricsLook;
             this.rawJson = rawJson;
             this.lyricsExtrasPending = lyricsExtrasPending;
+            this.visualizerBands = readBands(data.optJSONArray("visualizerBands"));
+            this.visualizerLevel = clamp(data.optDouble("visualizerLevel", 0.0d));
+            this.crossfadeStartMs = data.optLong("crossfadeStartMs", -1L);
+            this.crossfadeLengthMs = data.optLong("crossfadeLengthMs", 0L);
+            this.crossfadeSongId = emptyToNull(data.optString("crossfadeSongId", null));
+            this.crossfadeFromId = emptyToNull(data.optString("crossfadeFromId", null));
+            this.crossfadeToId = emptyToNull(data.optString("crossfadeToId", null));
+            this.crossfadeProgress = clamp(data.optDouble("crossfadeProgress", 0.0d));
+            this.playerVolume = clamp(data.optDouble("playerVolume", 1.0d));
         }
     }
 
@@ -133,23 +152,26 @@ public final class PrismMediaBridgeClient {
             String status = "UNKNOWN";
             String look = null;
             boolean extrasPending = false;
+            JSONObject lyricLook = null;
             if (prismLyrics != null) {
                 status = prismLyrics.optString("status", "UNKNOWN");
                 lyrics = MediaLyrics.fromPrismSnapshot(prismLyrics.optJSONObject("lyrics"));
-                JSONObject lyricLook = prismLyrics.optJSONObject("look");
-                if (lyricLook != null) {
-                    look = lyricLook.toString();
-                    boolean wantsRomanized = lyricLook.optBoolean("romanizeEnabledForSong", false);
-                    boolean wantsTranslated = lyricLook.optBoolean("lyricsTranslate", false);
-                    extrasPending = (wantsRomanized && (lyrics == null || !lyrics.hasRomanizedLines()))
-                            || (wantsTranslated && (lyrics == null || !lyrics.hasTranslatedLines()));
-                }
+                lyricLook = prismLyrics.optJSONObject("look");
+            }
+            // Player settings are exported even before LyricsState has a populated lyric object.
+            if (lyricLook == null) lyricLook = data.optJSONObject("prismSettings");
+            if (lyricLook != null) {
+                look = lyricLook.toString();
+                boolean wantsRomanized = lyricLook.optBoolean("romanizeEnabledForSong", false);
+                boolean wantsTranslated = lyricLook.optBoolean("lyricsTranslate", false);
+                extrasPending = (wantsRomanized && (lyrics == null || !lyrics.hasRomanizedLines()))
+                        || (wantsTranslated && (lyrics == null || !lyrics.hasTranslatedLines()));
             }
             // The extension's elapsed timestamp changes on every poll. Exclude it so callers can
             // tell an actual lyric/preference change from an unchanged bridge response.
             JSONObject stable = new JSONObject(data.toString());
             stable.remove("updatedAtElapsedRealtime");
-            return new Snapshot(format(data), lyrics, status, look, stable.toString(), extrasPending);
+            return new Snapshot(format(data), lyrics, status, look, stable.toString(), extrasPending, data);
         } catch (Throwable ignored) {
             // The bridge is optional. Missing/incompatible patch must never break media cards.
             return null;
@@ -211,6 +233,26 @@ public final class PrismMediaBridgeClient {
         if (value == null || value.isEmpty()) return;
         if (target.length() > 0) target.append(" · ");
         target.append(value);
+    }
+
+    private static float[] readBands(JSONArray values) {
+        if (values == null || values.length() == 0) return null;
+        int count = Math.min(64, values.length());
+        float[] result = new float[count];
+        for (int i = 0; i < count; i++) {
+            double value = values.optDouble(i, 0.0d);
+            result[i] = clamp(value);
+        }
+        return result;
+    }
+
+    private static float clamp(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) return 0.0f;
+        return (float) Math.max(0.0d, Math.min(1.0d, value));
+    }
+
+    private static String emptyToNull(String value) {
+        return value == null || value.isEmpty() ? null : value;
     }
 
     private static final class Cached {
