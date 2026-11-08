@@ -113,7 +113,7 @@ public final class MediaLyrics {
             Line line=parsed.get(i);
             long end=i+1<parsed.size()?parsed.get(i+1).startMs:line.startMs+5000;
             end=Math.max(line.startMs+250,end);
-            fixed.add(new Line(line.startMs,end,line.text,spreadWords(line.text,line.startMs,end),false));
+            fixed.add(new Line(line.startMs,end,line.text,Collections.emptyList(),false));
         }
         addInterludes(fixed);
         return new MediaLyrics(Type.LINE,provider,fixed);

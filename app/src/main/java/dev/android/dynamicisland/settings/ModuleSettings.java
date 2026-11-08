@@ -195,7 +195,7 @@ public final class ModuleSettings {
     private static volatile boolean visualizer = true;
     private static volatile boolean colorIcons;
     private static volatile boolean shadeMedia = true;
-    private static volatile boolean mediaLyrics = true;
+    private static volatile boolean mediaLyrics = false;
     private static volatile boolean eventCharging = true;
     private static volatile boolean stockChargingAnimation;
     private static volatile boolean concurrentRecordingInput;
@@ -630,7 +630,7 @@ public final class ModuleSettings {
             visualizer = source.getBoolean(KEY_VISUALIZER, true);
             colorIcons = source.getBoolean(KEY_COLOR_ICONS, false);
             shadeMedia = source.getBoolean(KEY_SHADE_MEDIA, true);
-            mediaLyrics = source.getBoolean(KEY_MEDIA_LYRICS, true);
+            mediaLyrics = source.getBoolean(KEY_MEDIA_LYRICS, false);
             eventCharging = source.getBoolean(KEY_EVENT_CHARGING, true);
             readOptionalDeviceSettings(source);
             eventRinger = source.getBoolean(KEY_EVENT_RINGER, true);

@@ -366,7 +366,7 @@ public final class SettingsActivity extends Activity {
         toggle(controls, R.string.setting_smart_rules, R.string.setting_smart_rules_desc, ModuleSettings.KEY_SMART_RULES, true);
         toggle(controls, R.string.auto_open_cards, R.string.auto_open_cards_desc, ModuleSettings.KEY_AUTO_OPEN_CARDS, false);
         toggle(controls, R.string.setting_progress, R.string.setting_progress_desc, ModuleSettings.KEY_PROGRESS_NOTIFICATIONS, true);
-        ui.switchRow(controls, "LyricSync · synced lyrics", "Fetch current and next line-synced lyrics below media controls using LRCLIB.", flag(ModuleSettings.KEY_MEDIA_LYRICS, true), on -> prefs.edit().putBoolean(ModuleSettings.KEY_MEDIA_LYRICS, on).apply());
+        ui.switchRow(controls, "LyricSync · synced lyrics", "Optional network lookups send the playing track title and artist to lyric providers. Off by default.", flag(ModuleSettings.KEY_MEDIA_LYRICS, false), on -> prefs.edit().putBoolean(ModuleSettings.KEY_MEDIA_LYRICS, on).apply());
         ui.category(page, "Manage");
         LinearLayout links = ui.card(page);
         ui.linkRow(links, getString(R.string.ui_notifications), getString(R.string.ui_notifications_summary), () -> open(this::notificationsPage));

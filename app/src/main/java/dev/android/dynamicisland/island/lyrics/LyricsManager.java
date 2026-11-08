@@ -79,6 +79,10 @@ public final class LyricsManager {
 
     public static void request(Context context,String title,String artist,long durationMs,Runnable completed) {
         if(context==null||blank(title)||blank(artist))return;
+        // This class runs in System UI, not the module settings app. Verify that the
+        // hosting process itself has INTERNET permission before attempting any provider.
+        if(context.checkCallingOrSelfPermission(android.Manifest.permission.INTERNET)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
         String key=key(title,artist);
         synchronized(CACHE){
             Entry entry=CACHE.get(key);
