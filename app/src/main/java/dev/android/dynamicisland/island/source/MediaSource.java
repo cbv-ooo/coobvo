@@ -655,7 +655,8 @@ public final class MediaSource {
                 if (!"OFF".equalsIgnoreCase(settings.optString("visualizer", "OFF"))) return 45L;
                 org.json.JSONObject view = settings.optJSONObject("view");
                 boolean crossfadeMark = view != null && view.optBoolean("crossfadeMark", false);
-                if (crossfadeMark || settings.optBoolean("mix", false)) return 250L;
+                boolean bestPartMark = settings.optBoolean("bestPartButton", false);
+                if (crossfadeMark || bestPartMark || settings.optBoolean("mix", false)) return 250L;
             } catch (Throwable ignored) {
                 // A malformed optional preferences snapshot must not affect media playback.
             }
