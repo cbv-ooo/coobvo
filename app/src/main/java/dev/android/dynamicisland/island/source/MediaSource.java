@@ -522,14 +522,16 @@ public final class MediaSource {
             if (!"com.prism.music".equals(pkg) || meta == null) return;
 
             String prismTrackId = "";
+            String mediaId = meta.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
             it.mediaAlbum = meta.getString(MediaMetadata.METADATA_KEY_ALBUM);
             Bundle extras = null;
             android.media.MediaDescription description = meta.getDescription();
             if (description != null) extras = description.getExtras();
-            if (extras == null) return;
+            // Always form the bridge route from Prism's real mediaId when compat metadata dropped its extras.
+            Bundle bridgeExtras = PrismMediaBridgeClient.ensureBridgeExtras(extras, mediaId);
 
             try {
-                String songJson = extras.getString("prism.song");
+                String songJson = extras == null ? null : extras.getString("prism.song");
                 if (songJson != null && !songJson.isEmpty()) {
                     org.json.JSONObject song = new org.json.JSONObject(songJson);
                     StringBuilder flags = new StringBuilder();
@@ -555,6 +557,7 @@ public final class MediaSource {
             } catch (Throwable ignored) {
                 // Prism metadata extras are optional; standard MediaSession data remains usable.
             }
+            if (prismTrackId.isEmpty() && mediaId != null) prismTrackId = mediaId;
 
             String key = prismTrackId + "|" + String.valueOf(title) + "|" + String.valueOf(artist) + "|"
                     + String.valueOf(it.mediaAlbum);
@@ -575,8 +578,9 @@ public final class MediaSource {
             it.mediaLyricsLook = prismLyricsLook;
             if (SystemClock.elapsedRealtime() - prismInfoUpdatedAt < 1000L) return;
 
+            if (bridgeExtras == null) return;
             MediaSession.Token token = controller.getSessionToken();
-            PrismMediaBridgeClient.request(ctx, extras, key, details -> {
+            PrismMediaBridgeClient.request(ctx, bridgeExtras, key, details -> {
                 if (details == null || sessions.get(token) != this || !key.equals(prismInfoKey)) return;
                 prismInfoUpdatedAt = SystemClock.elapsedRealtime();
                 boolean changed = !details.rawJson.equals(prismSnapshotJson);

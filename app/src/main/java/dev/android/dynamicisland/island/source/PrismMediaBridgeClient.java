@@ -41,6 +41,22 @@ public final class PrismMediaBridgeClient {
 
     private PrismMediaBridgeClient() {}
 
+    /**
+     * Media3 carries prism.song in MediaMetadata.extras, but Android's bridged MediaMetadata does not
+     * consistently expose custom extras through MediaDescription on every System UI build. The
+     * media-session mediaId is still Prism's Song.id, so it is the authoritative URI fallback.
+     */
+    static Bundle ensureBridgeExtras(Bundle source, String mediaId) {
+        Bundle result = source == null ? new Bundle() : new Bundle(source);
+        String uri = result.getString(URI_KEY);
+        if (uri == null || uri.isEmpty()) {
+            if (mediaId == null || mediaId.isEmpty()) return null;
+            result.putString(URI_KEY, "content://com.prism.music.artwork/bridge/" + Uri.encode(mediaId));
+        }
+        result.putInt(VERSION_KEY, Math.max(1, result.getInt(VERSION_KEY, 0)));
+        return result;
+    }
+
     public static final class Snapshot {
         public final String info;
         public final MediaLyrics lyrics;

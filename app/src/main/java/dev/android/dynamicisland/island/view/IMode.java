@@ -863,14 +863,18 @@ final class IMode {
         }
     }
 
+    static boolean shouldDrawCard(Card card, Mode mode) {
+        // Collapse switches the row back to COMPACT immediately, while the card's geometry springs
+        // still have to travel into its pill/bubble. Keep the leaving surface in the render pass.
+        return card != null && card.body != null && (mode == Mode.EXPANDED || card.leaving);
+    }
+
     void draw(Canvas canvas,long time) {
         if(scene.restingShown()) drawIdle(canvas);
-        // iMode has a separate render branch from PillPainter/StackPainter. Draw its expanded
-        // notification cards here as well; otherwise only the compact activity nodes are visible.
-        if(scene.mode==Mode.EXPANDED) {
-            for(Card card:scene.cards) {
-                if(card!=null && card.body!=null) view.drawCard(canvas,card,time);
-            }
+        // iMode owns its cards instead of StackPainter. Keep leaving cards visible after mode changes
+        // to COMPACT so the expanded surface visibly folds back into its compact slot.
+        for(Card card:scene.cards) {
+            if(shouldDrawCard(card,scene.mode)) view.drawCard(canvas,card,time);
         }
         drawMovingGlows(canvas);
         drawMovingOutlines(canvas);
