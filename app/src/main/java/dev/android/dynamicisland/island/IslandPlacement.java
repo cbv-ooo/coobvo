@@ -126,6 +126,27 @@ final class IslandPlacement {
         return window != null && view != null;
     }
 
+    /**
+     * Keep an automatically arriving notification compact when its iMotion expansion sweep
+     * intersects the real camera cutout. Manual taps can still open the card deliberately.
+     */
+    boolean shouldKeepPeekCompactForCutout() {
+        if (!ready()) return false;
+        Rect bounds = window.windowBounds();
+        if (bounds == null || bounds.width() <= 0 || bounds.height() <= 0) return false;
+        Rect hole;
+        if (ModuleSettings.holeMode() == ModuleSettings.HOLE_MANUAL) {
+            int diameter = Math.max(1, Math.round(ModuleSettings.holeDiameterDp() * density));
+            int centerX = Math.round(bounds.width() / 2.0f + ModuleSettings.holeXDp() * density);
+            int centerY = Math.round(statusBarCenterY() + ModuleSettings.holeYDp() * density);
+            hole = new Rect(centerX - diameter / 2, centerY - diameter / 2,
+                    centerX + diameter / 2, centerY + diameter / 2);
+        } else {
+            hole = cameraHoleBounds(bounds.width(), bounds.height());
+        }
+        return hole != null && view.expansionCorridorOverlapsCutout(hole.left, hole.top, hole.right, hole.bottom);
+    }
+
     // ---- status bar and window -----------------------------------------------------------------
 
     void scheduleFallbackWindow() {

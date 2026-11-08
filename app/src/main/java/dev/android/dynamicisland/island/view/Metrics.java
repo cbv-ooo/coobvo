@@ -154,8 +154,13 @@ final class Metrics {
         return Math.max(minPillW, holeD + dp(IDLE_MARGIN_DP));
     }
 
+    /**
+     * Width of an expanded card. When the user explicitly sets the island's maximum width, use
+     * that same cap here too; automatic mode retains the normal expanded-card width.
+     */
     float cardWidth() {
-        return Math.min(screenW - (cardMargin * 2.0f), cardMaxW);
+        float preferred = userMaxW > 0.0f ? Math.min(cardMaxW, userMaxW) : cardMaxW;
+        return Math.min(screenW - (cardMargin * 2.0f), preferred);
     }
 
     /** Top edge of the first card. */

@@ -294,6 +294,20 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
         shapes.paintedMain(out);
     }
 
+    /**
+     * Whether the vertical sweep from the compact pill to an expanded card would cross the
+     * physical camera cutout. The configured maximum width is used by Metrics.cardWidth().
+     */
+    public boolean expansionCorridorOverlapsCutout(int holeLeft, int holeTop, int holeRight, int holeBottom) {
+        if (holeRight <= holeLeft || holeBottom <= holeTop || metrics.screenW <= 0) return false;
+        float width = metrics.cardWidth();
+        float left = metrics.centredLeft(width);
+        float startTop = metrics.cy - metrics.pillH / 2.0f;
+        float endTop = metrics.stackTop();
+        return CutoutExpansionPolicy.overlaps(left, Math.min(startTop, endTop), left + width,
+                Math.max(startTop, endTop), holeLeft, holeTop, holeRight, holeBottom);
+    }
+
     void computeCard(Card card, RectF out) {
         shapes.card(card, out);
     }

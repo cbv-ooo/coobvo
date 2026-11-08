@@ -394,14 +394,20 @@ final class HeadsUpTakeover {
 
     /** @return whether the island really shows the card; only then is it remembered (and a code copied). */
     private boolean show(StatusBarNotification sbn, IslandItem item) {
-        if (!placement.view().canPeek()) return false;
+        IslandView view = placement.view();
+        if (view == null || !view.canPeek()) return false;
         long millis = item.peekMillis > 0 ? item.peekMillis : DEFAULT_PEEK_MS;
         sources.peeks.show(item, millis);
         refreshNow.run();
-        if (!placement.view().peek(item, millis)) {
+        boolean keepCompact = placement.shouldKeepPeekCompactForCutout();
+        if (!keepCompact && !view.peek(item, millis)) {
             sources.peeks.dismiss(item);
             refreshNow.run();
             return false;
+        }
+        if (keepCompact) {
+            note("notification from " + sbn.getPackageName()
+                    + " kept compact because its expansion path crosses the camera cutout");
         }
         if (peeked.size() > MAX_PEEKED) {
             peeked.clear();
@@ -413,7 +419,7 @@ final class HeadsUpTakeover {
         }
         shown.put(sbn.getKey(), new Shown(contentOf(sbn), SystemClock.uptimeMillis()));
         final String key = sbn.getKey();
-        placement.view().postDelayed(() -> HeadsUpHooks.dismissStock(key), STOCK_DISMISS_DELAY_MS);
+        view.postDelayed(() -> HeadsUpHooks.dismissStock(key), STOCK_DISMISS_DELAY_MS);
         if (item.otpCode != null) {
             lastOtpCode = item.otpCode;
             lastOtpAt = SystemClock.uptimeMillis();
