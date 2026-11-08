@@ -39,6 +39,13 @@ public class PrismMediaBridgeClientTest {
         assertNull(PrismMediaBridgeClient.ensureBridgeExtras(null, null));
     }
 
+    @Test public void preservesLyricsRegistrationDiagnosticsUntilPrismStateAppears() throws Exception {
+        org.json.JSONObject snapshot = new org.json.JSONObject("{\\"lyricsBridgeStatus\\":\\"NO_LYRICS_STATE\\"}");
+        assertEquals("NO_LYRICS_STATE", PrismMediaBridgeClient.lyricsStatus(snapshot));
+        snapshot.put("prismLyrics", new org.json.JSONObject("{\\"status\\":\\"LOADING\\"}"));
+        assertEquals("LOADING", PrismMediaBridgeClient.lyricsStatus(snapshot));
+    }
+
     @Test public void readsOnlyCompleteNormalizedPrismSongWaveforms() throws Exception {
         JSONArray json = new JSONArray();
         for (int i = 0; i < 100; i++) json.put(i / 99.0d);
