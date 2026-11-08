@@ -359,6 +359,12 @@ public final class MediaLyrics {
                 lineText.append(word);
             }
         }
+        // Keep the separating space on each timed word, exactly as the line text does. This
+        // keeps prefix widths correct for the active-word renderer.
+        for (int i = 0; i + 1 < result.size(); i++) {
+            Word word = result.get(i);
+            result.set(i, new Word(word.startMs, word.endMs, word.text + " ", word.partOfWord));
+        }
         return result;
     }
 
