@@ -147,8 +147,9 @@ public final class MediaBody extends CardBody {
         prismShowProgress = !prismSession
                 || (prismPlayer.hasDeckPart("SCRUBBER") && prismPlayer.showsPart("PROGRESS"));
         prismShowTransport = !prismSession || prismPlayer.hasDeckPart("TRANSPORT");
-        prismShowVolume = prismSession && prismPlayer.showVolumeBar();
-        prismShowCover = !prismSession || prismPlayer.showsPart("COVER");
+        // Prism's expanded card uses the full island mesh; it has no separate cover tile or volume row.
+        prismShowVolume = false;
+        prismShowCover = !prismSession && prismPlayer.showsPart("COVER");
         prismShowTitle = !prismSession || prismPlayer.showsPart("TITLE");
         prismShowArtist = !prismSession || prismPlayer.showsPart("ARTIST");
         prismShowPreviousNext = !prismSession
@@ -181,7 +182,7 @@ public final class MediaBody extends CardBody {
         // Prism's bridge is the sole lyric source for Prism sessions; never run a second provider cascade.
         // Prism lyrics belong to Prism's media session; always reserve the row while the bridge is loading too.
         lyricsEnabled = prismSession
-                ? prismPlayer.hasDeckPart("STRIP") && prismPlayer.showsPart("LYRIC_LINE")
+                ? prismPlayer.showsPart("LYRIC_LINE")
                 : ModuleSettings.mediaLyricsEnabled();
         lyricsKey = !prismSession && lyricsEnabled ? LyricsManager.keyFor(lyricsTitle, lyricsArtist) : "";
         pad = owner.dp(18.0f);
@@ -203,9 +204,11 @@ public final class MediaBody extends CardBody {
         backdropRenderNode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 ? new RenderNode("CoobvoPrismPlayerBackdrop") : null;
         glowRect = new RectF();
-        int textWidth = Math.max(1, Math.round(((((w - (pad * 2.0f)) - art) - owner.dp(ART_TEXT_GAP_DP)) - tile) - owner.dp(10.0f)));
+        int textWidth = Math.max(1, Math.round(prismSession
+                ? w - pad * 2.0f
+                : w - pad * 2.0f - art - owner.dp(ART_TEXT_GAP_DP) - tile - owner.dp(10.0f)));
         playerTitleWidth = textWidth;
-        Layout.Alignment titleAlignment = prismSession && "CENTER".equals(prismPlayer.titleAlign)
+        Layout.Alignment titleAlignment = prismSession
                 ? Layout.Alignment.ALIGN_CENTER : Layout.Alignment.ALIGN_NORMAL;
         title = !prismShowTitle || item.title == null ? null
                 : IslandView.layout(item.title, playerTitlePaint, textWidth, 1, titleAlignment);
@@ -218,24 +221,27 @@ public final class MediaBody extends CardBody {
         artist = artistText != null
                 ? IslandView.layout(artistText, playerArtistPaint, textWidth, 1, titleAlignment) : null;
         String outputText = null;
-        if (!prismSession || (prismPlayer.showQuality && prismPlayer.showsPart("QUALITY"))) {
+        if (!prismSession) {
             if (item.mediaFlags != null && item.mediaFlags.length() > 0) {
                 outputText = item.mediaFlags.toString();
             }
         }
-        if ((!prismSession || (prismPlayer.showPlayingFrom && prismPlayer.showsPart("FROM_ALBUM")))
-                && item.mediaInfo != null && item.mediaInfo.length() > 0) {
+        if (!prismSession && item.mediaInfo != null && item.mediaInfo.length() > 0) {
             outputText = outputText == null ? item.mediaInfo.toString() : outputText + " · " + item.mediaInfo;
         }
-        if (item.mediaOutput != null && (!prismSession
-                || (prismPlayer.showOutputDevice && prismPlayer.showsPart("OUTPUT")))) {
+        if (!prismSession && item.mediaOutput != null) {
             String device = item.mediaOutput.toString() + (item.mediaOutputBattery >= 0 ? " · " + item.mediaOutputBattery + "%" : "");
             outputText = outputText == null ? device : outputText + " · " + device;
         }
         if (prismSession && "MINIMAL".equals(prismPlayer.layout)) outputText = null;
         output = outputText == null ? null
                 : IslandView.layout(outputText, owner.smallPaint, Math.max(1, textWidth - Math.round(owner.dp(18.0f))), 1);
-        float deckStart = pad + art + owner.dp(16.0f);
+        float headerHeight = (title == null ? 0.0f : title.getHeight())
+                + (artist == null ? 0.0f : (title == null ? 0.0f : owner.dp(TEXT_LINE_GAP_DP)) + artist.getHeight())
+                + (output == null ? 0.0f : owner.dp(TEXT_LINE_GAP_DP) + output.getHeight());
+        float deckStart = pad + (prismSession
+                ? Math.max(owner.dp(24.0f), headerHeight) + owner.dp(12.0f)
+                : art + owner.dp(16.0f));
         if (prismSession) {
             float cursor = deckStart;
             float seekTopValue = -1.0f;
@@ -272,13 +278,6 @@ public final class MediaBody extends CardBody {
                             transportRowValue = rowIndex;
                         }
                         break;
-                    case "VOLUME":
-                        if (prismShowVolume) {
-                            rowHeight = owner.dp(16.0f);
-                            volumeCenterValue = cursor + owner.dp(8.0f);
-                            volumeRowValue = rowIndex;
-                        }
-                        break;
                     case "BUTTONS":
                         // This is Prism's separate PlayerActionRow, not MediaSession custom actions.
                         // It stays unallocated until those app-level callbacks are bridged.
@@ -292,7 +291,6 @@ public final class MediaBody extends CardBody {
                 if ("STRIP".equals(part) && lyricsEnabled) lyricsTopValue = cursor;
                 else if ("SCRUBBER".equals(part) && prismShowProgress) seekTopValue = cursor;
                 else if ("TRANSPORT".equals(part) && prismShowTransport) transportTopValue = cursor;
-                if ("VOLUME".equals(part) && prismShowVolume) volumeCenterValue = cursor + owner.dp(8.0f);
                 cursor += rowHeight;
                 placedRow = true;
                 rowIndex++;
@@ -441,7 +439,7 @@ public final class MediaBody extends CardBody {
         if (prismShowHandle) drawPlayerHandle(c, x, y + topDy, topAlpha);
         drawVisualizer(c, x, y + pad + topDy, topAlpha);
         drawTexts(c, x, y, topDy, topAlpha);
-        drawAppTile(c, x, y, topDy, topAlpha);
+        if (!prismSession) drawAppTile(c, x, y, topDy, topAlpha);
 
         if (!prismSession) {
             float seekRowProgress = rowAlpha(elapsed, 1);
@@ -464,11 +462,6 @@ public final class MediaBody extends CardBody {
             float rowAlpha = rowAlpha(elapsed, prismSeekRow);
             drawSeekRow(c, x, y + seekTop + ((1.0f - rowAlpha) * owner.dp(ROW_SLIDE_DP))
                     + owner.dp(7.0f), alpha * rowAlpha, fx, now);
-        }
-        if (prismVolumeRow >= 0) {
-            float rowAlpha = rowAlpha(elapsed, prismVolumeRow);
-            drawVolumeRow(c, x, y + prismVolumeCenterY
-                    + ((1.0f - rowAlpha) * owner.dp(ROW_SLIDE_DP)), alpha * rowAlpha);
         }
         if (prismTransportRow >= 0) {
             float rowAlpha = rowAlpha(elapsed, prismTransportRow);
@@ -711,53 +704,14 @@ public final class MediaBody extends CardBody {
         int save = c.save();
         c.translate(frame.left, frame.top);
         c.scale(frame.width() / w, frame.height() / h);
-        float glowAlpha = prismSession
-                ? alpha * (0.35f + 0.65f * prismPlayer.backdropShow) : alpha;
-        String background = prismSession ? prismPlayer.background : "MESH";
-        boolean staticCanvasBackdrop = prismSession
-                && prismPlayer.canvasEnabled && prismPlayer.canvasFillsBackground;
-        if (staticCanvasBackdrop) {
-            // The media session exports the still cover, not Prism's live Canvas/video frame.
-            // Use that still as a fallback backdrop; the full animated Canvas cannot be transported
-            // into System UI through the current media-session artwork contract.
-            drawCoverFill(c, fx, alpha * (1.0f - prismPlayer.backdropDim), now);
-            owner.tmpRect.set(0.0f, 0.0f, w, h);
-            owner.fillPaint.setColor(Colors.withAlpha(Colors.BLACK,
-                    alpha * prismPlayer.backdropDim));
-            c.drawRect(owner.tmpRect, owner.fillPaint);
-        } else if (!prismSession || "MESH".equals(background)) {
-            float intensity = prismSession ? prismPlayer.meshIntensity : 1.0f;
-            float motion = prismSession ? prismPlayer.meshSpeed : 1.0f;
-            fx.drawGlow(c, 0.0f, 0.0f, w, h,
-                    glowAlpha * Math.min(1.0f, Math.max(0.0f, intensity)), now, motion);
+        if (prismSession) {
+            // The original Dynamic Island mesh remains the full-card surface. MediaFx blends
+            // its previous and incoming artwork palettes as Prism changes tracks.
+            float visible = alpha * (0.35f + 0.65f * prismPlayer.backdropShow);
+            float intensity = Math.min(1.0f, Math.max(0.0f, prismPlayer.meshIntensity));
+            fx.drawGlow(c, 0.0f, 0.0f, w, h, visible * intensity, now, prismPlayer.meshSpeed);
         } else {
-            owner.tmpRect.set(0.0f, 0.0f, w, h);
-            if ("BLUR".equals(background)) {
-                drawBlurredArtworkBackground(c, fx, alpha, now);
-            } else if ("BLACK".equals(background)) {
-                owner.fillPaint.setColor(Colors.withAlpha(Colors.BLACK, alpha));
-                c.drawRoundRect(owner.tmpRect, owner.dp(24.0f), owner.dp(24.0f), owner.fillPaint);
-            } else if ("WHITE".equals(background)) {
-                owner.fillPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha));
-                c.drawRoundRect(owner.tmpRect, owner.dp(24.0f), owner.dp(24.0f), owner.fillPaint);
-            } else if ("THEME".equals(background)) {
-                owner.fillPaint.setColor(Colors.withAlpha(Colors.SURFACE_CONTAINER, alpha));
-                c.drawRoundRect(owner.tmpRect, owner.dp(24.0f), owner.dp(24.0f), owner.fillPaint);
-            } else if ("GRADIENT".equals(background)) {
-                int accent = item.accent != 0 && item.accent != -1 ? item.accent : Colors.SURFACE_CONTAINER;
-                float depth = prismPlayer.gradientDepth;
-                owner.fillPaint.setShader(new LinearGradient(0.0f, 0.0f, 0.0f, h,
-                        new int[]{Colors.withAlpha(accent, alpha),
-                                Colors.withAlpha(Colors.BLACK, alpha * (0.45f + depth * 0.5f))},
-                        null, Shader.TileMode.CLAMP));
-                c.drawRoundRect(owner.tmpRect, owner.dp(24.0f), owner.dp(24.0f), owner.fillPaint);
-                owner.fillPaint.setShader(null);
-            } else if ("APPEARANCE".equals(background)
-                    && item.accent != 0 && item.accent != -1) {
-                owner.fillPaint.setColor(Colors.withAlpha(item.accent,
-                        alpha * prismPlayer.backdropShow * (1.0f - prismPlayer.backdropDim) * 0.22f));
-                c.drawRoundRect(owner.tmpRect, owner.dp(24.0f), owner.dp(24.0f), owner.fillPaint);
-            }
+            fx.drawGlow(c, 0.0f, 0.0f, w, h, alpha, now, 1.0f);
         }
         if (prismSession && "GLOW".equals(prismPlayer.visualizer)
                 && item.mediaVisualizerLevel > 0.0f && item.accent != 0 && item.accent != -1) {
@@ -769,9 +723,8 @@ public final class MediaBody extends CardBody {
         c.restoreToCount(save);
     }
 
-    /** Title, artist and output lines, vertically centred next to the art. */
     private void drawTexts(Canvas c, float x, float y, float dy, float alpha) {
-        float textX = x + pad + art + owner.dp(ART_TEXT_GAP_DP);
+        float textX = x + pad + (prismSession ? 0.0f : art + owner.dp(ART_TEXT_GAP_DP));
         float gap = owner.dp(TEXT_LINE_GAP_DP);
         float textHeight = (title != null ? title.getHeight() : 0)
                 + (artist != null ? gap + artist.getHeight() : 0.0f)
@@ -807,8 +760,7 @@ public final class MediaBody extends CardBody {
 
     /** Small tile at the top right showing the player app (a glyph on a dark tile, or the app icon). */
     private void drawAppTile(Canvas c, float x, float y, float dy, float alpha) {
-        if ((prismSession && "MINIMAL".equals(prismPlayer.layout))
-                || (item.appGlyph == null && item.appIcon == null)) {
+        if (prismSession || (item.appGlyph == null && item.appIcon == null)) {
             return;
         }
         float tileLeft = ((x + w) - pad) - tile;
