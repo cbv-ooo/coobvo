@@ -246,6 +246,8 @@ public final class IslandItem {
     public String mediaCrossfadeFromId;
     public String mediaCrossfadeToId;
     public float mediaCrossfadeProgress;
+    /** Prism's current-song Best Part marker, shifted into the MediaSession playback timeline; -1 = unavailable. */
+    public long mediaBestPartStartMs = -1L;
     public float mediaPlayerVolume = 1.0f;
 
     /** What the compact pill shows at its trailing edge. */
