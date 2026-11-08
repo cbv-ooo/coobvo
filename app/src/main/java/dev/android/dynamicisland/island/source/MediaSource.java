@@ -341,6 +341,7 @@ public final class MediaSource {
         private MediaLyrics prismLyrics;
         private String prismLyricsStatus = "UNKNOWN";
         private String prismLyricsLook;
+        private boolean prismRefreshScheduled;
 
         Session(MediaController controller) {
             this.controller = controller;
@@ -518,6 +519,7 @@ public final class MediaSource {
         private void bindPrismDetails(IslandItem it, String pkg, CharSequence title, CharSequence artist) {
             if (!"com.prism.music".equals(pkg) || meta == null) return;
 
+            String prismTrackId = "";
             it.mediaAlbum = meta.getString(MediaMetadata.METADATA_KEY_ALBUM);
             Bundle extras = null;
             android.media.MediaDescription description = meta.getDescription();
@@ -539,6 +541,7 @@ public final class MediaSource {
                     if (song.optBoolean("isVideo") || extras.getString("prism.video") != null) appendMediaFlag(flags, "VIDEO");
                     if (song.optBoolean("isUpload")) appendMediaFlag(flags, "UPLOAD");
                     String songId = song.optString("id", "");
+                    prismTrackId = songId;
                     if (songId.startsWith("local:")) appendMediaFlag(flags, "LOCAL");
                     if (song.optString("podcastId", "").length() > 0) appendMediaFlag(flags, "PODCAST");
                     if (it.mediaDuration <= 0L) {
@@ -551,7 +554,7 @@ public final class MediaSource {
                 // Prism metadata extras are optional; standard MediaSession data remains usable.
             }
 
-            String key = String.valueOf(title) + "|" + String.valueOf(artist) + "|"
+            String key = prismTrackId + "|" + String.valueOf(title) + "|" + String.valueOf(artist) + "|"
                     + String.valueOf(it.mediaAlbum);
             if (!key.equals(prismInfoKey)) {
                 prismInfoKey = key;
@@ -580,7 +583,20 @@ public final class MediaSource {
                 prismLyricsLook = details.lyricsLook;
                 card = null;
                 onChange.run();
+                if (details.needsLyricsRefresh()) schedulePrismLyricsRefresh(key, token);
             });
+        }
+
+        private void schedulePrismLyricsRefresh(String key, MediaSession.Token token) {
+            if (prismRefreshScheduled) return;
+            prismRefreshScheduled = true;
+            main.postDelayed(() -> {
+                prismRefreshScheduled = false;
+                if (sessions.get(token) != this || !key.equals(prismInfoKey)) return;
+                prismInfoUpdatedAt = 0L;
+                card = null;
+                onChange.run();
+            }, 1400L);
         }
 
         private void appendMediaFlag(StringBuilder flags, String flag) {
