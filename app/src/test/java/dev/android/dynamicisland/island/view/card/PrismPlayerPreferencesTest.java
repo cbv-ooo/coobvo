@@ -5,7 +5,12 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
 
+@RunWith(RobolectricTestRunner.class)
+@Config(sdk = 35)
 public class PrismPlayerPreferencesTest {
     @Test public void readsTheNestedPlayerPreferencesExportedByTheBridge() {
         PrismPlayerPreferences prefs = PrismPlayerPreferences.fromLyricsLook(
