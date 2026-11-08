@@ -71,18 +71,26 @@ The current Canvas mapping includes:
 
 The expanded card is not the Prism lyrics page. Page-only controls such as `ahead`, `position` and the full-screen/page background are not applied to the inline media-card row. Some appearance details are still approximations rather than pixel-identical Compose rendering: for example, Spectrum/Cover-derived fills are represented through the media accent, and halo/glow and every background/style detail are not yet reproduced exactly. The project also deliberately keeps card surfaces opaque; no frosted or blurred card background is added. Do not describe the renderer as fully 1:1 yet.
 
-## Latest build evidence
+## Previous build evidence (Morphe bridge v0.1.2)
 
-Latest main revision: commit `59ff3585c427a4e422a5408b4c7d0ccd031e917e`; app `0.1.49-dev1` / versionCode `151`; Morphe bridge `0.1.2`.
+The following records the last documented v0.1.2 builds; it is historical, not build evidence for v0.1.3.
 
 - Debug APK run [#42474855696](https://github.com/cbv-ooo/coobvo/actions/runs/42474855696) passed the APK build, targeted test step and artifact upload for app source commit `cb76d6c75f102674cb6d6f94ecfb53ad2f2f29f9`. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42474855696/artifacts/13614564628).
 - Latest Prism Morphe run [#42475138681](https://github.com/cbv-ooo/coobvo/actions/runs/42475138681) passed after expanding the exported player/lyrics settings. Artifact: [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42475138681/artifacts/13615111537).
 
 These results prove that the app source compiles, the selected unit tests pass, and the Morphe bundle is generated. They do **not** prove that the new .mpp applies to the exact Prism 1.8.2.1 APK or that lyrics render correctly on the S10e.
 
+## Current Prism bridge update (2026-11-08)
+
+- Morphe bridge source version: `0.1.3` (`morphe/prism-media-bridge/gradle.properties`).
+- Latest Prism-specific fix: commit [`b331a0598b45424bff47406ff03d5f5f7d6ce191`](https://github.com/cbv-ooo/coobvo/commit/b331a0598b45424bff47406ff03d5f5f7d6ce191).
+- Status resolution now keeps an empty-but-pending Prism `Lyrics` object in `LOADING`, `WAITING` or `UNKNOWN`, rather than prematurely reporting `UNAVAILABLE`. A non-empty lyric list remains `AVAILABLE` immediately; an empty result is terminal only after Prism reports `settled` or `unavailable`.
+- This keeps the existing consumer refresh path active for pending states. It does not establish that every Morphe fingerprint matched or that the provider query and lyrics render work on the owner's phone.
+- The code change is committed; a passing build for this new revision and exact-APK/device runtime verification must be recorded separately. Do not treat the earlier v0.1.2 run as proof for v0.1.3.
+
 ## Still required
 
-1. Apply the new `0.1.2` .mpp to the exact Prism 1.8.2.1 / versionCode 58 APK. Confirm each remaining fingerprint individually; the removed `PrismRememberLyricsStateFingerprint` must no longer be requested.
+1. Apply the current `0.1.3` .mpp to the exact Prism 1.8.2.1 / versionCode 58 APK. Confirm each remaining fingerprint individually; the removed `PrismRememberLyricsStateFingerprint` must no longer be requested.
 2. Install the patched Prism APK and coobvo debug APK together. Confirm the /bridge route is queried by System UI and the correct Song ID is returned.
 3. Verify that the actual stored lyric lines, romanization and translation helper results reach the expanded card. Exercise loading, waiting, unavailable, static/unsynced, line-synced and word-synced cases.
 4. Verify pause/resume, seeking, track changes, word timing, overlapping/second-voice lines, background vocals and gaps.
@@ -113,7 +121,7 @@ Owner-provided requirements recorded on 2026-11-08. This is a requirements and i
 | Text alignment, size, weight and line spacing | The relevant lyric-look values are exported and a subset is mapped by the Canvas strip. Verify each control against Prism's live settings. |
 | Sung-line and other-line colors; dim-to-bright behavior | Sung/other color, alpha and motion-related values are exported and partly rendered. Custom, accent, cover and spectrum colors still need parity checks. |
 | Focus blur | The preference value is exported where Prism provides it. Coobvo's standing constraint prohibits blur/frosted/backdrop effects, so this setting must not introduce a blurred or translucent island surface. |
-| Lines to come | Not complete. The current strip focuses on the active line (with optional wrapping of that line); it does not yet show a configurable list of upcoming lyric lines. |
+| Lines to come | Implemented in the Canvas strip for static and synced lyrics. It reads Prism's `ahead` setting and shows upcoming lines; the narrow island card caps the preview to three lines. Confirm line count, spacing and clipping on the S10e. |
 | Background behind lyrics and effects | Relevant background/look values are exported, but the expanded card does not reproduce Prism's full lyrics-page background/effects. The island card remains opaque. |
 | Background vocals and instrumental breaks | Prism's background-vocal timing, alignment and gap data are exported. The painter already has backing-vocal and gap-marker handling; verify overlap and timing on-device. |
 | Translation and romanized lines | The bridge hooks Prism's own translation and romanization helper results. It must use those actual results, never a second lookup or generated substitute. |
@@ -131,7 +139,7 @@ Owner-provided requirements recorded on 2026-11-08. This is a requirements and i
 
 ### Required implementation order and acceptance criteria
 
-1. First establish that Morphe v0.1.2 actually applies to the exact Prism 1.8.2.1 / versionCode 58 APK. Verify each remaining fingerprint, then confirm that System UI can query the local `/bridge/{songId}` route.
+1. First establish that Morphe v0.1.3 actually applies to the exact Prism 1.8.2.1 / versionCode 58 APK. Verify each remaining fingerprint, then confirm that System UI can query the local `/bridge/{songId}` route.
 2. Confirm that a real Prism song produces a non-empty lyrics snapshot. Exercise loading, waiting, unavailable, static/unsynced, line-synced and word-synced cases before working on visual parity.
 3. Complete the lyrics strip: active line, upcoming lines, exact timing, second voices, backing vocals, instrumental gaps, translation and romanization, with the user's selected text settings.
 4. Expand the media card only after the data contract is reliable. Map player layout, title, controls, cover and progress/volume settings individually. Do not mark a preference complete merely because Morphe serializes it.
