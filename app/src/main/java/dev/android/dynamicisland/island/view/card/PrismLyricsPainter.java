@@ -232,33 +232,10 @@ final class PrismLyricsPainter {
             return;
         }
 
-        int dimColor = motion == 1 ? Colors.WHITE : otherColor;
-        float dimAlpha = motion == 1 ? 0.92f : Math.min(0.9f, othersAlpha);
-        drawPlain(canvas, paint, text, anchor(left, width, align, alignEnd, text), baseline,
-                width, align, alpha, Colors.withAlpha(dimColor, dimAlpha * alpha));
-
         float fullWidth = paint.measureText(text);
         float textLeft = alignedLeft(left, width, fullWidth, align, alignEnd);
         boolean rtl = isRtl(text);
-        float sungWidth = 0.0f;
-        float activeStart = 0.0f, activeWidth = 0.0f, activeFraction = 0.0f;
-        for (MediaLyrics.Word word : words) {
-            String part = shown(word.text, look);
-            float wordWidth = paint.measureText(part);
-            if (now >= word.endMs) {
-                sungWidth += wordWidth;
-            } else if (now >= word.startMs) {
-                activeStart = sungWidth;
-                activeWidth = wordWidth;
-                activeFraction = clamp((now - word.startMs) / (float) Math.max(1L, word.endMs - word.startMs), 0.0f, 1.0f);
-                sungWidth += wordWidth * activeFraction;
-                break;
-            } else {
-                break;
-            }
-        }
-
-        if (motion == 3) { // Prism Typewriter: each real word fades in at its own timestamp.
+        if (motion == 3) { // Prism Typewriter: only show words once their native or Prism-derived timestamps begin.
             float cursor = textLeft;
             Paint.Align old = paint.getTextAlign();
             paint.setTextAlign(Paint.Align.LEFT);
@@ -274,6 +251,29 @@ final class PrismLyricsPainter {
             }
             paint.setTextAlign(old);
             return;
+        }
+
+        int dimColor = motion == 1 ? Colors.WHITE : otherColor;
+        float dimAlpha = motion == 1 ? 0.92f : Math.min(0.9f, othersAlpha);
+        drawPlain(canvas, paint, text, anchor(left, width, align, alignEnd, text), baseline,
+                width, align, alpha, Colors.withAlpha(dimColor, dimAlpha * alpha));
+
+        float sungWidth = 0.0f;
+        float activeStart = 0.0f, activeWidth = 0.0f;
+        for (MediaLyrics.Word word : words) {
+            String part = shown(word.text, look);
+            float wordWidth = paint.measureText(part);
+            if (now >= word.endMs) {
+                sungWidth += wordWidth;
+            } else if (now >= word.startMs) {
+                activeStart = sungWidth;
+                activeWidth = wordWidth;
+                float fraction = clamp((now - word.startMs) / (float) Math.max(1L, word.endMs - word.startMs), 0.0f, 1.0f);
+                sungWidth += wordWidth * fraction;
+                break;
+            } else {
+                break;
+            }
         }
 
         if (sungWidth <= 0.0f) return;
