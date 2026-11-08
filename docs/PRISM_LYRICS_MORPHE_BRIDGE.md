@@ -82,17 +82,17 @@ These results prove that the app source compiles, the selected unit tests pass, 
 
 ## Current Prism bridge update (2026-11-08)
 
-- Morphe bridge source version: `0.1.4` (`morphe/prism-media-bridge/gradle.properties`).
+- Morphe bridge source version: `0.1.5` (`morphe/prism-media-bridge/gradle.properties`).
 - Core hook change: [constructor registration](https://github.com/cbv-ooo/coobvo/commit/deba631384e4a92a4a9c1c484cbbe0542b7fc0b3) registers the real Prism `LyricsState` as soon as it is initialized. The extension retains a bounded set of strong references (maximum eight) and refreshes live state on each bridge query. Setter and romanization/translation helper hooks are optional accelerators rather than hard requirements.
 - App-side diagnostics: the bridge now emits `lyricsBridgeStatus` values `NO_MEDIA_ID`, `NO_LYRICS_STATE` and `NO_LYRICS_SNAPSHOT` before Prism reports its own `LOADING`, `WAITING`, `AVAILABLE` or `UNAVAILABLE` status. The island displays those separate states instead of collapsing them into “no lyrics”. The client continues retrying the “state not registered yet” and “snapshot not captured yet” cases.
 - The bridge's existing source-status correction keeps an empty-but-pending Prism `Lyrics` object in `LOADING`, `WAITING` or `UNKNOWN`, rather than prematurely reporting `UNAVAILABLE`. A non-empty lyric list remains `AVAILABLE` immediately; an empty result is terminal only after Prism reports `settled` or `unavailable`.
 - The 0.1.3 media snapshot features remain: Prism's own `SongWaves.get(songId)` 100-point scan, elapsed/remaining-time mode, full-track-length toggle, title alignment/size/weight, cover-corner settings and scrubber style/thickness/color/thumb. These are partial preference mappings, not a 1:1 Prism page clone.
-- **Morphe bundle build passed:** run [#28](https://github.com/cbv-ooo/coobvo/actions/runs/42487611825), artifact [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42487611825/artifacts/13620077914) (source version 0.1.4).
-- **Debug APK build and selected tests passed:** run [#175](https://github.com/cbv-ooo/coobvo/actions/runs/42487474819), artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42487474819/artifacts/13619808689), versionCode 154 / `0.1.50-dev3`. The run includes `PrismMediaBridgeClientTest`, `PrismLyricsSnapshotTest`, `PrismLyricsPainterTest`, `PrismPlayerPreferencesTest`, and the selected SI/iMode/cutout tests.
+- **Morphe bundle build passed:** run [#42491434885](https://github.com/cbv-ooo/coobvo/actions/runs/42491434885), artifact [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42491434885/artifacts/13621996077) (source version 0.1.5).
+- **Latest Debug APK build and selected tests passed:** run [#42492910498](https://github.com/cbv-ooo/coobvo/actions/runs/42492910498), artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42492910498/artifacts/13621973940), current source commit `c98f269850c6ce7eea7a0bdf5c79cedf962d26d3`. The run includes `PrismMediaBridgeClientTest`, `PrismLyricsSnapshotTest`, `PrismLyricsPainterTest`, `PrismPlayerPreferencesTest`, and the selected SI/iMode/cutout tests.
 - These CI results prove source compilation, selected test fixtures, `.mpp` bundle generation and APK upload. They **do not** prove that the required fingerprints match the owner's installed Prism 1.8.2.1 / versionCode 58 APK, that System UI can query its provider route on-device, or that lyrics display on the S10e. The exact `.mpp` application and runtime remain unverified.
 ## Still required
 
-1. Apply the current `0.1.4` .mpp to the exact Prism 1.8.2.1 / versionCode 58 APK. Confirm each remaining fingerprint individually; the removed `PrismRememberLyricsStateFingerprint` must no longer be requested.
+1. Apply the current `0.1.5` .mpp to the exact Prism 1.8.2.1 / versionCode 58 APK. Confirm each remaining fingerprint individually; the removed `PrismRememberLyricsStateFingerprint` must no longer be requested.
 2. Install the patched Prism APK and coobvo debug APK together. Confirm the /bridge route is queried by System UI and the correct Song ID is returned.
 3. Verify that the actual stored lyric lines, romanization and translation helper results reach the expanded card. Exercise loading, waiting, unavailable, static/unsynced, line-synced and word-synced cases.
 4. Verify pause/resume, seeking, track changes, word timing, overlapping/second-voice lines, background vocals and gaps.
@@ -141,7 +141,7 @@ Owner-provided requirements recorded on 2026-11-08. This is a requirements and i
 
 ### Required implementation order and acceptance criteria
 
-1. First establish that Morphe v0.1.3 actually applies to the exact Prism 1.8.2.1 / versionCode 58 APK. Verify each remaining fingerprint, then confirm that System UI can query the local `/bridge/{songId}` route.
+1. First establish that Morphe v0.1.5 actually applies to the exact Prism 1.8.2.1 / versionCode 58 APK. Verify each remaining fingerprint, then confirm that System UI can query the local `/bridge/{songId}` route.
 2. Confirm that a real Prism song produces a non-empty lyrics snapshot. Exercise loading, waiting, unavailable, static/unsynced, line-synced and word-synced cases before working on visual parity.
 3. Complete the lyrics strip: active line, upcoming lines, exact timing, second voices, backing vocals, instrumental gaps, translation and romanization, with the user's selected text settings.
 4. Expand the media card only after the data contract is reliable. Map player layout, title, controls, cover and progress/volume settings individually. Do not mark a preference complete merely because Morphe serializes it.
@@ -150,9 +150,9 @@ Owner-provided requirements recorded on 2026-11-08. This is a requirements and i
 
 The owner-provided checklist is the feature scope for future Prism bridge and media-card work. The recorded build evidence proves only build/test/package success; it does not prove application to the installed Prism APK or working lyrics on the device.
 
-## Latest implementation addendum (2026-11-08, source update pending CI)
+## Latest implementation addendum (2026-11-08)
 
-This addendum supersedes the earlier preference-status rows above where they conflict. The source update is being prepared for main; CI and device application are separate verification steps.
+This addendum supersedes the earlier preference-status rows above where they conflict. The implementation is on `main`; CI build/test evidence and exact-device application remain separate verification steps.
 
 ### Background lyrics lookup
 
@@ -179,16 +179,17 @@ The preference parser reads the nested playerPreferences object and its view, ty
 - Title alignment, size, weight and automatic marquee scrolling; artist text and optional playing-from/quality metadata.
 - Elapsed/remaining/track-length display, scrubber thickness/style/color and knob style. Prism's scanned 100-point waveform is used for WAVE when available; otherwise the normal progress bar remains.
 - Transport style (glyph/button/outlined play), custom-button shape, and the grouped bottom-row capsule preference.
-- Optional volume bar and the volume-matches-progress style.
+- Optional volume bar and the volume-matches-progress style. Visibility follows Prism's `volumeControl` override, and the fill uses Prism's `appVolume` when Prism owns volume; phone mode uses the existing session-volume snapshot.
 - The crossfade-start mark and the separate crossfade-bar blend/taper toggle, when Prism supplies a planned crossfade interval.
 - Prism's sampled visualizer bands when the setting is enabled. The current island rendering is a compact bar visualization rather than Prism's full page-specific BARS/WAVE/RING/PULSE/GLOW layouts.
 
 ### Explicitly not full parity yet
 
-The snapshot also exports Prism's playerButtons order, but the island still only renders media-session custom actions that Android exposes; it does not create Prism's app-level Lyrics/Video/Queue/Sleep/Like/etc. actions itself. The playerDeck list is currently consumed for row visibility, not as a fully arbitrary row-reordering layout. Canvas/animated cover playback, full-bleed player fill, every custom cover silhouette, Prism's animated RIBBONS/spectrum shader, and the full visualizer styles remain incomplete. The volume row is display-only; it is not wired to a touch volume controller. These must remain marked as partial until a corresponding action/data path is implemented and tested.
+The snapshot also exports Prism's playerButtons order, but the island still only renders media-session custom actions that Android exposes; it does not create Prism's app-level Lyrics/Video/Queue/Sleep/Like/etc. actions itself. The playerDeck list is currently consumed for row visibility, not as a fully arbitrary row-reordering layout. Canvas/animated cover playback, full-bleed player fill, every custom cover silhouette, Prism's animated RIBBONS/spectrum shader, and the full visualizer styles remain incomplete. The volume row now follows the selected Prism/phone value for display, but it is still not wired to a touch volume controller. These must remain marked as partial until a corresponding action/data path is implemented and tested.
 
 ### Verification state
 
-- Source changes and unit-test additions are part of this update.
-- Morphe .mpp build, app debug build and selected unit-test results must be recorded from the CI run associated with this exact commit; historical workflow runs above do not verify this source update.
-- Real-device verification is still required for the background lookup with Prism closed, live preference changes while playback continues, 3-line lyrics visibility/transitions, and Galaxy S10e card sizing.
+- Morphe bridge bundle v0.1.5 passed run [#42491434885](https://github.com/cbv-ooo/coobvo/actions/runs/42491434885), with artifact [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42491434885/artifacts/13621996077).
+- Debug APK build and selected unit tests passed on current `main` at commit `c98f269850c6ce7eea7a0bdf5c79cedf962d26d3` in run [#42492910498](https://github.com/cbv-ooo/coobvo/actions/runs/42492910498). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42492910498/artifacts/13621973940). The run includes `PrismMediaBridgeClientTest`, `PrismLyricsSnapshotTest`, `PrismLyricsPainterTest` and `PrismPlayerPreferencesTest`.
+- These results prove bundle generation, app compilation and selected test fixtures. They do **not** prove that the patch applies to the exact installed Prism 1.8.2.1 / versionCode 58 APK or that its provider route and island rendering work on the Galaxy S10e.
+- Real-device verification is still required for background lookup with Prism closed, live preference changes during playback, 3-line lyrics visibility/transitions, and S10e card sizing.
