@@ -134,6 +134,7 @@ final class PrismLyricsPainter {
             }
         }
 
+        setShadow(owner, mainPaint, look, sungColor);
         drawTimedLine(canvas, owner, mainPaint, mainText, words, line.startMs, line.endMs,
                 left, width, mainBaseline, lineAlign, line.alignEnd, now, synced, motion,
                 sungColor, otherColor, othersAlpha, alpha, look);
@@ -323,7 +324,7 @@ final class PrismLyricsPainter {
         paint.setTextAlign(alignEnd ? Paint.Align.RIGHT : align);
         setShadow(owner, paint, look, color);
         drawPlain(canvas, paint, text, anchor(left, width, paint.measureText(text), align, alignEnd),
-                baseline, width, align, alpha, Colors.withAlpha(color, alpha * opacity));
+                baseline, width, alignEnd ? Paint.Align.RIGHT : align, alpha, Colors.withAlpha(color, alpha * opacity));
         clearShadow(paint);
         paint.setTextSize(oldSize);
         paint.setTypeface(oldTypeface);
@@ -426,6 +427,13 @@ final class PrismLyricsPainter {
         Paint.Align actual = alignEnd ? Paint.Align.RIGHT
                 : (align == Paint.Align.LEFT && isRtl(text) ? Paint.Align.RIGHT : align);
         if (actual == Paint.Align.CENTER) return left + width * 0.5f;
+        if (actual == Paint.Align.RIGHT) return left + width;
+        return left;
+    }
+
+    private static float anchor(float left, float width, float textWidth, Paint.Align align, boolean alignEnd) {
+        Paint.Align actual = alignEnd ? Paint.Align.RIGHT : align;
+        if (actual == Paint.Align.CENTER) return left + (width + textWidth) * 0.5f;
         if (actual == Paint.Align.RIGHT) return left + width;
         return left;
     }
