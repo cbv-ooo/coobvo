@@ -16,6 +16,7 @@ import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.island.view.media.MediaFx;
 import org.json.JSONObject;
 import java.util.Locale;
+import java.util.Collections;
 
 /**
  * Music player card, drawn on top of the animated glow of {@link MediaFx}.
@@ -73,6 +74,7 @@ public final class MediaBody extends CardBody {
     private final String prismLyricsStatus;
     private final JSONObject prismLook;
     private final float prismLyricsRowDp;
+    private final PrismLyricsPainter.State prismLyricState = new PrismLyricsPainter.State();
     private final int prismSungColor;
     private final int prismOtherColor;
     private final float prismOtherAlpha;
@@ -264,7 +266,7 @@ public final class MediaBody extends CardBody {
     /** Current and next line of synced lyrics, using the playback clock shared with the seek row. */
     private void drawLyrics(Canvas canvas, float left, float top, float width, float alpha, long positionMs) {
         if (prismSession) {
-            PrismLyricsPainter.draw(canvas, owner, prismLyrics, prismLook, lyricsCurrentPaint, lyricsNextPaint,
+            PrismLyricsPainter.draw(canvas, owner, prismLyrics, prismLook, prismLyricState, lyricsCurrentPaint, lyricsNextPaint,
                     prismLyricsStatus, left, top, width, alpha, positionMs, item.accent);
             return;
         }

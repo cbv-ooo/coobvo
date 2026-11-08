@@ -101,6 +101,17 @@ public final class MediaLyrics {
         return -1;
     }
 
+    /** Prism's indexAt(): latest non-negative lyric timestamp at or before the playhead. */
+    public int prismCurrentIndex(long positionMs) {
+        int index = -1;
+        for (int i = 0; i < lines.size(); i++) {
+            long start = lines.get(i).startMs;
+            if (start >= 0L && start <= positionMs) index = i;
+            else if (start > positionMs) break;
+        }
+        return index;
+    }
+
     public boolean hasRomanizedLines() {
         for (Line line : lines) if (line.romanizedText != null) return true;
         return false;

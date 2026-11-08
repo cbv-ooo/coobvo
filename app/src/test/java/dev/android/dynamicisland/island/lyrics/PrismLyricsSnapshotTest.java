@@ -37,6 +37,18 @@ public class PrismLyricsSnapshotTest {
         assertTrue(lyrics.hasTranslatedLines());
     }
 
+    @Test public void prismCurrentLineFollowsLatestStartEvenWhenAnEarlierLineOverlaps() throws Exception {
+        JSONObject snapshot = new JSONObject(
+                "{\"source\":\"APPLE\",\"synced\":true,\"lines\":["
+                + "{\"timeMs\":1000,\"endMs\":5000,\"text\":\"lead\",\"words\":[],\"background\":[]},"
+                + "{\"timeMs\":2500,\"endMs\":3800,\"text\":\"backing\",\"words\":[],\"background\":[]}]}");
+        MediaLyrics lyrics = MediaLyrics.fromPrismSnapshot(snapshot);
+        assertEquals(0, lyrics.prismCurrentIndex(1999));
+        assertEquals(1, lyrics.prismCurrentIndex(2500));
+        assertEquals(1, lyrics.prismCurrentIndex(4900));
+        assertEquals(-1, lyrics.prismCurrentIndex(500));
+    }
+
     @Test public void missingPrismRomanizationAndTranslationsRemainMissing() throws Exception {
         JSONObject snapshot = new JSONObject(
                 "{\"source\":\"LRCLIB\",\"synced\":true,\"lines\":["
