@@ -151,6 +151,7 @@ final class OaCardBuilder {
             it.transfer = false;
             if (!liveActivity.statusTitle.isEmpty()) it.title = liveActivity.statusTitle;
             if (!liveActivity.subStatusText.isEmpty()) it.subtitle = liveActivity.subStatusText;
+            it.stage = liveActivity.stage;
             it.progress = liveActivity.progressRatio;
             it.progressIndeterminate = false;
             it.trailing = IslandItem.Trailing.TEXT;

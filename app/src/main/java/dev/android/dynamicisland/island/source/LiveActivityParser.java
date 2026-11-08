@@ -32,7 +32,7 @@ final class LiveActivityParser {
     }
 
     private static final Pattern ETA = Pattern.compile(
-            "(?<![\\p{L}\\p{N}])(\\d{1,3})(?:\\s*[-–]\\s*\\d{1,3})?\\s*"
+            "(?<![\\p{L}\\p{N}])(\\d{1,3})(?:\\s*[-–]\\s*(\\d{1,3}))?\\s*"
                     + "(?:mins?|minutes?|minutos?|minuti|minuten|minuut|dakika|dk|menit|phút|"
                     + "分钟|分鐘|分|분|دقيقة|دقائق|मिनट|минут(?:а|ы)?)"
                     + "(?![\\p{L}\\p{N}])",
@@ -41,7 +41,6 @@ final class LiveActivityParser {
             "(?<![\\p{L}\\p{N}])(\\d+(?:[.,]\\d+)?)\\s*(km|kilometers?|kilometres?|miles?|mi)"
                     + "(?![\\p{L}\\p{N}])",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
-    private static final Pattern PERCENT = Pattern.compile("(?<!\\d)(\\d{1,3})\\s*%");
     private static final Pattern PROMOTION = Pattern.compile(
             "(?:\\b(?:promo(?:tion)?|coupon|voucher|discount|cashback|sale|special offer|"
                     + "order now|shop now|use code|promo code|save \\d+|up to \\d+% off)\\b"
@@ -78,7 +77,7 @@ final class LiveActivityParser {
             "arriving", "arrived", "reaching you", "at your location", "nearby",
             "out for delivery", "delivered", "completed", "ready for pickup",
             "ready to collect", "successfully delivered", "trip completed",
-            "delivered", "completed", "viajando", "entregado", "entregue", "consegnato"
+            "entregado", "entregue", "consegnato"
     };
 
     private LiveActivityParser() {}
@@ -110,7 +109,7 @@ final class LiveActivityParser {
         if (eta.find()) {
             try {
                 etaMinutes = Integer.parseInt(eta.group(1));
-                etaText = eta.group(1) + " min";
+                etaText = eta.group(1) + (eta.group(2) == null ? "" : "–" + eta.group(2)) + " min";
             } catch (NumberFormatException ignored) {
                 etaMinutes = -1;
             }
@@ -125,7 +124,6 @@ final class LiveActivityParser {
         if (etaText.isEmpty()) {
             if (stage == 3) etaText = "Arriving";
             else if (actualProgress) {
-                Matcher percent = PERCENT.matcher(normalized);
                 etaText = Math.round(ratio * 100f) + "%";
             } else {
                 etaText = "Tracking";
