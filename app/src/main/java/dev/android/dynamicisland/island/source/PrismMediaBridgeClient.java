@@ -77,7 +77,8 @@ public final class PrismMediaBridgeClient {
 
         public boolean needsLyricsRefresh() {
             return "UNKNOWN".equals(lyricsStatus) || "LOADING".equals(lyricsStatus)
-                    || "WAITING".equals(lyricsStatus) || lyricsExtrasPending;
+                    || "WAITING".equals(lyricsStatus) || "BRIDGE_UNAVAILABLE".equals(lyricsStatus)
+                    || lyricsExtrasPending;
         }
 
         /** Prism computes romanization/translation after LyricsState has already become AVAILABLE. */
@@ -141,11 +142,11 @@ public final class PrismMediaBridgeClient {
     private static Snapshot read(Context context, String bridgeUri) {
         try (Cursor cursor = context.getContentResolver().query(
                 Uri.parse(bridgeUri), new String[]{SNAPSHOT_COLUMN}, null, null, null)) {
-            if (cursor == null || !cursor.moveToFirst()) return null;
+            if (cursor == null || !cursor.moveToFirst()) return bridgeUnavailable("NO_PROVIDER_ROW");
             int column = cursor.getColumnIndex(SNAPSHOT_COLUMN);
-            if (column < 0) return null;
+            if (column < 0) return bridgeUnavailable("NO_SNAPSHOT_COLUMN");
             String json = cursor.getString(column);
-            if (json == null || json.isEmpty()) return null;
+            if (json == null || json.isEmpty()) return bridgeUnavailable("EMPTY_SNAPSHOT");
             JSONObject data = new JSONObject(json);
             JSONObject prismLyrics = data.optJSONObject("prismLyrics");
             MediaLyrics lyrics = null;
@@ -173,9 +174,20 @@ public final class PrismMediaBridgeClient {
             stable.remove("updatedAtElapsedRealtime");
             return new Snapshot(format(data), lyrics, status, look, stable.toString(), extrasPending, data);
         } catch (Throwable ignored) {
-            // The bridge is optional. Missing/incompatible patch must never break media cards.
-            return null;
+            // Distinguish a missing/denied provider route from a real Prism "no lyrics" result.
+            return bridgeUnavailable("PROVIDER_QUERY_FAILED");
         }
+    }
+
+    private static Snapshot bridgeUnavailable(String reason) {
+        JSONObject data = new JSONObject();
+        try {
+            data.put("bridgeFailure", reason);
+        } catch (org.json.JSONException ignored) {
+            // Constant diagnostic key/value; an empty snapshot is still a safe fallback.
+        }
+        return new Snapshot("", null, "BRIDGE_UNAVAILABLE", null,
+                data.toString(), false, data);
     }
 
     private static String format(JSONObject data) {
