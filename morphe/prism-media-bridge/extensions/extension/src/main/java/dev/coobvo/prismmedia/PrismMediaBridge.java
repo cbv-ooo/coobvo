@@ -36,6 +36,9 @@ public final class PrismMediaBridge {
     private static volatile float VISUALIZER_LEVEL;
     private static volatile long VISUALIZER_UPDATED_AT;
     private static boolean visualizerListening;
+    private static Object visualizerSpectrum;
+    private static long visualizerLastFrame;
+    private static final Runnable VISUALIZER_TICK = PrismMediaBridge::updateVisualizer;
     private static final Runnable STOP_VISUALIZER = () -> setVisualizerListening(false);
     private static final Map<String, JSONObject> LYRICS_BY_SONG = new ConcurrentHashMap<>();
     /** Weak handles let /bridge reads refresh plain state fields that have no stable setter hook. */
@@ -637,16 +640,59 @@ public final class PrismMediaBridge {
         });
     }
 
+    /**
+     * Run Prism's own Spectrum analyser while the island is visible, even when Prism's Compose player
+     * page is closed. Spectrum reads Prism's post-normalizer VisualizerTap ring; it does not use a
+     * microphone or an Android Visualizer permission.
+     */
+    private static void updateVisualizer() {
+        if (!visualizerListening) return;
+        try {
+            if (visualizerSpectrum == null) {
+                Class<?> type = Class.forName("com.prism.music.playback.Spectrum");
+                visualizerSpectrum = type.getDeclaredConstructor().newInstance();
+            }
+            long now = SystemClock.elapsedRealtime();
+            float dt = visualizerLastFrame == 0L ? 33.0f : Math.max(1.0f,
+                    Math.min(100.0f, now - visualizerLastFrame));
+            visualizerLastFrame = now;
+            Method update = visualizerSpectrum.getClass().getMethod("update", float.class);
+            update.setAccessible(true);
+            update.invoke(visualizerSpectrum, dt);
+            captureVisualizerSpectrum(visualizerSpectrum);
+        } catch (Throwable ignored) {
+            // Keep Prism playing if this optional analyser changes in a future app version.
+        }
+        if (visualizerListening) MAIN.postDelayed(VISUALIZER_TICK, 33L);
+    }
+
     private static synchronized void setVisualizerListening(boolean active) {
         if (visualizerListening == active) return;
+        if (active) {
+            try {
+                Class<?> type = Class.forName("com.prism.music.playback.VisualizerTap");
+                Object instance = type.getField("INSTANCE").get(null);
+                invokeNoArgs(instance, "listen");
+                visualizerListening = true;
+                visualizerLastFrame = 0L;
+                MAIN.removeCallbacks(VISUALIZER_TICK);
+                MAIN.post(VISUALIZER_TICK);
+            } catch (Throwable ignored) {
+                visualizerListening = false;
+            }
+            return;
+        }
+        visualizerListening = false;
+        MAIN.removeCallbacks(VISUALIZER_TICK);
         try {
             Class<?> type = Class.forName("com.prism.music.playback.VisualizerTap");
             Object instance = type.getField("INSTANCE").get(null);
-            invokeNoArgs(instance, active ? "listen" : "stop");
-            visualizerListening = active;
+            invokeNoArgs(instance, "stop");
         } catch (Throwable ignored) {
-            // Older or incompatible builds can still export all other Prism preferences.
+            // A failed stop is harmless to playback; the tap is still Prism-owned.
         }
+        visualizerSpectrum = null;
+        visualizerLastFrame = 0L;
     }
 
     /** The real MixState is exported; no crossfade position is estimated from duration or mixSeconds. */
