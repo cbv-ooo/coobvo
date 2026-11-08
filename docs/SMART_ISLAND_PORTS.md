@@ -19,6 +19,7 @@ Do not import Smart Island's separate Kotlin/Compose overlay, notification-liste
 | Navigation parsing | island/source/NavigationParser.java, connected through OaCardBuilder.java | Implemented; device behaviour not separately confirmed |
 | Per-app ordinary-notification burst cooldown | island/NotificationCooldownManager.java and island/HeadsUpTakeover.java | Implemented; opt-in; targeted JVM tests added to CI |
 | Cooldown setting | settings/ModuleSettings.java, SettingsActivity.java and res/values/strings.xml | Implemented; off by default |
+| Notification history | settings/NotificationHistoryStore.java, settings/SettingsProvider.java, island/NotificationHistoryBridge.java and SettingsActivity.java | Implemented; opt-in; database and retention tests pass; device verification pending |
 
 ## Notification cooldown behaviour
 
@@ -33,12 +34,25 @@ The port follows the reference app's tested defaults:
 
 The setting is opt-in. It affects coobvo's ordinary notification cards only; it does not cancel Android notifications, change notification-channel settings or suppress notification sounds. OTP cards are handled before the limiter. Calls, alarms, media, navigation, ongoing activities, progress/transfer notifications and recognized download/cloud/store notifications are kept out of this limiter.
 
+## Notification history behaviour
+
+Notification history is intentionally adapted to the existing System UI takeover path rather than importing Smart Island's separate NotificationListenerService/repository:
+
+- Recording is opt-in and off by default.
+- A record is sent only after coobvo successfully shows an ordinary notification card; notifications that never reach the island are not captured.
+- System UI sends a minimal text record to the existing SettingsProvider on a worker thread. The provider checks the caller package and accepts history writes only from com.android.systemui. Listing and clearing are restricted to the module app's own UID.
+- The module app stores the records in its own SQLite database. It retains at most 500 entries for seven days and de-duplicates the same notification key/post-time pair.
+- The settings page can list the latest 100 entries, open an entry's text and clear the history.
+- OTP-like notifications, secret-visibility notifications, calls, alarms, transport/navigation notifications and ongoing/foreground-service notifications are excluded. Actions, PendingIntents, images and raw notification objects are never stored.
+
+This is a local history of cards shown by the island, not a replacement for Android's Notification History and not a complete archive of every notification received by the phone.
+
 ## Remaining Smart Island candidates
 
 | Candidate | State / next work |
 |---|---|
 | Rich live-activity parsing | Timer, stopwatch and navigation are integrated. Inspect the reference parser inventory for more card types that map cleanly to Samsung System UI data. |
-| Notification history | Not ported. Design a bounded local history store and card/settings without importing the reference notification-listener service. |
+| Notification history | Implemented as a local, opt-in archive of cards coobvo actually showed. Verify list, detail and clear actions on the S10e. |
 | Quick-launch shortcuts | Not ported. Reuse coobvo's existing touch controller and settings model; do not add a second overlay. |
 | Rotating idle widgets | Not ported. Use the existing idle/Director state and Canvas renderer. |
 | System-event cooldown | Not ported. Separate from ordinary notification cooldown; define lifecycle and exemptions first. |
@@ -46,4 +60,4 @@ The setting is opt-in. It affects coobvo's ordinary notification cards only; it 
 
 ## Validation
 
-A successful assembleDebug proves source compilation and APK packaging; it does not prove that a parser or card behaves correctly in Samsung System UI. Notification cooldown has focused JVM tests for threshold handling, duplicate postings, latest-buffer replacement and expiry. The latest Debug workflow is configured to run those tests. Real-device verification remains outstanding.
+A successful assembleDebug proves source compilation and APK packaging; it does not prove that a parser or card behaves correctly in Samsung System UI. The Debug workflow runs NotificationCooldownManagerTest and NotificationHistoryStoreTest. Run #72 passed both classes and uploaded the version-141 APK. History tests cover deduplication, missing identity, seven-day expiry and clearing. Real-device verification remains outstanding.
