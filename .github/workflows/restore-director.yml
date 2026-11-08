@@ -1,0 +1,25 @@
+name: restore-director
+on:
+  workflow_dispatch:
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore Director from known-good commit
+        run: |
+          git show c1ebaf02c8cf952e35d5970867ec16a014d79ba5:app/src/main/java/dev/android/dynamicisland/island/view/Director.java > app/src/main/java/dev/android/dynamicisland/island/view/Director.java
+          wc -c app/src/main/java/dev/android/dynamicisland/island/view/Director.java
+          head -5 app/src/main/java/dev/android/dynamicisland/island/view/Director.java
+      - name: Commit if changed
+        run: |
+          git config user.name "coobvo-restore"
+          git config user.email "coobvo@users.noreply.github.com"
+          git add app/src/main/java/dev/android/dynamicisland/island/view/Director.java
+          git diff --cached --quiet && echo "no change" && exit 0
+          git commit -m "RESTORE full Director.java from c1ebaf02 (CI restore)"
+          git push
