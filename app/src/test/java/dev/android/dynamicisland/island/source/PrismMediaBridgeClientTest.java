@@ -1,0 +1,38 @@
+package dev.android.dynamicisland.island.source;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+
+import android.net.Uri;
+import android.os.Bundle;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+
+@RunWith(RobolectricTestRunner.class)
+public class PrismMediaBridgeClientTest {
+    @Test public void derivesPrismBridgeUriFromMediaIdWhenCompatDropsCustomExtras() {
+        Bundle extras = PrismMediaBridgeClient.ensureBridgeExtras(null, "song/123");
+        assertNotNull(extras);
+        assertEquals(1, extras.getInt("coobvo.prism.bridge.version"));
+        Uri uri = Uri.parse(extras.getString("coobvo.prism.bridge.uri"));
+        assertEquals("com.prism.music.artwork", uri.getAuthority());
+        assertEquals("bridge", uri.getPathSegments().get(0));
+        assertEquals("song/123", uri.getLastPathSegment());
+    }
+
+    @Test public void preservesTheUriExportedInPrismMedia3Extras() {
+        Bundle source = new Bundle();
+        source.putString("coobvo.prism.bridge.uri", "content://com.prism.music.artwork/bridge/native-id");
+        source.putInt("coobvo.prism.bridge.version", 2);
+        Bundle extras = PrismMediaBridgeClient.ensureBridgeExtras(source, "different-fallback");
+        assertEquals(2, extras.getInt("coobvo.prism.bridge.version"));
+        assertEquals("content://com.prism.music.artwork/bridge/native-id",
+                extras.getString("coobvo.prism.bridge.uri"));
+    }
+
+    @Test public void returnsNullWhenNeitherPrismExtrasNorMediaIdCanIdentifyTheSong() {
+        assertNull(PrismMediaBridgeClient.ensureBridgeExtras(null, null));
+    }
+}

@@ -168,6 +168,25 @@ public class IModeTest {
         }
     }
 
+    @Test public void collapseKeepsTheLeavingCardInTheDrawPassUntilItFinishesFolding() {
+        try(Fixture f=new Fixture(1)) {
+            f.scene.iMode.open("item0",true);
+            f.step(16,90);
+            Card card=f.active();
+            assertNotNull(card);
+            assertTrue(card.iMode);
+            f.scene.iMode.collapse();
+            assertEquals(Mode.COMPACT,f.scene.mode);
+            assertTrue("the expanded card is still folding",card.leaving);
+            assertTrue("a leaving iMode card must still be drawn in compact mode",
+                    IMode.shouldDrawCard(card,f.scene.mode));
+            f.step(16,1);
+            assertTrue("the card must remain through the first compact-fold frame",f.scene.cards.contains(card));
+            f.step(16,120);
+            assertFalse("the card is released after its springs settle",f.scene.cards.contains(card));
+        }
+    }
+
     @Test public void thirdActivityHasItsOwnVisibleAndTouchableCompanionBubble() {
         try(Fixture f=new Fixture(3)) {
             RectF first=new RectF(),second=new RectF();
