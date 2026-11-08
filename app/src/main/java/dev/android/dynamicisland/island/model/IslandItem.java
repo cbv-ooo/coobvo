@@ -236,6 +236,8 @@ public final class IslandItem {
     public String mediaLyricsLook;
     /** Prism's actual 28-band audio spectrum; null when its visualizer is off or not active. */
     public float[] mediaVisualizerBands;
+    /** Prism's 100-point scanned song waveform; null until that song has been scanned. */
+    public float[] mediaSongWaveform;
     public float mediaVisualizerLevel;
     /** Real Prism BlendMark values; -1 means no planned crossfade mark. */
     public long mediaCrossfadeStartMs = -1L;
