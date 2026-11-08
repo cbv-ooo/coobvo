@@ -11,7 +11,7 @@ Last updated: 2026-11-08
 ## Current debug install identity
 - Debug application ID: dev.android.dynamicisland.coobvo (release ID unchanged).
 - Stable debug-only signing key: app/coobvo-debug.keystore.
-- Current main version: code 126 / 0.1.24-dev1.
+- Current main version: code 127 / 0.1.25-dev1.
 - This is a separate package from the older dev.android.dynamicisland installation, deliberately avoiding the existing certificate mismatch. Disable the old LSPosed module and enable the new coobvo module for com.android.systemui before testing. Future debug builds must keep the same package ID/key and increment version code.
 
 ## Implemented on main
