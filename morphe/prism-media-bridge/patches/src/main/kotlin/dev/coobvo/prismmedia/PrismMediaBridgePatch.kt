@@ -72,6 +72,32 @@ private object PrismLyricsSetWaitingFingerprint : Fingerprint(
     parameters = listOf("Z")
 )
 
+/** Prism computes this list using its own per-song romanize mode, scripts and cached Romanizer. */
+private object PrismRomanizedLinesFingerprint : Fingerprint(
+    definingClass = "Lcom/prism/music/ui/player/RomanLyricsKt;",
+    name = "rememberRomanized",
+    isStatic = true,
+    returnType = "Ljava/util/List;",
+    parameters = listOf(
+        "Lcom/prism/music/ui/player/LyricsState;",
+        "Landroidx/compose/runtime/Composer;",
+        "I"
+    )
+)
+
+/** Prism's line translations are computed by its own cached LyricsTranslator and only when enabled. */
+private object PrismTranslatedLinesFingerprint : Fingerprint(
+    definingClass = "Lcom/prism/music/ui/player/PlayerLyricsKt;",
+    name = "rememberLyricTranslation",
+    isStatic = true,
+    returnType = "Lcom/prism/music/data/lyrics/LyricsTranslator\$Translation;",
+    parameters = listOf(
+        "Lcom/prism/music/ui/player/LyricsState;",
+        "Landroidx/compose/runtime/Composer;",
+        "I"
+    )
+)
+
 /** Existing exported provider; only its /bridge query path is intercepted. */
 private object PrismArtworkQueryFingerprint : Fingerprint(
     definingClass = "Lcom/prism/music/playback/ArtworkProvider;",
@@ -111,6 +137,18 @@ private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.decorateMed
 }
 
 /** Re-publish after each authoritative state mutation, not on a timer or through a second provider. */
+private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureObjectResultOnReturns(callback: String) {
+    val returnIndexes = instructions.withIndex()
+        .filter { it.value.opcode == Opcode.RETURN_OBJECT }
+        .map { it.index }
+        .sortedDescending()
+    if (returnIndexes.isEmpty()) throw PatchException("Prism lyric helper has no object return: $callback")
+    returnIndexes.forEach { index ->
+        val register = getInstruction<OneRegisterInstruction>(index).registerA
+        addInstructions(index, "invoke-static { p0, v$register }, $EXTENSION->$callback")
+    }
+}
+
 private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureLyricsStateOnReturns() {
     val returnIndexes = instructions.withIndex()
         .filter { it.value.opcode == Opcode.RETURN_VOID }
@@ -146,6 +184,14 @@ val prismMediaBridgePatch = patch(
         PrismLyricsSetSourceFingerprint.method.captureLyricsStateOnReturns()
         PrismLyricsSetLoadingFingerprint.method.captureLyricsStateOnReturns()
         PrismLyricsSetWaitingFingerprint.method.captureLyricsStateOnReturns()
+        // These hooks observe Prism's own Compose helper return values. They do not call either
+        // provider engine from System UI and preserve Prism's native per-song on/off choices.
+        PrismRomanizedLinesFingerprint.method.captureObjectResultOnReturns(
+            "captureRomanizedLyrics(Ljava/lang/Object;Ljava/lang/Object;)V"
+        )
+        PrismTranslatedLinesFingerprint.method.captureObjectResultOnReturns(
+            "captureTranslatedLyrics(Ljava/lang/Object;Ljava/lang/Object;)V"
+        )
 
         // Preserve ArtworkProvider's existing artwork routes. Only /bridge returns a cursor here.
         PrismArtworkQueryFingerprint.method.apply {

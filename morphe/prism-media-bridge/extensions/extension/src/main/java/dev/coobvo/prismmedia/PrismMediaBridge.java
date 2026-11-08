@@ -32,6 +32,9 @@ public final class PrismMediaBridge {
     private static final Map<String, JSONObject> LYRICS_BY_SONG = new ConcurrentHashMap<>();
     /** Weak handles let /bridge reads refresh plain state fields that have no stable setter hook. */
     private static final Map<String, WeakReference<Object>> LYRICS_STATE_BY_SONG = new ConcurrentHashMap<>();
+    /** Results returned by Prism's own Compose helpers; null means the listener has it disabled/not ready. */
+    private static final Map<String, JSONArray> ROMANIZED_LINES_BY_SONG = new ConcurrentHashMap<>();
+    private static final Map<String, JSONObject> TRANSLATION_BY_SONG = new ConcurrentHashMap<>();
 
     private PrismMediaBridge() {}
 
@@ -128,10 +131,8 @@ public final class PrismMediaBridge {
     public static void captureLyricsState(Object state) {
         if (state == null) return;
         try {
-            Object song = property(state, "song");
-            Object idValue = property(song, "id");
-            if (idValue == null) return;
-            String songId = String.valueOf(idValue);
+            String songId = songId(state);
+            if (songId.isEmpty()) return;
             LYRICS_STATE_BY_SONG.put(songId, new WeakReference<>(state));
             Object lyrics = property(state, "lyrics");
             boolean loading = asBoolean(property(state, "loading"));
@@ -148,6 +149,14 @@ public final class PrismMediaBridge {
 
             if (lyrics != null) {
                 JSONObject exported = serializeLyrics(lyrics);
+                JSONArray romanized = ROMANIZED_LINES_BY_SONG.get(songId);
+                if (romanized != null) exported.put("romanizedLines", new JSONArray(romanized.toString()));
+                JSONObject translation = TRANSLATION_BY_SONG.get(songId);
+                if (translation != null) {
+                    exported.put("translatedLines", new JSONArray(translation.optJSONArray("lines").toString()));
+                    if (translation.has("from")) exported.put("translationFrom", translation.opt("from"));
+                    if (translation.has("to")) exported.put("translationTo", translation.opt("to"));
+                }
                 snapshot.put("lyrics", exported);
                 snapshot.put("status", exported.optJSONArray("lines") != null
                         && exported.optJSONArray("lines").length() > 0 ? "AVAILABLE" : "UNAVAILABLE");
@@ -161,7 +170,7 @@ public final class PrismMediaBridge {
                 snapshot.put("status", "UNKNOWN");
             }
 
-            JSONObject look = readLyricsLook();
+            JSONObject look = readLyricsLook(songId);
             if (look != null) snapshot.put("look", look);
             LYRICS_BY_SONG.put(songId, snapshot);
             if (LYRICS_BY_SONG.size() > 64) {
@@ -169,6 +178,8 @@ public final class PrismMediaBridge {
                     if (!songId.equals(oldId)) {
                         LYRICS_BY_SONG.remove(oldId);
                         LYRICS_STATE_BY_SONG.remove(oldId);
+                        ROMANIZED_LINES_BY_SONG.remove(oldId);
+                        TRANSLATION_BY_SONG.remove(oldId);
                         break;
                     }
                 }
@@ -176,6 +187,77 @@ public final class PrismMediaBridge {
         } catch (Throwable ignored) {
             // Optional bridge only: never interfere with Prism's own lyric state or playback.
         }
+    }
+
+    /** Captures the exact List<LyricLine?> returned by Prism's rememberRomanized() composable. */
+    public static void captureRomanizedLyrics(Object state, Object lines) {
+        if (state == null) return;
+        try {
+            String songId = songId(state);
+            if (songId.isEmpty()) return;
+            if (lines == null) ROMANIZED_LINES_BY_SONG.remove(songId);
+            else ROMANIZED_LINES_BY_SONG.put(songId, serializeLyricLines(lines));
+            captureLyricsState(state);
+        } catch (Throwable ignored) {
+            // Romanization is optional and must never interfere with Prism's player.
+        }
+    }
+
+    /** Captures the exact translated line list returned by Prism's rememberLyricTranslation() composable. */
+    public static void captureTranslatedLyrics(Object state, Object translation) {
+        if (state == null) return;
+        try {
+            String songId = songId(state);
+            if (songId.isEmpty()) return;
+            if (translation == null) {
+                TRANSLATION_BY_SONG.remove(songId);
+            } else {
+                JSONObject snapshot = new JSONObject();
+                putProperty(snapshot, "from", translation, "from");
+                putProperty(snapshot, "to", translation, "to");
+                snapshot.put("lines", serializeStrings(property(translation, "translations")));
+                TRANSLATION_BY_SONG.put(songId, snapshot);
+            }
+            captureLyricsState(state);
+        } catch (Throwable ignored) {
+            // Translation is optional and must never interfere with Prism's player.
+        }
+    }
+
+    private static String songId(Object state) throws Exception {
+        Object song = property(state, "song");
+        Object idValue = property(song, "id");
+        return idValue == null ? "" : String.valueOf(idValue);
+    }
+
+    private static JSONArray serializeStrings(Object values) throws Exception {
+        JSONArray result = new JSONArray();
+        if (values instanceof Iterable<?>) {
+            for (Object value : (Iterable<?>) values) result.put(value == null ? JSONObject.NULL : String.valueOf(value));
+        }
+        return result;
+    }
+
+    private static JSONArray serializeLyricLines(Object values) throws Exception {
+        JSONArray result = new JSONArray();
+        if (values instanceof Iterable<?>) {
+            for (Object line : (Iterable<?>) values) {
+                result.put(line == null ? JSONObject.NULL : serializeLyricLine(line));
+            }
+        }
+        return result;
+    }
+
+    private static JSONObject serializeLyricLine(Object line) throws Exception {
+        JSONObject row = new JSONObject();
+        putProperty(row, "timeMs", line, "timeMs");
+        putProperty(row, "endMs", line, "endMs");
+        putProperty(row, "text", line, "text");
+        putProperty(row, "alignEnd", line, "alignEnd");
+        putProperty(row, "isGap", line, "isGap");
+        row.put("words", serializeWords(property(line, "words")));
+        row.put("background", serializeWords(property(line, "background")));
+        return row;
     }
 
     private static JSONObject serializeLyrics(Object lyrics) throws Exception {
@@ -218,7 +300,7 @@ public final class PrismMediaBridge {
     }
 
     /** Copy Prism's resolved lyric preset, including independent overrides, not just its style label. */
-    private static JSONObject readLyricsLook() {
+    private static JSONObject readLyricsLook(String songId) {
         try {
             Class<?> thread = Class.forName("android.app.ActivityThread");
             Object app = thread.getMethod("currentApplication").invoke(null);
@@ -245,6 +327,19 @@ public final class PrismMediaBridge {
                     "romanize", "romanizeAll", "lyricsTranslate", "lyricsTranslateTo"
             };
             for (String field : settingsFields) putProperty(result, field, settings, field);
+
+            // Romanization is a global setting with a per-song on/off override in Prism's Romanizer.
+            Object romanizer = property(container, "romanizer");
+            Object overridesFlow = property(romanizer, "overrides");
+            Object overrideValues = property(overridesFlow, "value");
+            Object songOverride = overrideValues instanceof Map<?, ?> ? ((Map<?, ?>) overrideValues).get(songId) : null;
+            if (songOverride instanceof Boolean) result.put("romanizeSongOverride", songOverride);
+            String globalRomanize = enumName(property(settings, "romanize"), "OFF");
+            String effectiveRomanize = globalRomanize;
+            if (Boolean.FALSE.equals(songOverride)) effectiveRomanize = "OFF";
+            else if (Boolean.TRUE.equals(songOverride) && "OFF".equals(globalRomanize)) effectiveRomanize = "UNDER";
+            result.put("romanizeModeForSong", effectiveRomanize);
+            result.put("romanizeEnabledForSong", !"OFF".equals(effectiveRomanize));
             return result;
         } catch (Throwable ignored) {
             return null;
@@ -269,6 +364,10 @@ public final class PrismMediaBridge {
             }
         }
         return null;
+    }
+
+    private static String enumName(Object value, String fallback) {
+        return value instanceof Enum<?> ? ((Enum<?>) value).name() : (value == null ? fallback : String.valueOf(value));
     }
 
     private static boolean asBoolean(Object value) {
