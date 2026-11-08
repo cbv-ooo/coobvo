@@ -70,7 +70,8 @@ final class NotificationHistoryStore extends SQLiteOpenHelper {
             String channelId = safe(extras.getString("channelId"), 200);
             long postTime = extras.getLong("postTime", 0L);
             if (key.isEmpty() || packageName.isEmpty() || appName.isEmpty()
-                    || (title.isEmpty() && text.isEmpty()) || postTime <= 0L) return false;
+                    || (title.isEmpty() && text.isEmpty()) || postTime <= 0L
+                    || postTime < System.currentTimeMillis() - RETENTION_MS) return false;
 
             SQLiteDatabase db = helper.getWritableDatabase();
             db.beginTransaction();
