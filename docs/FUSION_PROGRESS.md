@@ -39,7 +39,7 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 - Stable debug-only signing key: app/coobvo-debug.keystore.
 - Current main source version: code 136 / 0.1.34-dev1.
 - Debug APK run #62 passed for commit 6ba861405271d4b6c5909f77aade4768267cc9b8, including the targeted NotificationCooldownManagerTest and APK artifact upload. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447577459/artifacts/13604291827).
-- Debug APK run #63 is building the documentation-updated main commit d5b2dedec1c3f87d7a0b4adfdd6a223b221b71bd; its result is pending.
+- Debug APK run #63 passed for documentation commit d5b2dedec1c3f87d7a0b4adfdd6a223b221b71bd; artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447644666/artifacts/13604103064). Run #64 is building the latest documentation update.
 - The owner removed the older debug installation and is now using coobvo. Do not instruct them to inspect old package settings unless a duplicate returns.
 
 ## Source implementation notes
@@ -54,7 +54,7 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 
 ## CI evidence
 
-- Debug APK runs #34–#62 passed their respective compilation/package steps; run #62 also passed the focused notification-cooldown JVM unit test. Later docs-only run #63 is pending.
+- Debug APK runs #34–#63 passed their respective compilation/package steps; runs #62 and #63 also passed the focused notification-cooldown JVM unit test.
 - Run #41 passed for commit 67304af64dd1009c814771ce94e4c31c5d9f3d9f; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438321472/artifacts/13600168702). The redundant explicit iMode spring-step call was removed; Director.stepCards() is the single owner of iMode stepping.
 - Run #44 passed for commit 7798e2f9da1d72bec2f87b47e991fb808c251eff; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438606018/artifacts/13599659870).
 - Run #46 passed for commit 599a65094994025a2ff5fe2cb1237ed8472b5f6c; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438935285/artifacts/13600931647).
@@ -66,8 +66,9 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 - **Run #52 passed** for commit `d09ef5625096e998fe9abc67a474fc6e2ee7663f`, source version 132 / 0.1.30-dev1. This commit updated project status documents and build version; build and upload passed. Artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42442152143/artifacts/13602555320).
 - **Run #61 passed** for commit `ef0633627ee3c939695dbbf59e5f8d424944fb48`, source version 135 / 0.1.33-dev1. Debug APK artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447445219/artifacts/13604575694).
 - **Run #62 passed** for commit `6ba861405271d4b6c5909f77aade4768267cc9b8`, source version 136 / 0.1.34-dev1. The run compiled and packaged the app, ran `NotificationCooldownManagerTest` successfully, and uploaded [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447577459/artifacts/13604291827).
-- **Morphe Patch run #3 passed** and generated [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42446806609/artifacts/13603559103). Run #4 is rebuilding the documented bundle on the latest main commit.
-- **Run #63** is pending for the documentation commit; its workflow also runs the targeted cooldown test.
+- **Morphe Patch run #3 passed** and generated [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42446806609/artifacts/13603559103).
+- **Morphe Patch run #4 passed** and generated another [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42447644674/artifacts/13604825171). This verifies patch bundle generation, not application to the original Prism APK.
+- **Run #63 passed** for the documentation commit, including the targeted cooldown test and APK artifact upload. Run #64 is still building the latest documentation commit.
 - CI proves compilation, APK packaging and artifact upload only. It does not verify bubble touch response, expanded notifications, iMode animation, battery presentation, M3E consistency, Smart Island behavior or lyrics timing on the S10e.
 
 ## Remaining work
