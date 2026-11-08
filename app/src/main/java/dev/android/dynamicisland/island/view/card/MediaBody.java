@@ -617,6 +617,9 @@ public final class MediaBody extends CardBody {
         float fraction = dragged ? IslandView.clamp01(owner.seekFraction)
                 : (item.mediaDuration > 0
                 ? IslandView.clamp01((float) position / (float) item.mediaDuration) : 0.0f);
+        boolean waveStyle = "WAVE".equals(prismPlayer.scrubberStyle);
+        float[] songWaveform = waveStyle ? item.mediaSongWaveform : null;
+        boolean hasSongWaveform = songWaveform != null && songWaveform.length == 100;
         float scale = prismSession ? prismPlayer.scrubberThickness : 1.0f;
         float idleDp = 3.0f;
         if (prismSession) {
@@ -624,24 +627,40 @@ public final class MediaBody extends CardBody {
                 case "HAIRLINE": idleDp = 2.0f; break;
                 case "BOLD": idleDp = 6.0f; break;
                 case "THUMB": idleDp = 2.0f; break;
-                case "WAVE":
+                case "WAVE": idleDp = hasSongWaveform ? 14.0f : 3.0f; scale = 1.0f; break;
                 case "RIBBONS":
-                default: idleDp = 3.0f; break; // Prism's waveform is unavailable until its scan export is bridged.
+                default: idleDp = 3.0f; break;
             }
         }
         float barHeight = owner.dp((dragged ? Math.max(idleDp * 1.45f, 4.5f) : idleDp) * scale);
         float radius = barHeight / 2.0f;
-        owner.tmpRect.set(trackLeft, centerY - radius, trackRight, centerY + radius);
         int activeColor = prismSession ? prismScrubberColor() : Colors.SEEK_FILL;
-        int trackColor = prismSession ? Colors.withAlpha(activeColor, 0.22f) : Colors.SEEK_TRACK;
-        owner.fillPaint.setColor(Colors.withAlpha(trackColor, alpha));
-        c.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
-
         float trackWidth = Math.max(0.0f, trackRight - trackLeft);
         float playedWidth = trackWidth * fraction;
-        owner.tmpRect.right = trackLeft + playedWidth;
-        owner.fillPaint.setColor(Colors.withAlpha(activeColor, alpha));
-        c.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
+        if (hasSongWaveform) {
+            // Matches Prism's WAVE style: 100 scan-derived bars, played portion bright and remainder subdued.
+            float step = trackWidth / songWaveform.length;
+            float barWidth = Math.max(owner.dp(1.0f), step * 0.6f);
+            for (int i = 0; i < songWaveform.length; i++) {
+                float value = Math.max(0.0f, Math.min(1.0f, songWaveform[i]));
+                float height = barHeight * (0.18f + 0.82f * value);
+                float left = trackLeft + (step * i) + ((step - barWidth) / 2.0f);
+                float top = centerY - (height / 2.0f);
+                owner.tmpRect.set(left, top, left + barWidth, top + height);
+                boolean played = (step * i) + (step / 2.0f) <= playedWidth;
+                owner.fillPaint.setColor(Colors.withAlpha(
+                        played ? activeColor : Colors.withAlpha(Colors.WHITE, 0.22f), alpha));
+                c.drawRoundRect(owner.tmpRect, barWidth / 2.0f, barWidth / 2.0f, owner.fillPaint);
+            }
+        } else {
+            owner.tmpRect.set(trackLeft, centerY - radius, trackRight, centerY + radius);
+            int trackColor = prismSession ? Colors.withAlpha(activeColor, 0.22f) : Colors.SEEK_TRACK;
+            owner.fillPaint.setColor(Colors.withAlpha(trackColor, alpha));
+            c.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
+            owner.tmpRect.right = trackLeft + playedWidth;
+            owner.fillPaint.setColor(Colors.withAlpha(activeColor, alpha));
+            c.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
+        }
 
         String thumb = prismSession ? prismPlayer.effectiveThumb() : "DOT";
         if (!"NONE".equals(thumb) && item.mediaDuration > 0 && trackWidth > 0.0f) {
