@@ -4,11 +4,38 @@ Last updated: 2026-11-08.
 
 This is an implementation inventory of the supplied Smart Island reference and its adaptation to coobvo's Java/Xposed/Canvas architecture. It is not a claim that the whole Smart Island app has been ported.
 
+**License stance:** personal / experimental only. Owner will not compete, publicize for profit, or distribute commercially. Prefer clean-room behaviour ports over copying GPLv3 source.
+
 ## Porting rule
 
 Use the reference app's parsing rules and local feature behaviour, but keep coobvo's original runtime: Samsung System UI hooks, Java event sources, IslandSources/IslandController, OaCardBuilder, Scene/Director/Springs, Canvas painters and the existing Settings/SharedPreferences code.
 
 Do not import Smart Island's separate Kotlin/Compose overlay, notification-listener service, Hilt/DataStore architecture, AccessibilityService overlay, Shizuku integration, separate window system or separate settings UI.
+
+## Phase 0 — Proof system (System UI soft-fail)
+
+| Piece | Role | State |
+|---|---|---|
+| Diagnostics.fact | Structured facts in LSPosed log | Exists |
+| CrashGuard | Disables module after crash-loop | Exists |
+| IslandSources.guarded | One source throw ≠ kill gather | Exists |
+| **DemoSource** | Synthetic item via broadcast | **Implemented 2026-11-08** |
+
+```bash
+adb shell am broadcast -a dev.android.dynamicisland.DEMO --ei show 1
+adb shell am broadcast -a dev.android.dynamicisland.DEMO --ei show 0
+```
+
+Key: `demo:proof`. Soft-fail start + collect only. Personal experimental use.
+
+## Hardening rules (One UI 7 / LSPosed)
+
+1. Never let a source exception escape `IslandSources.gather`.
+2. Prefer `XLog.once` over spam.
+3. No INTERNET permission for idle widgets (TrafficStats only for net speed).
+4. Free-form swipe-down default **OFF**.
+5. Hooks: ClassNotFound / NoSuchMethod → log once, skip, continue load.
+6. S10e: right punch-hole → AUTO follows real top cutout; right-anchor → bubbles left.
 
 ## Implemented ports
 
@@ -20,6 +47,7 @@ Do not import Smart Island's separate Kotlin/Compose overlay, notification-liste
 | Per-app ordinary-notification burst cooldown | island/NotificationCooldownManager.java and island/HeadsUpTakeover.java | Implemented; opt-in; targeted JVM tests added to CI |
 | Cooldown setting | settings/ModuleSettings.java, SettingsActivity.java and res/values/strings.xml | Implemented; off by default |
 | Notification history | settings/NotificationHistoryStore.java, settings/SettingsProvider.java, island/NotificationHistoryBridge.java and SettingsActivity.java | Implemented; opt-in; database and retention tests pass; device verification pending |
+| Phase 0 Demo proof | island/source/DemoSource.java wired in IslandSources | Implemented; on-device verify pending |
 
 ## Notification cooldown behaviour
 
@@ -67,3 +95,5 @@ The port should therefore begin with a dedicated explicit entry point (for examp
 ## Validation
 
 A successful assembleDebug proves source compilation and APK packaging; it does not prove that a parser or card behaves correctly in Samsung System UI. The Debug workflow runs NotificationCooldownManagerTest and NotificationHistoryStoreTest. Run #72 passed both classes and uploaded the version-141 APK. History tests cover deduplication, missing identity, seven-day expiry and clearing. Real-device verification remains outstanding.
+
+On-device Phase 0: soft reboot → CrashGuard not stuck off → DEMO broadcast show/clear.
