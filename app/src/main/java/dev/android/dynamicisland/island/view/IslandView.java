@@ -866,9 +866,6 @@ public final class IslandView extends View implements Choreographer.FrameCallbac
             active = true;
         }
         active |= director.stepCards(dt, t);
-        // iMode owns its own node, card and page springs. It must be stepped by the same
-        // Choreographer loop as the standard island or its compact/expanded animations freeze.
-        if (scene.iMode != null) active |= scene.iMode.step(dt, t);
         for (int i = 0, n = scene.cards.size(); i < n; i++) {
             active |= scene.cards.get(i).bridge.animating(t);
         }
