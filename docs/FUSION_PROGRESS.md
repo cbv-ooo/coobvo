@@ -11,7 +11,7 @@ Last updated: 2026-11-08
 ## Current debug install identity
 - Debug application ID: dev.android.dynamicisland.coobvo (release ID unchanged).
 - Stable debug-only signing key: app/coobvo-debug.keystore.
-- Current main version: code 129 / 0.1.27-dev1.
+- Current main version: code 130 / 0.1.28-dev1.
 - This is a separate package from the older dev.android.dynamicisland installation, deliberately avoiding the existing certificate mismatch. Disable the old LSPosed module and enable the new coobvo module for com.android.systemui before testing. Future debug builds must keep the same package ID/key and increment version code.
 
 ## Implemented on main
@@ -35,13 +35,14 @@ Last updated: 2026-11-08
 - Remaining: centralize shape/motion/colour constants and apply consistent M3 Expressive sizing to compact glyphs, buttons and bubble content.
 
 ## CI evidence
-- Runs #34–#49 passed compile, APK packaging and artifact upload for their respective commits.
+- Runs #34–#50 passed compile, APK packaging and artifact upload for their respective commits.
 - Run #41 passed for commit 67304af64dd1009c814771ce94e4c31c5d9f3d9f; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438321472/artifacts/13600168702). The redundant explicit iMode spring-step call was removed; Director.stepCards() is the single owner of iMode stepping.
 - Run #44 passed for commit 7798e2f9da1d72bec2f87b47e991fb808c251eff; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438606018/artifacts/13599659870). It includes the timer/stopwatch parser and stable debug install identity.
 - Run #46 passed for commit 599a65094994025a2ff5fe2cb1237ed8472b5f6c; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438935285/artifacts/13600931647). It adds the initial Java navigation parser.
 - Run #47 passed for commit d83c071201accd162348b6862b48711e273e7fa9; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439111297/artifacts/13600339730). It adds Samsung ongoing-activity primary/secondary text fallback for navigation.
 - Run #48 passed for commit d91d785d4a4d732f004c7b810e5ca0f99c3af704; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439210788/artifacts/13600454452). It records the accepted navigation change and increments the debug version.
 - Run #49 passed for commit e7747fbb4040d1d695e181c2c9d4d36d0eabed55; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439401274/artifacts/13600594237). It includes the LyricSync draw-path cache improvements and version 129.
+- Run #50 passed for commit `2ddbc6f1feff15a8ac1067d6db9e253765606f72`; both build and upload succeeded. Artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439603938/artifacts/13600578084). It is the version-130 build after refreshing the fusion handoff and backlog.
 - Earlier runs #26–#33 failed on malformed literal newline escapes in a Java import and the manifest. Those were corrected in fc54f66; subsequent runs #34–#49 are green.
 - CI proves compilation, APK packaging and upload only. It does not verify installation over the old package, LSPosed activation, camera alignment, bubble touch response, animation quality or lyrics against a live media session.
 
