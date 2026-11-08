@@ -165,7 +165,7 @@ This addendum supersedes the earlier preference-status rows above where they con
 ### Lyrics strip changes
 
 - Synced lyrics now retain the two lines before the active line. The newest past line moves upward as the next active line fades/slides in; the second past line remains dimmer. The transition is 340 ms.
-- The base font size is now 15 dp (before Prism size and app text scaling), and the measured card height reserves space for both history lines. The no-preferences fallback also reserves the history rows.
+- The island strip base font size is now 17 dp (before Prism `sizeScale` and `textScale`), with 16 dp baseline spacing multiplied by Prism's line-spacing setting. The two history lines receive stronger opacity (newest 0.48–0.70, older 0.36), and measured card height reserves space for the current line, both history lines, and enabled previews/extras.
 - The painter applies the configured focus blur to dimmed past/upcoming text and supports the exported lyric strip backing choices: DARK, COLOR (including a two-color gradient), COVER_COLOR and an accent-tinted approximation for BLUR/CANVAS.
 - Prism's actual stored timed lyrics and helper-produced romanized/translated lines remain authoritative. Static lyrics do not receive fabricated word timing.
 - The strip background for BLUR/CANVAS is only an accent-colour approximation. The bridge does not currently export Prism's live blurred/animated Canvas bitmap, so this is not pixel-identical to Prism. No frosted or translucent card surface is added.
@@ -189,7 +189,7 @@ The playerDeck preference now controls the order of the supported island rows (S
 
 ### Verification state
 
-- Morphe bridge bundle v0.1.5 passed run [#42493182714](https://github.com/cbv-ooo/coobvo/actions/runs/42493182714), with artifact [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42493182714/artifacts/13622755240).
-- Debug APK build and selected unit tests passed on source commit `4b3fbe0b8101f89e6ac57aee31b044f664ded6c9` in run [#42494314858](https://github.com/cbv-ooo/coobvo/actions/runs/42494314858). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42494314858/artifacts/13622562710). The run includes `PrismMediaBridgeClientTest`, `PrismLyricsSnapshotTest`, `PrismLyricsPainterTest` and `PrismPlayerPreferencesTest`, including the deck-order cases.
+- Morphe bridge bundle v0.1.5 passed run [#42494491943](https://github.com/cbv-ooo/coobvo/actions/runs/42494491943), with artifact [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42494491943/artifacts/13623146420).
+- Debug APK build and selected unit tests passed on source commit `0bdc05789866fe728f4c02ac6bcfd891436b7ca9` in run [#42494609826](https://github.com/cbv-ooo/coobvo/actions/runs/42494609826). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42494609826/artifacts/13622891407). The run includes `PrismMediaBridgeClientTest`, `PrismLyricsSnapshotTest`, `PrismLyricsPainterTest` (including larger text/history checks) and `PrismPlayerPreferencesTest`, plus selected SI/iMode/cutout tests.
 - These results prove bundle generation, app compilation and selected test fixtures. They do **not** prove that the patch applies to the exact installed Prism 1.8.2.1 / versionCode 58 APK or that its provider route and island rendering work on the Galaxy S10e.
 - Real-device verification is still required for background lookup with Prism closed, live preference changes during playback, 3-line lyrics visibility/transitions, and S10e card sizing.
