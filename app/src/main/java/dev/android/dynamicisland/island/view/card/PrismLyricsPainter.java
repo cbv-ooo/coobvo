@@ -32,7 +32,7 @@ import org.json.JSONObject;
 final class PrismLyricsPainter {
     private static final Pattern WORDS = Pattern.compile("\\S+\\s*");
     private static final long TYPE_IN_MS = 140L;
-    private static final float DEFAULT_ROW_DP = 38.0f;
+    private static final float DEFAULT_ROW_DP = 44.0f;
     private static final Paint BACKGROUND_PAINT = new Paint(Paint.ANTI_ALIAS_FLAG);
     private static final ConcurrentHashMap<String, Typeface> TYPEFACE_CACHE = new ConcurrentHashMap<>();
 
@@ -91,6 +91,27 @@ final class PrismLyricsPainter {
         return Math.max(0, Math.min(3, count));
     }
 
+    /** Larger card typography; Prism's textScale and sizeScale still take precedence. */
+    static float mainTextSizeDp(JSONObject look) {
+        float sizeScale = look == null ? 1.0f
+                : clamp((float) look.optDouble("sizeScale", 1.0d), 0.7f, 1.4f);
+        float textScale = look == null ? 1.0f
+                : clamp((float) look.optDouble("textScale", 1.0d), 0.7f, 1.4f);
+        return 17.0f * sizeScale * textScale;
+    }
+
+    /** Keeps the two historical lines, active line and preview lines on distinct baselines. */
+    static float lineHeightDp(JSONObject look) {
+        float spacing = look == null ? 1.0f
+                : clamp((float) look.optDouble("spacing", 1.0d), 0.6f, 1.8f);
+        return 16.0f * spacing;
+    }
+
+    /** The newer past line is strongest; the second line remains visible but quieter. */
+    static float historyLineAlpha(int age, float transition) {
+        return age <= 0 ? 0.48f + 0.22f * clamp(transition, 0.0f, 1.0f) : 0.36f;
+    }
+
     static float rowHeightDp(JSONObject look, MediaLyrics lyrics) {
         if (look == null) {
             return DEFAULT_ROW_DP
@@ -107,13 +128,12 @@ final class PrismLyricsPainter {
                 if (!lyrics.line(i).background.isEmpty()) { backing = true; break; }
             }
         }
-        float spacing = clamp((float) look.optDouble("spacing", 1.0d), 0.6f, 1.8f);
         float extraSize = clamp((float) look.optDouble("extraSize", 1.0d), 0.7f, 1.4f);
         float backingSize = clamp((float) look.optDouble("backingSize", 0.6d), 0.4f, 0.9f);
         int historyRows = lyrics != null && lyrics.type() != MediaLyrics.Type.STATIC ? 2 : 0;
-        float height = 12.0f + (mainRows + historyRows) * 14.0f * spacing
-                + extraRows * 10.0f * extraSize + (backing ? 10.0f * backingSize : 0.0f)
-                + futureRows * 12.5f * spacing;
+        float lineStep = lineHeightDp(look);
+        float height = 12.0f + (mainRows + historyRows + futureRows) * lineStep
+                + extraRows * 10.0f * extraSize + (backing ? 10.0f * backingSize : 0.0f);
         // LyricsPosition is designed for the full lyrics page. On the compact card it becomes a
         // small vertical offset rather than an unbounded page-layout transformation.
         height += 12.0f * clamp((float) look.optDouble("positionFraction", 0.0d), 0.0f, 0.42f);
@@ -183,12 +203,10 @@ final class PrismLyricsPainter {
         Paint.Align configuredAlign = align(look);
         Paint.Align lineAlign = line.alignEnd ? Paint.Align.RIGHT
                 : (configuredAlign == Paint.Align.LEFT && isRtl(mainText) ? Paint.Align.RIGHT : configuredAlign);
-        float textScale = clamp((float) look.optDouble("textScale", 1.0d), 0.7f, 1.4f);
-        float baseSize = owner.dp(15.0f
-                * clamp((float) look.optDouble("sizeScale", 1.0d), 0.7f, 1.4f) * textScale);
+        float baseSize = owner.dp(mainTextSizeDp(look));
         mainPaint.setTextSize(baseSize);
         Paint.FontMetrics fm = mainPaint.getFontMetrics();
-        float lineHeight = owner.dp(14.0f * spacing(look));
+        float lineHeight = owner.dp(lineHeightDp(look));
         int motion = motion(look);
         int sungColor = lyricColor(look, "sungColor", "sungCustom", accent, Colors.WHITE);
         int otherColor = lyricColor(look, "otherColor", "otherCustom", accent, Colors.ON_SURFACE_VARIANT);
@@ -216,7 +234,7 @@ final class PrismLyricsPainter {
             String past = state.pastLines.get(i);
             if (past == null || past.trim().isEmpty()) continue;
             float pastBaseline = activeBaseline - lineHeight * (i + 1);
-            float fade = i == 0 ? (0.34f + 0.28f * transition) : 0.24f;
+            float fade = historyLineAlpha(i, transition);
             if (i == 0) pastBaseline -= slide * 0.55f;
             Paint.Align pastAlign = align(look);
             mainPaint.setTextAlign(pastAlign);
