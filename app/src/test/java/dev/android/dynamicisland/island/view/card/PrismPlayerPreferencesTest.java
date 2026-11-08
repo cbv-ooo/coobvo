@@ -14,7 +14,7 @@ public class PrismPlayerPreferencesTest {
                         + "\"scrubberStyle\":\"THUMB\",\"scrubberColor\":\"COVER\","
                         + "\"scrubberThumb\":\"AUTO\",\"scrubberThickness\":1.5,"
                         + "\"playerTitleAlign\":\"CENTER\",\"playerTitleSize\":\"LARGE\","
-                        + "\"playerTitleScroll\":false,\"playerArtCorners\":26,"
+                        + "\"playerTitleScroll\":false,\"playerArtCorners\":26,\"coverSize\":\"FULL\","
                         + "\"shapes\":{\"player\":\"CIRCLE\"},"
                         + "\"type\":{\"playerTitleWeight\":\"BOLD\"}}}");
 
@@ -28,8 +28,11 @@ public class PrismPlayerPreferencesTest {
         assertEquals("CENTER", prefs.titleAlign);
         assertEquals(1.2f, prefs.titleScale(), 0.001f);
         assertEquals("BOLD", prefs.titleWeight);
+        assertEquals(700, prefs.titleFontWeight());
+        assertEquals(600, prefs.artistFontWeight());
         assertFalse(prefs.titleScroll);
         assertEquals(26, prefs.artCornersDp);
+        assertEquals("FULL", prefs.coverSize);
         assertEquals("CIRCLE", prefs.coverShape);
     }
 
@@ -42,6 +45,8 @@ public class PrismPlayerPreferencesTest {
         assertFalse(prefs.showRightTime());
         assertEquals("DOT", prefs.effectiveThumb());
         assertEquals(0.82f, prefs.titleScale(), 0.001f);
+        assertEquals(400, prefs.titleFontWeight());
+        assertEquals(400, prefs.artistFontWeight());
     }
 
     @Test public void defaultsAreSafeAndInvalidValuesAreIgnored() {
