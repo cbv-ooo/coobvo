@@ -168,6 +168,21 @@ public class IModeTest {
         }
     }
 
+    @Test public void thirdActivityHasItsOwnVisibleAndTouchableCompanionBubble() {
+        try(Fixture f=new Fixture(3)) {
+            RectF first=new RectF(),second=new RectF();
+            f.scene.iMode.bubbleBounds(first);
+            f.scene.iMode.bubble2Bounds(second);
+            assertFalse(first.isEmpty());
+            assertFalse("the third live activity gets a distinct second bubble",second.isEmpty());
+            assertTrue("the two companion bubbles do not overlap",!RectF.intersects(first,second));
+            assertEquals(List.of("item0","item1","item2"),f.scene.iMode.visibleItems().stream().map(i->i.key).toList());
+            assertEquals("item2",f.scene.iMode.hit(second.centerX(),second.centerY(),0));
+            f.tap(second);
+            f.assertSingle("item2");
+        }
+    }
+
     @Test public void compactWidthFollowsContentAcrossScreenSizesAndPressHandsOffWithoutASnap() {
         try(Fixture f=new Fixture(3)) {
             RectF phone=new RectF();f.view.computeMain(phone);

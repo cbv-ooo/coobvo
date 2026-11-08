@@ -49,7 +49,7 @@ final class IMode {
     private String anchorBeforePopup;
     private boolean initialized;
     private int rowCount;
-    private final List<IslandItem> visible = new ArrayList<>(2);
+    private final List<IslandItem> visible = new ArrayList<>(3);
     private Card swipeCard, swipePreview;
     private int swipeDirection;
     private float swipeStart;
@@ -63,12 +63,13 @@ final class IMode {
         final String anchor;
         final int direction;
         final boolean header;
-        final RectF fromMain=new RectF(),fromBubble=new RectF(),toMain=new RectF(),toBubble=new RectF();
-        final RectF main=new RectF(),bubble=new RectF();
+        final RectF fromMain=new RectF(),fromBubble=new RectF(),fromBubble2=new RectF();
+        final RectF toMain=new RectF(),toBubble=new RectF(),toBubble2=new RectF();
+        final RectF main=new RectF(),bubble=new RectF(),bubble2=new RectF();
         final Spring progress=new Spring(0, Motion.SPATIAL_DEFAULT).setValueThreshold(.001f);
         final Spring pull=new Spring(0, Motion.SPATIAL_DEFAULT).setValueThreshold(.015f);
         final Spring load=new Spring(0, Motion.SPATIAL_DEFAULT).setValueThreshold(.001f);
-        final ContentBlur[] blur={new ContentBlur(),new ContentBlur(),new ContentBlur(),new ContentBlur()};
+        final ContentBlur[] blur={new ContentBlur(),new ContentBlur(),new ContentBlur(),new ContentBlur(),new ContentBlur(),new ContentBlur()};
         boolean released, commit;
         CompactPage(int direction) {
             this.direction=direction;header=false;from=rowNodes();
@@ -76,25 +77,28 @@ final class IMode {
             for(int i=0;i<activities.size();i++) if(activities.get(i).key.equals(from.get(0).item.key)) index=i;
             anchor=activities.get(Math.floorMod(index+direction,activities.size())).key;
             to=rowNodes(anchor);
-            from.get(0).bounds(fromMain);if(from.size()>1) from.get(1).bounds(fromBubble);
-            rowFrame(to,toMain,toBubble);bounds();
+            from.get(0).bounds(fromMain);if(from.size()>1) from.get(1).bounds(fromBubble);if(from.size()>2) from.get(2).bounds(fromBubble2);
+            rowFrame(to,toMain,toBubble,toBubble2);bounds();
         }
         CompactPage(int direction,String incomingKey) {
             this.direction=direction;header=true;anchor=rowAnchor;
             from=rowNodes();to=rowNodes(rowAnchor,incomingKey);
-            from.get(0).bounds(fromMain);if(from.size()>1) from.get(1).bounds(fromBubble);
-            rowFrame(to,toMain,toBubble);bounds();
+            from.get(0).bounds(fromMain);if(from.size()>1) from.get(1).bounds(fromBubble);if(from.size()>2) from.get(2).bounds(fromBubble2);
+            rowFrame(to,toMain,toBubble,toBubble2);bounds();
         }
         void bounds() {
             float p=IslandView.clamp01(progress.value());
-            interpolate(fromMain,toMain,p,main);interpolate(fromBubble,toBubble,p,bubble);
+            interpolate(fromMain,toMain,p,main);interpolate(fromBubble,toBubble,p,bubble);interpolate(fromBubble2,toBubble2,p,bubble2);
             if(from.size()<2 && to.size()<2) bubble.setEmpty();
+            if(from.size()<3 && to.size()<3) bubble2.setEmpty();
             // The shared outlines respond to the gesture too; they are not static containers.
             float tension=load.value();
             main.inset(-main.width()*.012f*tension,main.height()*.025f*tension);
             main.offset(pull.value(),-m.dp(1.2f)*tension);
             bubble.inset(bubble.width()*.015f*tension,bubble.height()*.015f*tension);
             bubble.offset(pull.value()*.65f,m.dp(.6f)*tension);
+            bubble2.inset(bubble2.width()*.015f*tension,bubble2.height()*.015f*tension);
+            bubble2.offset(pull.value()*.48f,m.dp(.8f)*tension);
         }
         void clear() { for(ContentBlur layer:blur) layer.clear(); }
     }
@@ -279,10 +283,12 @@ final class IMode {
         return row;
     }
 
-    private void rowFrame(List<Node> row,RectF main,RectF bubble) {
+    private void rowFrame(List<Node> row,RectF main,RectF bubble,RectF bubble2) {
         float diameter=m.bubbleR*2;
+        int companions=Math.min(2,Math.max(0,row.size()-1));
+        float step=diameter+m.bubbleGap;
+        float extra=companions*step;
         float width=row.isEmpty() ? m.minPillW : scene.pillWidthFor(row.get(0).compact);
-        float extra=row.size()>1 ? m.bubbleGap+diameter : 0;
         float margin=m.dp(8);
         float side=m.bubbleSide>=0 ? 1.0f : -1.0f;
         float leftExtra=side<0 ? extra : 0.0f;
@@ -291,9 +297,14 @@ final class IMode {
         float minCenter=margin+leftExtra+width/2;
         float maxCenter=m.screenW-margin-rightExtra-width/2;
         float cx=Math.max(minCenter,Math.min(m.cx,maxCenter));
-        float bubbleX=cx+(side*(width/2+m.bubbleGap+diameter/2));
+        float firstX=cx+(side*(width/2+m.bubbleGap+diameter/2));
         main.set(cx-width/2,m.cy-m.pillH/2,cx+width/2,m.cy+m.pillH/2);
-        bubble.set(bubbleX-diameter/2,m.cy-diameter/2,bubbleX+diameter/2,m.cy+diameter/2);
+        if(companions>0) bubble.set(firstX-diameter/2,m.cy-diameter/2,firstX+diameter/2,m.cy+diameter/2);
+        else bubble.setEmpty();
+        if(companions>1) {
+            float secondX=firstX+(side*step);
+            bubble2.set(secondX-diameter/2,m.cy-diameter/2,secondX+diameter/2,m.cy+diameter/2);
+        } else bubble2.setEmpty();
     }
 
     private void layout() {
@@ -303,16 +314,17 @@ final class IMode {
         List<Node> row=rowNodes();
         rowCount=row.size();
         scene.springs.split.snapTo(row.size()>1 ? 1 : 0);
-        RectF frameMain=new RectF(),bubble=new RectF();rowFrame(row,frameMain,bubble);
+        RectF frameMain=new RectF(),bubble=new RectF(),bubble2=new RectF();rowFrame(row,frameMain,bubble,bubble2);
         for(Node n:nodes.values()) {
             n.slot=-1;
-            n.target.set(bubble);
+            n.target.set(row.size()>2 ? bubble2 : bubble);
         }
         if(!row.isEmpty()) {
             Node main=row.get(0); main.slot=0;
             main.target.set(frameMain);
         }
-        if(row.size()>1) row.get(1).slot=1;
+        if(row.size()>1) { row.get(1).slot=1; row.get(1).target.set(bubble); }
+        if(row.size()>2) { row.get(2).slot=2; row.get(2).target.set(bubble2); }
         visible.clear();
         for(Node n:nodes.values()) {
             if(n.slot>=0 && !n.removed && !gestureHidden) visible.add(n.item);
@@ -469,7 +481,7 @@ final class IMode {
                 && nodes.containsKey(page.anchor) && !nodes.get(page.anchor).removed) rowAnchor=page.anchor;
         layout();
         for(Node node:nodes.values()) {
-            RectF r=node.slot==0 ? page.main : page.bubble;
+            RectF r=node.slot==0 ? page.main : node.slot==1 ? page.bubble : page.bubble2;
             boolean represented=!r.isEmpty();if(!represented) r=node.target;
             node.x.snapTo(r.centerX());node.y.snapTo(r.centerY());node.w.snapTo(r.width());node.h.snapTo(r.height());
             float visible=node.slot>=0 && !node.removed && !gestureHidden ? 1 : 0;
@@ -788,6 +800,8 @@ final class IMode {
             if(rect.contains(x,y)) return row.get(0).item.key;
             rect.set(compactPage.bubble);rect.inset(-pad,-pad);
             if(row.size()>1 && !compactPage.bubble.isEmpty() && rect.contains(x,y)) return row.get(1).item.key;
+            rect.set(compactPage.bubble2);rect.inset(-pad,-pad);
+            if(row.size()>2 && !compactPage.bubble2.isEmpty() && rect.contains(x,y)) return row.get(2).item.key;
             return null;
         }
         for(Node n:nodes.values()) {
@@ -812,6 +826,11 @@ final class IMode {
     void bubbleBounds(RectF out) {
         if(compactPage!=null) { out.set(compactPage.bubble);return; }
         for(Node n:nodes.values()) if(n.slot==1) { n.bounds(out); return; }
+        out.setEmpty();
+    }
+    void bubble2Bounds(RectF out) {
+        if(compactPage!=null) { out.set(compactPage.bubble2);return; }
+        for(Node n:nodes.values()) if(n.slot==2) { n.bounds(out); return; }
         out.setEmpty();
     }
     /** Both status-row slots travel into the camera-hole anchor, rather than shrinking in place. */
@@ -908,7 +927,7 @@ final class IMode {
             Canvas content=n.blur.begin(canvas,rect,blur,m.dp(ContentBlur.RADIUS_DP));
             try { drawCompact(content,n,rect,role,contentAlpha); }
             finally { n.blur.end(canvas,content); }
-            if(n.slot==1 && rowCount>2 && contentAlpha>.01f) drawOverflow(canvas,rect,rowCount-2,contentAlpha);
+            if(n.slot==2 && rowCount>3 && contentAlpha>.01f) drawOverflow(canvas,rect,rowCount-3,contentAlpha);
             canvas.restoreToCount(save);
         }
     }
@@ -916,6 +935,7 @@ final class IMode {
         CompactPage page=compactPage;
         drawPageCell(canvas,page,page.main,0);
         if(page.from.size()>1 && page.to.size()>1) drawPageCell(canvas,page,page.bubble,1);
+        if(page.from.size()>2 && page.to.size()>2) drawPageCell(canvas,page,page.bubble2,2);
     }
     private void drawPageCell(Canvas canvas,CompactPage page,RectF frame,int slot) {
         float gate=IslandView.clamp01(scene.springs.shadeGate.value());
@@ -927,7 +947,7 @@ final class IMode {
         if(scene.pillOutlineOpacity()>.01f) {
             int strokeSave=canvas.save();
             if(gate<.999f) {
-                RectF other=slot==0 ? page.bubble : page.main;
+                RectF other=slot==0 ? page.bubble : slot==1 ? page.main : page.bubble;
                 if(!other.isEmpty()) {
                     shadeBounds(other,gatherOther);gatherMask.reset();
                     gatherMask.addRoundRect(gatherOther,gatherOther.height()/2,gatherOther.height()/2,Path.Direction.CW);canvas.clipOutPath(gatherMask);
@@ -952,7 +972,7 @@ final class IMode {
             drawCompact(layer,node,bounds,slot,alpha);
             layer.restoreToCount(shift);page.blur[slot*2+incoming].end(canvas,layer);
         }
-        if(slot==1 && page.to.size()>2) drawOverflow(canvas,bounds,page.to.size()-2,contentAlpha);
+        if(slot==2 && page.to.size()>3) drawOverflow(canvas,bounds,page.to.size()-3,contentAlpha);
         canvas.restoreToCount(save);
     }
     private void drawMovingGlows(Canvas canvas) {

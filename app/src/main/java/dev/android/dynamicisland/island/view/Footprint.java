@@ -33,7 +33,10 @@ final class Footprint {
         if (scene.springs.split.value() > 0.2f) {
             shapes.bubble(pill, other);
             out.union(other);
-            if (scene.iMode == null && (scene.secondary2 != null || scene.bubble2In != null || scene.bubble2Out != null)) {
+            if (scene.iMode != null) {
+                scene.iMode.bubble2Bounds(other);
+                out.union(other);
+            } else if (scene.secondary2 != null || scene.bubble2In != null || scene.bubble2Out != null) {
                 shapes.bubble(pill, scene.springs.split.value(), 1, other);
                 out.union(other);
             }
@@ -85,7 +88,10 @@ final class Footprint {
         if (scene.springs.split.value() > 0.6f && scene.mode == Mode.COMPACT) {
             shapes.bubble(pill, other);
             add(out, other, pad);
-            if (scene.iMode == null && (scene.secondary2 != null || scene.bubble2In != null || scene.bubble2Out != null)) {
+            if (scene.iMode != null) {
+                scene.iMode.bubble2Bounds(other);
+                add(out, other, pad);
+            } else if (scene.secondary2 != null || scene.bubble2In != null || scene.bubble2Out != null) {
                 shapes.bubble(pill, scene.springs.split.value(), 1, other);
                 add(out, other, pad);
             }
