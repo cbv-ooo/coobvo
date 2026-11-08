@@ -55,7 +55,7 @@ The supplied SmartIsland-main archive is the Kotlin/Compose application document
 
 Take its parsing rules and local feature behaviour; reimplement them as small Java classes using this repository's existing hooks and event sources. Do not port Compose, Hilt, DataStore, AccessibilityService overlays, Shizuku, its service/window stack or its separate settings UI.
 
-The feature candidates still to compare/port are timer and stopwatch classification, navigation parsing, more robust live-activity parsing, notification cooldown, notification history, quick-launch shortcuts, idle widgets, network speed and diagnostics. Check whether a feature already exists before adding another source.
+The timer/stopwatch notification parser is now implemented in Java and connected to the existing OngoingActivity card builder; native Samsung Chronometer data remains preferred. Remaining candidates to compare/port are navigation parsing, richer live-activity parsing, notification cooldown/history, quick-launch shortcuts, idle widgets, network speed and diagnostics. Check whether a feature already exists before adding another source.
 
 ### LyricSync
 
@@ -89,13 +89,13 @@ Lyrics lookup sends track metadata to external providers. It must be off by defa
 
 The older dev.android.dynamicisland installation had a certificate mismatch with CI-signed updates. Debug builds now use the stable package ID dev.android.dynamicisland.coobvo, a stable debug-only keystore, and monotonically increasing version codes. This intentionally installs as a separate module beside the old package; it does not replace the old package. The owner must enable the new coobvo module for the com.android.systemui LSPosed scope and disable the old module. Future builds must reuse the same debug key and increment the version code.
 
-Current build at last update: version code 123 / version name 0.1.21-dev1 (pending its CI result).
+Current accepted build at last update: version code 124 / version name 0.1.22-dev1. Debug APK run #44 passed compilation, packaging and upload; artifact: https://github.com/cbv-ooo/coobvo/actions/runs/42438606018/artifacts/13599659870.
 
 ## Backlog
 
 1. Finish one shared Material 3 Expressive token source for corner radii, spatial/effects motion and semantic colours. Apply the same primitives to compact glyphs, bubbles, buttons and expanded cards. Keep the pill opaque black and the card fills opaque.
 2. Finish Lottie coverage for useful compact and expanded icon state changes. Preserve static fallback, stillIcons and low-performance behaviour.
-3. Port missing Smart Island capabilities one at a time in Java: timer/stopwatch parser coverage, navigation, richer live activities, notification cooldown/history, quick-launch shortcuts, idle widgets, network speed and diagnostics. Reuse existing sources and settings rather than duplicating them.
+3. Port remaining Smart Island capabilities one at a time in Java: navigation, richer live activities, notification cooldown/history, quick-launch shortcuts, idle widgets, network speed and diagnostics. Timer/stopwatch classification has an initial parser connected to existing activity cards; improve only from concrete missing cases.
 4. Complete LyricSync parity: robust TrackQuery/matching, SpicyLyrics when configured, Kugou KRC, Netease YRC, LRCLIB LRC/static, interludes and word-level highlighting only where real word timing exists. Keep privacy opt-in.
 5. Prepare the owner's short S10e check: install/enable the new package in LSPosed; verify cutout awareness, pill/bubble positions, equal bubble spacing, independent tap/swipe, expanded notification cards, iMode motion, media controls and lyric timing.
 6. Only after device results, fix any specific Samsung/ROM hook or geometry issue. Do not invent hook names.
