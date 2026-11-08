@@ -243,3 +243,10 @@ This verifies bundle generation for the patch; it does not by itself verify appl
 ### Verification
 
 The /range patcher correction has a successful Morphe bundle-generation workflow as linked above. The app-source changes in this follow-up need a fresh Debug APK build and unit-test run on the commit containing those changes. Do not infer app build success from the Morphe workflow.
+
+## Debug APK regression verification (2026-11-09)
+
+- The latest failed Debug APK runs, [#42499130028](https://github.com/cbv-ooo/coobvo/actions/runs/42499130028) and [#42499471470](https://github.com/cbv-ooo/coobvo/actions/runs/42499471470), both compiled the APK successfully but stopped at `PrismLyricsPainterTest.globalLyricsScaleMultipliesPresetAndAppTextScale`. The test used Android `org.json.JSONObject` without the Robolectric runner used by the neighboring Prism bridge, lyrics snapshot and player-preference tests.
+- `PrismLyricsPainterTest` now uses `RobolectricTestRunner` with `@Config(sdk = 35)`, matching those existing tests. The production scaling formula was not weakened or changed: the active lyrics size still multiplies Prism preset `sizeScale`, application `textScale` and global `lyricsScale`.
+- **Debug APK and selected regression tests passed:** [run #42501239625](https://github.com/cbv-ooo/coobvo/actions/runs/42501239625), commit `23301950800c9df24870062eb3ad62b0f0bdde17`. The run completed `assembleDebug`, the selected Smart Island/Prism/iMotion/cutout unit-test task, and artifact upload. The `app-debug.apk` artifact is [available from the run](https://github.com/cbv-ooo/coobvo/actions/runs/42501239625/artifacts/13624704268).
+- This validates the current source build and selected automated tests. It does **not** replace applying the Morphe `.mpp` to the exact Prism 1.8.2.1 / versionCode 58 APK, testing background lyrics lookup with Prism closed, or verifying the updated lyrics/player preferences on the Galaxy S10e.
