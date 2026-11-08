@@ -9,8 +9,10 @@ import android.os.Bundle;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
 
 @RunWith(RobolectricTestRunner.class)
+@Config(sdk=35)
 public class PrismMediaBridgeClientTest {
     @Test public void derivesPrismBridgeUriFromMediaIdWhenCompatDropsCustomExtras() {
         Bundle extras = PrismMediaBridgeClient.ensureBridgeExtras(null, "song/123");
