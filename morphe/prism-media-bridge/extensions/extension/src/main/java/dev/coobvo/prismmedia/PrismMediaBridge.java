@@ -300,6 +300,12 @@ public final class PrismMediaBridge {
     }
 
     /** Copy Prism's resolved lyric preset, including independent overrides, not just its style label. */
+    /**
+     * Reads Prism's effective, already-resolved player and lyrics preferences. This is deliberately
+     * a snapshot reader: it calls Prism's own settings getters and serializes enums/ordered lists,
+     * never a second preferences store. The System UI bridge polls this on each song snapshot so
+     * changes made while a song is playing are picked up without restarting either app.
+     */
     private static JSONObject readLyricsLook(String songId) {
         try {
             Class<?> thread = Class.forName("android.app.ActivityThread");
@@ -308,56 +314,112 @@ public final class PrismMediaBridge {
             Object settingsRepository = property(container, "settings");
             Object settings = property(settingsRepository, "current");
             Object look = property(settings, "lyricsLook");
-            if (look == null) return null;
+            if (settings == null || look == null) return null;
 
             JSONObject result = new JSONObject();
+            result.put("settingsSchemaVersion", 3);
+
+            // LyricsLookPrefs: base template ("Start from"), per-part overrides, and the resolved
+            // values Prism actually draws. Keep these names flat for the Canvas consumer.
             String[] lookFields = {
                     "style", "blurAmount", "spacing", "othersAlpha", "sungColor", "sungCustom",
                     "otherColor", "otherCustom", "weight", "backingSize", "shadow", "uppercase",
                     "ahead", "position", "extraSize", "extraColor", "extraItalic", "extraPlace",
                     "background", "immersiveBackground", "bgColor", "bgColor2", "everywhere",
-                    "gapMark", "motion", "wordByWord", "card", "halo", "boldLines", "motionNow",
-                    "wordByWordNow", "cardNow", "haloNow", "boldLinesNow", "weightNow",
-                    "sizeScale", "pageBackground", "onCard"
+                    "gapMark", "motion", "wordByWord", "card", "halo", "boldLines",
+                    "motionNow", "wordByWordNow", "cardNow", "haloNow", "boldLinesNow",
+                    "weightNow", "sizeScale", "pageBackground", "onCard", "changedFromStart"
             };
-            for (String field : lookFields) putProperty(result, field, look, field);
+            JSONObject lyrics = copyProperties(look, lookFields);
+            Object ahead = property(look, "ahead");
+            Object position = property(look, "position");
+            put(lyrics, "aheadLines", property(ahead, "lines"));
+            put(lyrics, "positionFraction", property(position, "fraction"));
 
-            // Export the settings that control the player and its inline lyric strip. Values are
-            // read from Prism's live AppSettings snapshot, not defaults or a second settings store.
-            String[] settingsFields = {
-                    "lyricsAlign", "lyricsStripAlign", "lyricsStripTwoLines", "lyricsOnPlayer",
-                    "lyricsSourceButton", "lyricsProgressLine", "lyricsScale", "lyricsBlur",
-                    "lyricsOrder", "lyricsOff", "lyricsOnMobileData", "lyricsTranslate",
-                    "lyricsTranslateTo", "lyricsFileWords", "lyricsFileTranslation",
-                    "romanize", "romanizeAll", "lyricsFont", "lyricsFontName",
-                    "playerLayout", "playerDeck", "playerButtons", "playerHiddenParts",
-                    "playerTitleAlign", "playerTitleSize", "playerTitleScroll", "playerTitleWeight",
-                    "playerTimes", "playerShuffleRepeat", "showPlayingFrom", "showQuality",
-                    "showOutputDevice", "showVideoSwitch", "showTrackLength",
-                    "playerBackground", "playerBackdropShow", "playerArtCorners", "playerBlur",
-                    "playerHandle", "playerNavBand", "visualizer", "visualizerColor",
-                    "miniPlayerStyle", "miniPlayerJoined", "miniProgress", "immersivePlayer",
-                    "immersiveArt", "immersiveLyrics", "immersiveControls", "showNerdStats",
-                    "lyricsSteady", "playerRemembersPage", "textScale", "fontChoice",
-                    "appFontName", "fontStamp"
+            // AppSettings properties used by the phone's lyric strip, translation, romanization,
+            // font loader and background choices. These are independent of the full-screen page UI.
+            String[] lyricsSettingsFields = {
+                    "lyricsOnPlayer", "lyricsAlign", "lyricsStripAlign", "lyricsStripTwoLines",
+                    "lyricsProgressLine", "lyricsBlur", "lyricsTranslate", "lyricsTranslateTo",
+                    "lyricsSourceButton", "lyricsOnMobileData", "lyricsScale", "lyricsFont",
+                    "lyricsFontName", "romanize", "romanizeAll", "textScale", "fontChoice",
+                    "appFontName", "fontStamp", "lyricsOrder", "lyricsOff", "preferSynced",
+                    "skipCensored"
             };
-            for (String field : settingsFields) putProperty(result, field, settings, field);
+            copyProperties(lyrics, settings, lyricsSettingsFields);
+
+            // The player has a separate, richer settings surface. Serialize the exact AppSettings
+            // property names rather than aliases guessed from an older Prism version.
+            String[] playerFields = {
+                    "playerLayout", "playerDeck", "playerButtons", "sessionButtons",
+                    "playerTitleAlign", "playerTitleSize", "playerTitleScroll", "playerTimes",
+                    "playerBackground", "playerBackdropShow", "playerArtCorners", "coverSize",
+                    "transportStyle", "scrubberStyle", "scrubberColor", "scrubberThickness",
+                    "scrubberThumb", "volumeMatchesProgress", "hideVolumeBar", "volumeControl",
+                    "appVolume", "showPlayingFrom", "showOutputDevice", "showQuality",
+                    "showTrackLength", "showVideoSwitch", "playerShuffleRepeat", "playerNavBand",
+                    "playerHandle", "lyricsOnPlayer", "lyricsStripAlign", "lyricsStripTwoLines",
+                    "fullBleedArtwork", "videoFullBleed", "canvasEnabled", "canvasFillsBackground",
+                    "canvasOnCellular", "artShrinkOnPause", "immersivePlayer", "immersiveArt",
+                    "immersiveLyrics", "immersiveControls", "lyricsProgressLine", "showNerdStats",
+                    "miniPlayerStyle", "miniPlayerJoined", "miniProgress", "miniSkipButtons",
+                    "miniPrevButton", "backdropDim", "backdropMotion", "backdrops", "textScale",
+                    "fontChoice", "appFontName", "fontStamp", "lyricsFont", "lyricsFontName",
+                    "playerBlur", "meshSpeed", "meshIntensity", "bestPartButton",
+                    "mix", "mixSeconds", "mixAuto", "mixBeatMatch", "mixKeepAlbums",
+                    "showPlayingFrom"
+            };
+            JSONObject player = copyProperties(settings, playerFields);
+
+            // Nested values in Prism 1.8.2.1. The earlier bridge looked for several of these on
+            // AppSettings itself, where they do not exist (hidden parts, crossfade, type and shapes).
+            Object view = property(settings, "view");
+            String[] viewFields = {
+                    "panelPlayer", "immersiveVideo", "bleedFit", "coverFlight", "coverFlightBack",
+                    "videoControlsHide", "videoButtonsHide", "crossfadeMark", "crossfadeShape",
+                    "blendCovers", "buttonsPill", "parts", "gradientDepth", "backdropFade",
+                    "bleedRoomy", "playingInPageColor"
+            };
+            JSONObject viewJson = copyProperties(view, viewFields);
+            Object parts = property(view, "parts");
+            copyProperties(player, parts, "hidden", "menuHidden", "menuTiles");
+            put(player, "hiddenParts", property(parts, "hidden"));
+            player.put("view", viewJson);
+
+            Object type = property(settings, "type");
+            JSONObject typeJson = copyProperties(type, "weight", "spacing", "titleFont", "playerTitleWeight", "classic");
+            Object typeSpacing = property(property(type, "spacing"), "em");
+            put(lyrics, "typeSpacingEm", typeSpacing);
+            put(player, "typeSpacingEm", typeSpacing);
+            put(player, "playerTitleWeight", property(type, "playerTitleWeight"));
+            put(player, "titleFont", property(type, "titleFont"));
+            player.put("type", typeJson);
+
+            Object shapes = property(settings, "shapes");
+            JSONObject shapesJson = copyProperties(shapes, "cornerScale", "songs", "albums", "artists", "player", "button", "playOutlined", "tabTint", "classicControls");
+            put(player, "coverShape", property(shapes, "player"));
+            put(player, "buttonShape", property(shapes, "button"));
+            player.put("shapes", shapesJson);
+
+            Object sound = property(settings, "sound");
+            JSONObject soundJson = copyProperties(sound, "crossfadeCurve", "normalizeTarget", "normalizeAlbums",
+                    "musicSpeed", "musicPitch", "skipSilenceEpisodes", "pauseFade");
+            player.put("sound", soundJson);
+            put(player, "crossfadeCurve", property(sound, "crossfadeCurve"));
+
             Object behavior = property(settings, "behavior");
-            if (behavior != null) {
-                JSONObject behaviorValues = new JSONObject();
-                String[] behaviorFields = {"embeddedLyrics", "localMusic", "panelSwipes"};
-                for (String field : behaviorFields) putProperty(behaviorValues, field, behavior, field);
-                result.put("behavior", behaviorValues);
-            }
+            JSONObject behaviorJson = copyProperties(behavior, "panelSwipes", "scrollShowsControls",
+                    "playerRemembersPage", "gesturesEverywhere", "pauseOnMute", "lockPortrait");
+            player.put("behavior", behaviorJson);
 
-            // TextStyle.titleMedium inherits Prism's typography tracking. The expanded Canvas row
-            // reads the same application-level letter-spacing preference directly.
-            Object appType = property(settings, "type");
-            Object typeSpacing = property(appType, "spacing");
-            Object tracking = property(typeSpacing, "em");
-            if (tracking instanceof Number) result.put("typeSpacingEm", ((Number) tracking).floatValue());
+            // Preserve the existing flat names consumed by PrismLyricsPainter/MediaBody. The nested
+            // objects are the complete, explicit settings contract for future card-layout work.
+            copyJson(lyrics, result);
+            copyJson(player, result);
+            result.put("lyricsPreferences", lyrics);
+            result.put("playerPreferences", player);
 
-            // Romanization is a global setting with a per-song on/off override in Prism's Romanizer.
+            // Romanization is a global setting with a per-song override in Prism's Romanizer.
             Object romanizer = property(container, "romanizer");
             Object overridesFlow = property(romanizer, "overrides");
             Object overrideValues = property(overridesFlow, "value");
@@ -369,10 +431,37 @@ public final class PrismMediaBridge {
             else if (Boolean.TRUE.equals(songOverride) && "OFF".equals(globalRomanize)) effectiveRomanize = "UNDER";
             result.put("romanizeModeForSong", effectiveRomanize);
             result.put("romanizeEnabledForSong", !"OFF".equals(effectiveRomanize));
+            lyrics.put("romanizeSongOverride", songOverride == null ? JSONObject.NULL : songOverride);
+            lyrics.put("romanizeModeForSong", effectiveRomanize);
+            lyrics.put("romanizeEnabledForSong", !"OFF".equals(effectiveRomanize));
             return result;
         } catch (Throwable ignored) {
             return null;
         }
+    }
+
+    private static JSONObject copyProperties(Object source, String... fields) throws Exception {
+        JSONObject result = new JSONObject();
+        copyProperties(result, source, fields);
+        return result;
+    }
+
+    private static void copyProperties(JSONObject target, Object source, String... fields) throws Exception {
+        if (source == null || target == null || fields == null) return;
+        for (String field : fields) putProperty(target, field, source, field);
+    }
+
+    private static void copyJson(JSONObject source, JSONObject target) throws Exception {
+        if (source == null || target == null) return;
+        java.util.Iterator<String> keys = source.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            target.put(key, source.get(key));
+        }
+    }
+
+    private static void put(JSONObject target, String key, Object value) throws Exception {
+        if (target != null && value != null) target.put(key, jsonValue(value));
     }
 
     private static void putProperty(JSONObject target, String key, Object source, String property) throws Exception {
