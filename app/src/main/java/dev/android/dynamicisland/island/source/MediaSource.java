@@ -350,6 +350,7 @@ public final class MediaSource {
         private String prismCrossfadeFromId;
         private String prismCrossfadeToId;
         private float prismCrossfadeProgress;
+        private long prismBestPartStartMs = -1L;
         private float prismPlayerVolume = 1.0f;
         private boolean prismRefreshScheduled;
         private int prismExtraRefreshes;
@@ -587,6 +588,7 @@ public final class MediaSource {
                 prismCrossfadeFromId = null;
                 prismCrossfadeToId = null;
                 prismCrossfadeProgress = 0.0f;
+                prismBestPartStartMs = -1L;
                 prismPlayerVolume = 1.0f;
                 prismRefreshScheduled = false;
                 prismExtraRefreshes = 0;
@@ -605,6 +607,7 @@ public final class MediaSource {
             it.mediaCrossfadeFromId = prismCrossfadeFromId;
             it.mediaCrossfadeToId = prismCrossfadeToId;
             it.mediaCrossfadeProgress = prismCrossfadeProgress;
+            it.mediaBestPartStartMs = prismBestPartStartMs;
             it.mediaPlayerVolume = prismPlayerVolume;
             long refreshMs = prismRefreshIntervalMs();
             if (SystemClock.elapsedRealtime() - prismInfoUpdatedAt < refreshMs) return;
@@ -630,6 +633,7 @@ public final class MediaSource {
                     prismCrossfadeFromId = details.crossfadeFromId;
                     prismCrossfadeToId = details.crossfadeToId;
                     prismCrossfadeProgress = details.crossfadeProgress;
+                    prismBestPartStartMs = details.bestPartStartMs;
                     prismPlayerVolume = details.playerVolume;
                     card = null;
                     onChange.run();
