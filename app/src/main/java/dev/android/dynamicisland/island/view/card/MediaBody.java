@@ -78,6 +78,7 @@ public final class MediaBody extends CardBody {
     private final boolean prismBoldLines;
     private final boolean prismTwoLines;
     private final boolean prismWordByWord;
+    private final String prismStyle;
     private final Paint.Align prismTextAlign;
     private final boolean lyricsEnabled;
     /** Prepared text is rebuilt only when the track or current line changes, never per frame. */
@@ -113,8 +114,9 @@ public final class MediaBody extends CardBody {
         prismUppercase = prismLook != null && prismLook.optBoolean("uppercase", false);
         prismBoldLines = prismLook != null && ("BOLD".equalsIgnoreCase(prismLook.optString("weightNow", prismLook.optString("weight", "LIGHT")))
                 || "CARD".equalsIgnoreCase(prismLook.optString("style", "")));
-        prismTwoLines = prismLook == null || prismLook.optBoolean("lyricsStripTwoLines", true);
-        prismWordByWord = prismLook == null || prismLook.optBoolean("wordByWordNow", true);
+        prismTwoLines = prismLook != null && prismLook.optBoolean("lyricsStripTwoLines", false);
+        prismWordByWord = prismLook != null && prismLook.optBoolean("wordByWordNow", false);
+        prismStyle = prismLook == null ? "PRISM" : prismLook.optString("style", "PRISM");
         String align = prismLook == null ? "START" : prismLook.optString("lyricsStripAlign",
                 prismLook.optString("lyricsAlign", "START"));
         prismTextAlign = "CENTER".equalsIgnoreCase(align) ? Paint.Align.CENTER : Paint.Align.LEFT;
@@ -320,9 +322,9 @@ public final class MediaBody extends CardBody {
         current.setTextAlign(prismSession && data.line(index).alignEnd ? Paint.Align.RIGHT
                 : (prismSession ? prismTextAlign : Paint.Align.LEFT));
         canvas.drawText(cachedCurrentLine == null ? "♪" : cachedCurrentLine, anchorX, baseline, current);
-        if (!prismSession || prismWordByWord || data.type() == MediaLyrics.Type.SYLLABLE) {
+        if (!prismSession || data.type() == MediaLyrics.Type.SYLLABLE) {
             drawActiveLyricWord(canvas, data, data.line(index), left, baseline, width, alpha, positionMs);
-        } else if (prismSession && "CALM".equalsIgnoreCase(prismLyricsLookStyle())) {
+        } else if (prismSession && "CALM".equalsIgnoreCase(prismStyle)) {
             current.setColor(Colors.withAlpha(prismSungColor, alpha));
             canvas.drawText(cachedCurrentLine == null ? "♪" : cachedCurrentLine, anchorX, baseline, current);
         }
@@ -345,11 +347,6 @@ public final class MediaBody extends CardBody {
         if (prismSession && data != null && index >= 0 && index < data.size()
                 && data.line(index).alignEnd) return Paint.Align.RIGHT;
         return prismSession ? prismTextAlign : Paint.Align.LEFT;
-    }
-
-    private String prismLyricsLookStyle() {
-        JSONObject look = parsePrismLook(item.mediaLyricsLook);
-        return look == null ? "PRISM" : look.optString("style", "PRISM");
     }
 
     /** Ellipsize once per line change, not on every animation frame. */
