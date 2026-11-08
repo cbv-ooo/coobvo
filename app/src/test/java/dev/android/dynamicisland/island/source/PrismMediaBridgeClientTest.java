@@ -49,6 +49,15 @@ public class PrismMediaBridgeClientTest {
         assertEquals("LOADING", PrismMediaBridgeClient.lyricsStatus(snapshot));
     }
 
+    @Test public void readsBestPartOnlyWhenPrismExportsAValidShiftedMarker() throws Exception {
+        org.json.JSONObject snapshot = new org.json.JSONObject();
+        assertEquals(-1L, PrismMediaBridgeClient.readBestPartStartMs(snapshot));
+        snapshot.put("bestPartStartMs", 62_500L);
+        assertEquals(62_500L, PrismMediaBridgeClient.readBestPartStartMs(snapshot));
+        snapshot.put("bestPartStartMs", -3L);
+        assertEquals(-1L, PrismMediaBridgeClient.readBestPartStartMs(snapshot));
+    }
+
     @Test public void readsOnlyCompleteNormalizedPrismSongWaveforms() throws Exception {
         JSONArray json = new JSONArray();
         for (int i = 0; i < 100; i++) json.put(i / 99.0d);
