@@ -28,17 +28,18 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 | Full Dual Bubbles feature | **Partially implemented; not fully verified** | Real-device confirmation of simultaneous rendering, spacing, independent input and lifecycle/animation. |
 | Battery feature | **Incomplete** | Current source work shares gauge geometry and semantic tint across several views. That is one implementation detail, not the complete battery feature, all battery states, cards, actions and presentation. |
 | Material 3 Expressive | **Foundation only; incomplete** | Centralize and apply a consistent system across pill, both bubbles, compact glyphs, buttons, cards and motion; then inspect actual UI. |
-| Smart Island | **Incomplete** | Timer/stopwatch and navigation parsers are connected to the existing ongoing-activity card path. The Settings page's descriptive rows are not features. Remaining Smart Island behavior must become actual visible/usable Java features before it is listed as active. |
+| Smart Island | **Partial Java port implemented** | Timer/stopwatch, navigation and opt-in ordinary-notification cooldown are implemented. Cooldown has focused JVM tests now passing in CI. Notification history, idle widgets, shortcuts, richer live-activity parsing and system-event cooldown remain unported. |
 | iMode | **Source implementation only; device verification outstanding** | Confirm expanded activity/notification content and animation on the S10e. |
 | LyricSync | **Partial provider implementation** | Current coobvo path covers Kugou KRC, NetEase YRC and LRCLIB LRC/static. It is not full LyricSync parity and is not a Prism integration. |
-| Prism media bridge | **Source staged; not build/package verified** | Coobvo now reads the versioned Prism bridge marker, album/track flags and technical stream summary in its existing media card; LyricSync lookup is suppressed for Prism sessions. The Morphe source is staged under morphe/prism-media-bridge, but no .mpp or patched Prism APK has been built or tested. Lyrics/style export is still pending. |
+| Prism media bridge | **Morphe .mpp build-confirmed; APK/device validation pending** | Morphe run #3 generated a downloadable .mpp. The Prism LyricsState snapshot is implemented in patch source and consumed by coobvo's Java media card; it exports exact stored line/word/background-vocal timings and resolved lyric preferences. Translation/romanization output arrays and full Canvas style mapping remain unfinished. The .mpp has not yet been applied to the exact Prism APK or tested on the S10e. |
 
 ## Current debug install identity
 
 - Debug application ID: dev.android.dynamicisland.coobvo (release ID unchanged).
 - Stable debug-only signing key: app/coobvo-debug.keystore.
-- Current main source version: code 134 / 0.1.32-dev1.
-- Last passing main build is code 133 / 0.1.31-dev1 at run #53 (commit 4a80e8929984e31ae69e69697a5ba311e6b7855e). Its debug APK artifact is [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42444559343/artifacts/13603027828). Version 134 is the documentation/version correction now queued for its own CI run.
+- Current main source version: code 136 / 0.1.34-dev1.
+- Debug APK run #62 passed for commit 6ba861405271d4b6c5909f77aade4768267cc9b8, including the targeted NotificationCooldownManagerTest and APK artifact upload. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447577459/artifacts/13604291827).
+- Debug APK run #63 is building the documentation-updated main commit d5b2dedec1c3f87d7a0b4adfdd6a223b221b71bd; its result is pending.
 - The owner removed the older debug installation and is now using coobvo. Do not instruct them to inspect old package settings unless a duplicate returns.
 
 ## Source implementation notes
@@ -46,14 +47,14 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 - **Dual bubble geometry:** two companion layers have indexed drawing and independent touch paths. Index 0 is nearest the pill; index 1 is farther out. S10e right anchor places them to the left of the pill. Only cutout positioning and side selection are owner-confirmed.
 - **Battery:** BatteryGauge geometry/tint is shared among compact battery, notification glyph and expanded battery/event rendering. This is not end-to-end battery feature completion.
 - **M3 Expressive:** six motion tokens, opaque semantic colors, opaque card fills, artwork-derived media accent and a 32dp default expanded-card radius exist. A single coherent token system and complete compact/bubble/button coverage do not.
-- **Smart Island:** `TimerStopwatchParser` and `NavigationParser` are wired to `OaCardBuilder`. They do not represent the full reference app. Descriptive Settings text must not be counted as feature delivery.
+- **Smart Island:** `TimerStopwatchParser` and `NavigationParser` are wired to `OaCardBuilder`. The ordinary notification burst cooldown is wired through `HeadsUpTakeover`, with an opt-in settings toggle, three-postings/30-second threshold, three-minute quiet period and latest-still-active buffered delivery. Targeted unit tests passed in Debug APK run #62. Notification history, idle widgets and quick-launch shortcuts remain pending.
 - **iMode:** expanded card bodies are drawn by the Canvas renderer; Director owns stepping. The current device appearance and animation have not been confirmed.
 - **LyricSync:** current Java path is a narrow three-provider implementation with line/word models, background lookup, cache and media-card rendering. It is not used for Prism sessions in the new source path.
-- **Prism media bridge:** coobvo's Java side has a local bridge reader, album/track flags and technical-info row. A Prism-specific Morphe patch source is staged, targeting Prism 1.8.2.1 / versionCode 58. It exposes Prism's in-memory NerdStats and player diagnostics through the existing artwork provider route. This patch source has not yet been compiled into an .mpp bundle or tested against the original Prism APK. The lyric model, source selection and resolved lyric-style preferences are not yet exported.
+- **Prism media bridge:** the Morphe project builds and Morphe run #3 produced artifact `coobvo-prism-media-bridge-mpp`. The patch hooks Prism 1.8.2.1 / versionCode 58, exposes its in-memory stream/player diagnostics and snapshots its native LyricsState (source/status, exact line/word/background-word times, alignment/gap markers and resolved lyric-look preferences). Coobvo consumes the local snapshot only for Prism sessions; LyricSync's separate provider cascade is disabled for Prism. The bridge does not yet export Prism's rendered translated/romanized lines, and coobvo has not mapped all Prism look settings to Canvas. The bundle has not been applied to the exact Prism APK or device-tested.
 
 ## CI evidence
 
-- Runs #34–#53 passed compilation, APK packaging and artifact upload for their respective commits.
+- Debug APK runs #34–#62 passed their respective compilation/package steps; run #62 also passed the focused notification-cooldown JVM unit test. Later docs-only run #63 is pending.
 - Run #41 passed for commit 67304af64dd1009c814771ce94e4c31c5d9f3d9f; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438321472/artifacts/13600168702). The redundant explicit iMode spring-step call was removed; Director.stepCards() is the single owner of iMode stepping.
 - Run #44 passed for commit 7798e2f9da1d72bec2f87b47e991fb808c251eff; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438606018/artifacts/13599659870).
 - Run #46 passed for commit 599a65094994025a2ff5fe2cb1237ed8472b5f6c; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438935285/artifacts/13600931647).
@@ -63,7 +64,10 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 - Run #50 passed for commit 2ddbc6f1feff15a8ac1067d6db9e253765606f72; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439603938/artifacts/13600578084).
 - **Run #51 passed** for commit `f3046b390d4b6f6a9b8fd70c0fd23c62564bdb44`, source version 131 / 0.1.29-dev1. Build and upload both succeeded. Artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439738832/artifacts/13601441127).
 - **Run #52 passed** for commit `d09ef5625096e998fe9abc67a474fc6e2ee7663f`, source version 132 / 0.1.30-dev1. This commit updated project status documents and build version; build and upload passed. Artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42442152143/artifacts/13602555320).
-- **Run #53 passed** for commit `4a80e8929984e31ae69e69697a5ba311e6b7855e`, source version 133 / 0.1.31-dev1. The coobvo debug APK compiled, packaged and uploaded. Artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42444559343/artifacts/13603027828). This run did not build the separate Morphe patch project or verify a patched Prism APK.
+- **Run #61 passed** for commit `ef0633627ee3c939695dbbf59e5f8d424944fb48`, source version 135 / 0.1.33-dev1. Debug APK artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447445219/artifacts/13604575694).
+- **Run #62 passed** for commit `6ba861405271d4b6c5909f77aade4768267cc9b8`, source version 136 / 0.1.34-dev1. The run compiled and packaged the app, ran `NotificationCooldownManagerTest` successfully, and uploaded [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447577459/artifacts/13604291827).
+- **Morphe Patch run #3 passed** and generated [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42446806609/artifacts/13603559103). Run #4 is rebuilding the documented bundle on the latest main commit.
+- **Run #63** is pending for the documentation commit; its workflow also runs the targeted cooldown test.
 - CI proves compilation, APK packaging and artifact upload only. It does not verify bubble touch response, expanded notifications, iMode animation, battery presentation, M3E consistency, Smart Island behavior or lyrics timing on the S10e.
 
 ## Remaining work
@@ -71,8 +75,8 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 1. Finish and visibly expose both bubble contents, spacing and independent touch/animation behavior; preserve the owner-confirmed cutout/side result.
 2. Complete the actual battery experiences, not just the shared gauge component.
 3. Complete the M3 Expressive token and component system across the real compact/expanded UI.
-4. Implement Smart Island features as actual cards/behaviors and real settings controls; remove or label descriptive-only entries.
-5. Build/package the Prism-specific Morphe source into a real .mpp, validate fingerprints against Prism 1.8.2.1, then add Prism lyrics/style export and test the patched Prism + coobvo media card.
+4. Continue the Smart Island Java ports: notification history, quick-launch shortcuts, idle widgets, richer live-activity parsing and system-event cooldown.
+5. Apply the generated Prism .mpp to the exact Prism 1.8.2.1 APK, validate the bytecode fingerprints, install it with coobvo, then verify media diagnostics and native synchronized lyrics on the S10e. Finish translation/romanization export and Canvas mapping of Prism look preferences.
 6. Decide whether more LyricSync work is needed for media apps other than Prism.
 
 ## Constraints
