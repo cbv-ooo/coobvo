@@ -65,6 +65,7 @@ public final class PrismMediaBridgeClient {
         public final String lyricsLook;
         public final String rawJson;
         public final float[] visualizerBands;
+        public final float[] songWaveform;
         public final float visualizerLevel;
         public final long crossfadeStartMs;
         public final long crossfadeLengthMs;
@@ -95,6 +96,7 @@ public final class PrismMediaBridgeClient {
             this.rawJson = rawJson;
             this.lyricsExtrasPending = lyricsExtrasPending;
             this.visualizerBands = readBands(data.optJSONArray("visualizerBands"));
+            this.songWaveform = readWaveform(data.optJSONArray("songWaveform"));
             this.visualizerLevel = clamp(data.optDouble("visualizerLevel", 0.0d));
             this.crossfadeStartMs = data.optLong("crossfadeStartMs", -1L);
             this.crossfadeLengthMs = data.optLong("crossfadeLengthMs", 0L);
@@ -245,6 +247,18 @@ public final class PrismMediaBridgeClient {
         if (value == null || value.isEmpty()) return;
         if (target.length() > 0) target.append(" · ");
         target.append(value);
+    }
+
+    /** Prism's SongWaves scan is exactly 100 normalized points; reject partial/corrupt arrays. */
+    private static float[] readWaveform(JSONArray values) {
+        if (values == null || values.length() != 100) return null;
+        float[] result = new float[100];
+        for (int i = 0; i < result.length; i++) {
+            double value = values.optDouble(i, Double.NaN);
+            if (Double.isNaN(value) || Double.isInfinite(value)) return null;
+            result[i] = (float) Math.max(0.0d, Math.min(1.0d, value));
+        }
+        return result;
     }
 
     private static float[] readBands(JSONArray values) {
