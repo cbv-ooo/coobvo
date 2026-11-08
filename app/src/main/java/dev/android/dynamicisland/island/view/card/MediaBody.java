@@ -22,8 +22,6 @@ import dev.android.dynamicisland.island.view.media.MediaFx;
 import org.json.JSONObject;
 import java.util.Locale;
 import java.util.Collections;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Music player card, drawn on top of the animated glow of {@link MediaFx}.
@@ -86,17 +84,12 @@ public final class MediaBody extends CardBody {
     private final float playerTitleWidth;
     private final boolean prismShowProgress;
     private final boolean prismShowTransport;
-    private final boolean prismShowButtons;
     private final boolean prismShowVolume;
     private final float prismVolumeCenterY;
-    private final float prismButtonsTop;
     private final int prismSeekRow;
     private final int prismVolumeRow;
     private final int prismTransportRow;
-    private final int prismButtonsRow;
     private final int prismLyricsRow;
-    private final List<Btn> prismTransportButtons = new ArrayList<>();
-    private final List<Btn> prismCustomButtons = new ArrayList<>();
     private final TextPaint playerArtistPaint;
     private final float prismLyricsRowDp;
     private final PrismLyricsPainter.State prismLyricState = new PrismLyricsPainter.State();
@@ -144,7 +137,6 @@ public final class MediaBody extends CardBody {
                 : PrismPlayerPreferences.defaults();
         prismShowProgress = !prismSession || prismPlayer.hasDeckPart("SCRUBBER");
         prismShowTransport = !prismSession || prismPlayer.hasDeckPart("TRANSPORT");
-        prismShowButtons = !prismSession || prismPlayer.hasDeckPart("BUTTONS");
         prismShowVolume = prismSession && prismPlayer.showVolumeBar();
         playerTitlePaint = new TextPaint(owner.mediaTitlePaint());
         originalPlayerTitle = item.title;
@@ -223,12 +215,10 @@ public final class MediaBody extends CardBody {
             float seekTopValue = -1.0f;
             float volumeCenterValue = -1.0f;
             float transportTopValue = -1.0f;
-            float buttonsTopValue = -1.0f;
             float lyricsTopValue = -1.0f;
             int seekRowValue = -1;
             int volumeRowValue = -1;
             int transportRowValue = -1;
-            int buttonsRowValue = -1;
             int lyricsRowValue = -1;
             int rowIndex = 1;
             boolean placedRow = false;
@@ -264,11 +254,8 @@ public final class MediaBody extends CardBody {
                         }
                         break;
                     case "BUTTONS":
-                        if (prismShowButtons && !item.mediaCustom.isEmpty()) {
-                            rowHeight = controlH;
-                            buttonsTopValue = cursor;
-                            buttonsRowValue = rowIndex;
-                        }
+                        // This is Prism's separate PlayerActionRow, not MediaSession custom actions.
+                        // It stays unallocated until those app-level callbacks are bridged.
                         break;
                     default:
                         break;
@@ -279,7 +266,6 @@ public final class MediaBody extends CardBody {
                 if ("STRIP".equals(part) && lyricsEnabled) lyricsTopValue = cursor;
                 else if ("SCRUBBER".equals(part) && prismShowProgress) seekTopValue = cursor;
                 else if ("TRANSPORT".equals(part) && prismShowTransport) transportTopValue = cursor;
-                else if ("BUTTONS".equals(part) && prismShowButtons && !item.mediaCustom.isEmpty()) buttonsTopValue = cursor;
                 if ("VOLUME".equals(part) && prismShowVolume) volumeCenterValue = cursor + owner.dp(8.0f);
                 cursor += rowHeight;
                 placedRow = true;
@@ -288,12 +274,10 @@ public final class MediaBody extends CardBody {
             seekTop = seekTopValue;
             prismVolumeCenterY = volumeCenterValue;
             controlsTop = transportTopValue;
-            prismButtonsTop = buttonsTopValue;
             lyricsTop = lyricsTopValue;
             prismSeekRow = seekRowValue;
             prismVolumeRow = volumeRowValue;
             prismTransportRow = transportRowValue;
-            prismButtonsRow = buttonsRowValue;
             prismLyricsRow = lyricsRowValue;
             h = cursor + owner.dp(12.0f);
         } else {
@@ -301,12 +285,10 @@ public final class MediaBody extends CardBody {
             prismVolumeCenterY = -1.0f;
             float deckGap = owner.dp(24.0f);
             controlsTop = seekTop + deckGap + owner.dp(3.0f);
-            prismButtonsTop = controlsTop;
             lyricsTop = controlsTop + controlH + owner.dp(5.0f);
             prismSeekRow = -1;
             prismVolumeRow = -1;
             prismTransportRow = -1;
-            prismButtonsRow = -1;
             prismLyricsRow = -1;
             h = lyricsTop + (lyricsEnabled ? owner.dp(LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
         }
@@ -318,30 +300,18 @@ public final class MediaBody extends CardBody {
         barRight = ((w - pad) - (showRightTime
                 ? owner.smallPaint.measureText(rightWidthText) + owner.dp(10.0f) : 0.0f));
         float span = w - (pad * 2.0f);
-        if (prismShowButtons && item.mediaCustom.size() > 0) {
-            float buttonsRowTop = prismSession ? prismButtonsTop : controlsTop;
-            if (buttonsRowTop >= 0.0f) {
-                Btn left = addCustom(item.mediaCustom.get(0), pad + (CUSTOM_LEFT_AT * span), buttonsRowTop);
-                if (prismSession) prismCustomButtons.add(left);
-            }
-        }
         if (prismShowTransport && controlsTop >= 0.0f) {
-            Btn previous = addControl(Glyphs.PREV, pad + (PREV_AT * span), item.mediaPrev, false, controlsTop);
-            Btn playPause = addControl(item.playing ? Glyphs.PAUSE : Glyphs.PLAY,
-                    pad + (PLAY_AT * span), item.mediaPlayPause, true, controlsTop);
-            Btn next = addControl(Glyphs.NEXT, pad + (NEXT_AT * span), item.mediaNext, false, controlsTop);
-            if (prismSession) {
-                prismTransportButtons.add(previous);
-                prismTransportButtons.add(playPause);
-                prismTransportButtons.add(next);
+            // MediaSession custom actions (Prism's SessionButtons) flank transport;
+            // they are not the app's separate PlayerButton row.
+            if (item.mediaCustom.size() > 0) {
+                addCustom(item.mediaCustom.get(0), pad + (CUSTOM_LEFT_AT * span), controlsTop);
             }
-        }
-        if (prismShowButtons && item.mediaCustom.size() > 1) {
-            float buttonsRowTop = prismSession ? prismButtonsTop : controlsTop;
-            if (buttonsRowTop >= 0.0f) {
-                Btn right = addCustom(item.mediaCustom.get(1),
-                        pad + (CUSTOM_RIGHT_AT * span), buttonsRowTop);
-                if (prismSession) prismCustomButtons.add(right);
+            addControl(Glyphs.PREV, pad + (PREV_AT * span), item.mediaPrev, false, controlsTop);
+            addControl(item.playing ? Glyphs.PAUSE : Glyphs.PLAY,
+                    pad + (PLAY_AT * span), item.mediaPlayPause, true, controlsTop);
+            addControl(Glyphs.NEXT, pad + (NEXT_AT * span), item.mediaNext, false, controlsTop);
+            if (item.mediaCustom.size() > 1) {
+                addCustom(item.mediaCustom.get(1), pad + (CUSTOM_RIGHT_AT * span), controlsTop);
             }
         }
         if (lyricsEnabled && !prismSession && item.title != null && item.subtitle != null) {
@@ -384,7 +354,7 @@ public final class MediaBody extends CardBody {
         return IslandView.clamp01((lx - barLeft) / Math.max(1.0f, barRight - barLeft));
     }
 
-    private Btn addControl(int glyph, float centerX, Runnable onTap, boolean circle, float rowTop) {
+    private void addControl(int glyph, float centerX, Runnable onTap, boolean circle, float rowTop) {
         Btn b = new Btn();
         b.glyph = glyph;
         boolean glyphOnly = prismSession && "GLYPHS".equals(prismPlayer.transportStyle);
@@ -400,11 +370,10 @@ public final class MediaBody extends CardBody {
         b.r.set(centerX - (size / 2.0f), rowTop + ((controlH - size) / 2.0f),
                 centerX + (size / 2.0f), rowTop + ((controlH + size) / 2.0f));
         buttons.add(b);
-        return b;
     }
 
-    /** Custom player action (shuffle, repeat, like ...): its icon, or its title when it has no icon. */
-    private Btn addCustom(IslandItem.Action action, float centerX, float rowTop) {
+    /** Android MediaSession custom action (e.g. Prism SessionButton), kept with transport controls. */
+    private void addCustom(IslandItem.Action action, float centerX, float rowTop) {
         Btn btn = new Btn();
         btn.icon = action.icon;
         if (action.icon == null && action.title != null) btn.label = action.title.toString();
@@ -425,7 +394,6 @@ public final class MediaBody extends CardBody {
         btn.r.set(centerX - (size / 2.0f), rowTop + ((controlH - size) / 2.0f),
                 centerX + (size / 2.0f), rowTop + ((controlH + size) / 2.0f));
         buttons.add(btn);
-        return btn;
     }
 
     @Override
@@ -468,24 +436,10 @@ public final class MediaBody extends CardBody {
             drawVolumeRow(c, x, y + prismVolumeCenterY
                     + ((1.0f - rowAlpha) * owner.dp(ROW_SLIDE_DP)), alpha * rowAlpha);
         }
-        if (!prismTransportButtons.isEmpty()) {
+        if (prismTransportRow >= 0) {
             float rowAlpha = rowAlpha(elapsed, prismTransportRow);
             drawButtons(c, x, y + ((1.0f - rowAlpha) * owner.dp(ROW_SLIDE_DP)),
-                    alpha * rowAlpha, prismTransportButtons);
-        }
-        if (!prismCustomButtons.isEmpty()) {
-            float rowAlpha = rowAlpha(elapsed, prismButtonsRow);
-            if (prismPlayer.buttonsPill) {
-                owner.tmpRect.set(x + pad, y + prismButtonsTop + ((1.0f - rowAlpha) * owner.dp(ROW_SLIDE_DP))
-                                + owner.dp(2.0f),
-                        x + w - pad, y + prismButtonsTop + ((1.0f - rowAlpha) * owner.dp(ROW_SLIDE_DP))
-                                + controlH - owner.dp(2.0f));
-                owner.fillPaint.setColor(Colors.withAlpha(Colors.TRACK, alpha * rowAlpha * 0.92f));
-                c.drawRoundRect(owner.tmpRect, owner.tmpRect.height() / 2.0f,
-                        owner.tmpRect.height() / 2.0f, owner.fillPaint);
-            }
-            drawButtons(c, x, y + ((1.0f - rowAlpha) * owner.dp(ROW_SLIDE_DP)),
-                    alpha * rowAlpha, prismCustomButtons);
+                    alpha * rowAlpha);
         }
         if (lyricsEnabled && prismLyricsRow >= 0) {
             float rowAlpha = rowAlpha(elapsed, prismLyricsRow);
