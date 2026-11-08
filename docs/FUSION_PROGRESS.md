@@ -37,8 +37,8 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 
 - Debug application ID: dev.android.dynamicisland.coobvo (release ID unchanged).
 - Stable debug-only signing key: app/coobvo-debug.keystore.
-- Source version in the pending bridge commit: code 133 / 0.1.31-dev1.
-- Last passing main build is code 132 / 0.1.30-dev1 at run #52 (commit d09ef5625096e998fe9abc67a474fc6e2ee7663f). The version 133 bridge commit still needs its own build result.
+- Current main source version: code 134 / 0.1.32-dev1.
+- Last passing main build is code 133 / 0.1.31-dev1 at run #53 (commit 4a80e8929984e31ae69e69697a5ba311e6b7855e). Its debug APK artifact is [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42444559343/artifacts/13603027828). Version 134 is the documentation/version correction now queued for its own CI run.
 - The owner removed the older debug installation and is now using coobvo. Do not instruct them to inspect old package settings unless a duplicate returns.
 
 ## Source implementation notes
@@ -53,7 +53,7 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 
 ## CI evidence
 
-- Runs #34–#51 passed compilation, APK packaging and artifact upload for their respective commits.
+- Runs #34–#53 passed compilation, APK packaging and artifact upload for their respective commits.
 - Run #41 passed for commit 67304af64dd1009c814771ce94e4c31c5d9f3d9f; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438321472/artifacts/13600168702). The redundant explicit iMode spring-step call was removed; Director.stepCards() is the single owner of iMode stepping.
 - Run #44 passed for commit 7798e2f9da1d72bec2f87b47e991fb808c251eff; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438606018/artifacts/13599659870).
 - Run #46 passed for commit 599a65094994025a2ff5fe2cb1237ed8472b5f6c; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42438935285/artifacts/13600931647).
@@ -63,7 +63,7 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 - Run #50 passed for commit 2ddbc6f1feff15a8ac1067d6db9e253765606f72; artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439603938/artifacts/13600578084).
 - **Run #51 passed** for commit `f3046b390d4b6f6a9b8fd70c0fd23c62564bdb44`, source version 131 / 0.1.29-dev1. Build and upload both succeeded. Artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42439738832/artifacts/13601441127).
 - **Run #52 passed** for commit `d09ef5625096e998fe9abc67a474fc6e2ee7663f`, source version 132 / 0.1.30-dev1. This commit updated project status documents and build version; build and upload passed. Artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42442152143/artifacts/13602555320).
-- Version 133 / 0.1.31-dev1 includes the Prism media bridge consumer and patch source. Its CI result is pending.
+- **Run #53 passed** for commit `4a80e8929984e31ae69e69697a5ba311e6b7855e`, source version 133 / 0.1.31-dev1. The coobvo debug APK compiled, packaged and uploaded. Artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42444559343/artifacts/13603027828). This run did not build the separate Morphe patch project or verify a patched Prism APK.
 - CI proves compilation, APK packaging and artifact upload only. It does not verify bubble touch response, expanded notifications, iMode animation, battery presentation, M3E consistency, Smart Island behavior or lyrics timing on the S10e.
 
 ## Remaining work

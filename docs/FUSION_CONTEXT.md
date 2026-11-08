@@ -86,7 +86,7 @@ For other media apps, any remaining LyricSync lookup stays opt-in, off by defaul
 
 The debug package is dev.android.dynamicisland.coobvo, separate from the old dev.android.dynamicisland identity, using app/coobvo-debug.keystore and the stable alias coobvoDebug. The owner has deleted the previous debug installation and is now using coobvo. The older dual-install situation is the likely explanation for the earlier duplicate full island; do not keep assuming both module installs remain active. If two full islands appear with only coobvo installed/enabled, investigate the current System UI window lifecycle.
 
-Current source version in the pending Prism media integration commit: version code 133 / version name 0.1.31-dev1. The latest passing build before that commit is run #52 for commit d09ef5625096e998fe9abc67a474fc6e2ee7663f (version 132 / 0.1.30-dev1); CI passed compilation, packaging and upload. Artifact: https://github.com/cbv-ooo/coobvo/actions/runs/42442152143/artifacts/13602555320. The Prism bridge changes still require their own CI run.
+Current main source version: version code 134 / version name 0.1.32-dev1. Version 133 / 0.1.31-dev1 (commit 4a80e8929984e31ae69e69697a5ba311e6b7855e) passed Debug APK run #53: compilation, APK packaging and artifact upload succeeded. Artifact: https://github.com/cbv-ooo/coobvo/actions/runs/42444559343/artifacts/13603027828. That workflow builds only the coobvo app; it does not build the separate Morphe patch project or verify a patched Prism APK. Version 134 is the documentation/version correction now queued for its own CI run.
 
 ## Backlog
 
