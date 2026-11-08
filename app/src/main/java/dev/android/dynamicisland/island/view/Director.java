@@ -86,10 +86,10 @@ final class Director {
         cancelAutoCollapse(); view.removeCallbacks(fadePillBlob); view.removeCallbacks(startSplit);
         if (scene.peekOpen) host.onPeekClosed(clearPeek());
         scene.peekOpen=false; scene.held=false;
-        boolean expanded=scene.mode==Mode.EXPANDED;
-        for (Card card:scene.cards) {
+        boolean expanded = scene.mode == Mode.EXPANDED;
+        if (scene.iMode != null) {
+            scene.iMode.dispose();
         }
-        if(scene.iMode!=null) scene.iMode.dispose();
         scene.cards.clear();
         if(view.sliderBody!=null) view.sliderBody.onSliderEnd();
         view.sliderBody=null; view.seekBody=null;
@@ -904,7 +904,7 @@ final class Director {
                     && (pillShown() || t - c.leaveAt > PILL_SETTLE_TIMEOUT_MS));
             if (gone) {
                 scene.cards.remove(i);
-                } else if (c.leaving) {
+            } else if (c.leaving) {
                 active = true; // a leaving card has to reach "gone" even if its springs rest early
             }
         }
