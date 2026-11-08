@@ -71,10 +71,10 @@ The expanded card is not the Prism lyrics page. Page-only controls such as `ahea
 
 ## Latest build evidence
 
-Latest source revision: app `0.1.48-dev1` / versionCode `150`; Morphe bridge `0.1.2`.
+Latest main revision: commit `cb76d6c75f102674cb6d6f94ecfb53ad2f2f29f9`; app `0.1.49-dev1` / versionCode `151`; Morphe bridge `0.1.2`.
 
-- Debug APK run [#42474506677](https://github.com/cbv-ooo/coobvo/actions/runs/42474506677) passed the APK build, targeted test step and artifact upload. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42474506677/artifacts/13614489292).
-- Prism Morphe run [#42474506746](https://github.com/cbv-ooo/coobvo/actions/runs/42474506746) passed the Morphe build, .mpp verification and artifact upload. Artifact: [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42474506746/artifacts/13614952120).
+- Debug APK run [#42474855696](https://github.com/cbv-ooo/coobvo/actions/runs/42474855696) passed the APK build, targeted test step and artifact upload. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42474855696/artifacts/13614564628).
+- Prism Morphe run [#42474855738](https://github.com/cbv-ooo/coobvo/actions/runs/42474855738) passed the Morphe build, .mpp verification and artifact upload. Artifact: [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42474855738/artifacts/13615121015).
 
 These results prove that the app source compiles, the selected unit tests pass, and the Morphe bundle is generated. They do **not** prove that the new .mpp applies to the exact Prism 1.8.2.1 APK or that lyrics render correctly on the S10e.
 
