@@ -15,6 +15,7 @@ The bounded in-memory JSON snapshot includes:
 - Loudness/normalization gain, output device, spatializer and effects.
 - Video resolution/codec, dropped frames and audio underruns.
 - Playback position/duration/speed, queue index/count where Prism's player service exposes it, shuffle and repeat state where available.
+- Prism's 100-point scanned song waveform from `SongWaves.get(songId)`, when the local scan exists; an unscanned song simply omits the array.
 - The real Prism LyricsState: provider, loading/waiting/settled/unavailable state, original sync flag, line text and timestamps, word timing, background-vocal word timing, second-voice alignment and instrumental gaps.
 - Actual romanized lines returned by Prism's `rememberRomanized` helper and actual translated lines returned by Prism's `rememberLyricTranslation` helper, when those helpers have produced them.
 - The resolved LyricsLook preferences, romanization mode/per-song override, translation preference and applicable typography/font preferences.
@@ -37,13 +38,13 @@ The current patch also hooks the returns from Prism's romanization and translati
 
 Prism sessions use the local bridge only; the independent LyricSync provider cascade is disabled for Prism. Other media apps can continue to use the separate LyricSync implementation.
 
-The expanded media-card Canvas renderer currently maps Prism's current lyric/word timing and line-selection behavior, its five motion choices, the one/two-line current-text wrap setting, alignment, uppercase, weight, size, spacing/tracking, selected colors/alpha, extra placement/size/italic, backing vocals, gap marker, romanization/translation toggles and font selection. It uses a fallback system font if Prism's packaged/imported font is not accessible from System UI. It does not yet provide pixel-identical Compose rendering: Spectrum/Cover fills, glow/halo, full page/background appearance and page-only controls are not completely replicated. The card background remains opaque; blur/frosted surfaces are not part of this project. Unsynchronized/static lyrics are not assigned invented timing.
+The expanded media-card Canvas renderer currently maps Prism's current lyric/word timing and line-selection behavior, its five motion choices, the one/two-line current-text wrap setting, alignment, uppercase, weight, size, spacing/tracking, selected colors/alpha, extra placement/size/italic, backing vocals, gap marker, romanization/translation toggles and font selection. It uses a fallback system font if Prism's packaged/imported font is not accessible from System UI. The Prism player mapping now consumes title size/weight/alignment, elapsed/remaining-time presentation, cover corners/FULL width, scrubber style/color/thickness/thumb and the scanned WAVE progress data. It is not a 1:1 player page: RIBBONS animation, Spectrum/Cover shaders, all custom cover shapes, title marquee, full player layouts/decks/buttons, crossfade shaping, volume bar and animated cover remain incomplete. The lyrics renderer does not yet provide pixel-identical Compose rendering: glow/halo, full page/background appearance and page-only controls are not completely replicated. The card background remains opaque; blur/frosted surfaces are not part of this project. Unsynchronized/static lyrics are not assigned invented timing.
 
 ## Build
 
 The dedicated workflow is `.github/workflows/prism-morphe.yml`, using Java 21 and Morphe's `:patches:buildAndroid` task.
 
-Latest bundle version: `0.1.2`.
+Latest bundle source version: `0.1.3` (new source still requires a fresh passing CI run and exact-APK fingerprint/runtime verification).
 
 - Run [#42474506746](https://github.com/cbv-ooo/coobvo/actions/runs/42474506746) passed and uploaded [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42474506746/artifacts/13614952120).
 
