@@ -51,6 +51,13 @@ final class PrismLyricsPainter {
         private static boolean same(String a, String b) { return a == null ? b == null : a.equals(b); }
     }
 
+    private static final class Segment {
+        final String text; final int start; final int end; final boolean clipped;
+        Segment(String text, int start, int end, boolean clipped) {
+            this.text = text; this.start = start; this.end = end; this.clipped = clipped;
+        }
+    }
+
     static float rowHeightDp(JSONObject look, MediaLyrics lyrics) {
         if (look == null) return DEFAULT_ROW_DP;
         int mainRows = look.optBoolean("lyricsStripTwoLines", false) ? 2 : 1;
@@ -166,12 +173,21 @@ final class PrismLyricsPainter {
         }
 
         setShadow(owner, mainPaint, look, sungColor);
-        drawTimedLine(canvas, owner, mainPaint, mainText, words, line.startMs, line.endMs,
-                left, width, mainBaseline, lineAlign, line.alignEnd, now, synced, motion,
-                sungColor, otherColor, othersAlpha, alpha * transition, look);
+        boolean twoRows = look.optBoolean("lyricsStripTwoLines", false);
+        int rowLimit = twoRows ? 2 : 1;
+        List<Segment> segments = wrapCurrentLine(mainText, mainPaint, width, rowLimit);
+        float firstRowBaseline = mainBaseline + owner.dp(rowLimit - segments.size()) * lineHeight;
+        for (Segment segment : segments) {
+            List<MediaLyrics.Word> segmentWords = segment.clipped ? Collections.emptyList()
+                    : wordsForRange(words, segment.start, segment.end, segment.text, look);
+            drawTimedLine(canvas, owner, mainPaint, segment.text, segmentWords, line.startMs, line.endMs,
+                    left, width, firstRowBaseline, lineAlign, line.alignEnd, now, synced, motion,
+                    sungColor, otherColor, othersAlpha, alpha * transition, look);
+            firstRowBaseline += lineHeight;
+        }
 
-        // Prism's two-line setting limits wrapping of this current line; it does not show the next lyric.
-        float afterBaseline = mainBaseline + (look.optBoolean("lyricsStripTwoLines", false) ? lineHeight * 2.0f : lineHeight);
+        // The two-line switch wraps this current line; extras begin below the full reserved lyric area.
+        float afterBaseline = mainBaseline + rowLimit * lineHeight;
 
         if (!extraAbove) {
             if (romanUnder != null) {
@@ -200,6 +216,54 @@ final class PrismLyricsPainter {
             drawExtra(canvas, owner, extraPaint, translated, left, width, afterBaseline, lineAlign,
                     alpha * transition, extraColor, look, extraSize, 0.8f, line.alignEnd);
         }
+    }
+
+    private static List<Segment> wrapCurrentLine(String text, TextPaint paint, float width, int maxRows) {
+        List<Segment> result = new ArrayList<>(maxRows);
+        if (text == null || text.isEmpty()) return result;
+        int start = 0;
+        while (start < text.length() && result.size() < maxRows) {
+            int count = paint.breakText(text, start, text.length(), true, width, null);
+            if (count <= 0) count = 1;
+            int end = Math.min(text.length(), start + count);
+            if (end < text.length()) {
+                int whitespace = -1;
+                for (int i = start; i < end; i++) if (Character.isWhitespace(text.charAt(i))) whitespace = i;
+                if (whitespace > start) end = whitespace + 1;
+            }
+            if (end <= start) end = Math.min(text.length(), start + 1);
+            result.add(new Segment(text.substring(start, end), start, end, false));
+            start = end;
+        }
+        if (start < text.length() && !result.isEmpty()) {
+            Segment last = result.remove(result.size() - 1);
+            String remaining = text.substring(last.start);
+            String ellipsis = "…";
+            int end = remaining.length();
+            while (end > 0 && paint.measureText(remaining, 0, end) + paint.measureText(ellipsis) > width) end--;
+            String fitted = (end <= 0 ? "" : remaining.substring(0, end).trim()) + ellipsis;
+            result.add(new Segment(fitted, last.start, text.length(), true));
+        }
+        return result;
+    }
+
+    private static List<MediaLyrics.Word> wordsForRange(List<MediaLyrics.Word> words, int start,
+            int end, String text, JSONObject look) {
+        if (words == null || words.isEmpty()) return Collections.emptyList();
+        List<MediaLyrics.Word> selected = new ArrayList<>();
+        StringBuilder joined = new StringBuilder();
+        int offset = 0;
+        for (MediaLyrics.Word word : words) {
+            int next = offset + word.text.length();
+            if (offset >= start && next <= end) {
+                selected.add(word);
+                joined.append(shown(word.text, look));
+            } else if (offset < end && next > start) {
+                return Collections.emptyList(); // a timed word crosses the visual wrap boundary
+            }
+            offset = next;
+        }
+        return joined.toString().equals(text) ? selected : Collections.emptyList();
     }
 
     /** Exact port of Prism LyricLine.withWords() for line-timed sources when its look asks for word motion. */
@@ -306,29 +370,6 @@ final class PrismLyricsPainter {
         canvas.drawText(text, anchor(left, width, align, alignEnd, text), baseline, paint);
         canvas.restoreToCount(save);
 
-        if (motion == 0 && activeWidth > 0.0f) { // Prism GROW's active word gains weight while it is sung.
-            String activeText = "";
-            float cursor = 0.0f;
-            for (MediaLyrics.Word word : words) {
-                String part = shown(word.text, look);
-                if (Math.abs(cursor - activeStart) < 0.5f) { activeText = part; break; }
-                cursor += paint.measureText(part);
-            }
-            if (!activeText.isEmpty()) {
-                Paint.Align oldAlign = paint.getTextAlign();
-                float oldSize = paint.getTextSize();
-                boolean oldBold = paint.isFakeBoldText();
-                paint.setTextAlign(Paint.Align.LEFT);
-                paint.setTextSize(oldSize * 1.035f);
-                paint.setFakeBoldText(true);
-                paint.setColor(Colors.withAlpha(sungColor, alpha));
-                float wordX = rtl ? textLeft + fullWidth - activeStart - activeWidth : textLeft + activeStart;
-                canvas.drawText(activeText, wordX, baseline, paint);
-                paint.setTextSize(oldSize);
-                paint.setFakeBoldText(oldBold);
-                paint.setTextAlign(oldAlign);
-            }
-        }
     }
 
     private static void drawExtra(Canvas canvas, IslandView owner, TextPaint paint, String text,
@@ -400,6 +441,7 @@ final class PrismLyricsPainter {
         paint.setTypeface(typeface(look.optString("weightNow", look.optString("weight", "LIGHT"))));
         paint.setFakeBoldText("CARD".equalsIgnoreCase(look.optString("style", "")));
         paint.setTextAlign(align(look));
+        paint.clearShadowLayer();
     }
 
     private static void configureExtraPaint(IslandView owner, TextPaint paint, JSONObject look) {
@@ -511,6 +553,7 @@ final class PrismLyricsPainter {
     private static void setShadow(IslandView owner, TextPaint paint, JSONObject look, int color) {
         if (look.optBoolean("haloNow", false)) paint.setShadowLayer(owner.dp(2.5f), 0f, 0f, color);
         else if (look.optBoolean("shadow", false)) paint.setShadowLayer(owner.dp(1.5f), 0f, owner.dp(0.5f), Colors.withAlpha(Colors.BLACK, 0.8f));
+        else paint.clearShadowLayer();
     }
 
     private static void clearShadow(TextPaint paint) {
