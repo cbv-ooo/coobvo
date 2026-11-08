@@ -135,7 +135,7 @@ final class TimerStopwatchParser {
         if (!isTimerPaused(notification) && notification.when > System.currentTimeMillis()) {
             return (notification.when - System.currentTimeMillis() + 500L) / 1000L;
         }
-        return parseTimeFields(notification, false);
+        return parseTimeFields(notification);
     }
 
     static Long stopwatchElapsedSeconds(Notification notification) {
@@ -148,16 +148,18 @@ final class TimerStopwatchParser {
                 if (delta >= 0L) return delta / 1000L;
             }
         }
-        Long parsed = parseTimeFields(notification, true);
+        Long parsed = parseTimeFields(notification);
         if (parsed != null) return parsed;
-        if (!isStopwatchPaused(notification) && notification.when > 0L
-                && notification.when <= System.currentTimeMillis() && isClockPackage(notification.getSmallIcon() == null ? "" : "")) {
+        // Some clock apps expose the stopwatch start as Notification.when without a
+        // Chronometer RemoteViews child. Only trust that field for known clock packages.
+        if (!isStopwatchPaused(notification) && isClockPackage(packageName)
+                && notification.when > 0L && notification.when <= System.currentTimeMillis()) {
             return (System.currentTimeMillis() - notification.when) / 1000L;
         }
         return null;
     }
 
-    private static Long parseTimeFields(Notification notification, boolean elapsed) {
+    private static Long parseTimeFields(Notification notification) {
         Bundle extras = notification.extras;
         if (extras == null) return null;
         String[] keys = {Notification.EXTRA_TITLE, Notification.EXTRA_TEXT, Notification.EXTRA_SUB_TEXT, Notification.EXTRA_BIG_TEXT};

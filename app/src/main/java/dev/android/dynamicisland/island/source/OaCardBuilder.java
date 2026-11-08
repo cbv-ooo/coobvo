@@ -69,11 +69,14 @@ final class OaCardBuilder {
         if ("navigation".equals(category)) {
             return IslandItem.Kind.NAVIGATION;
         }
-        if ("stopwatch".equals(category) || "alarm".equals(category) || "com.sec.android.app.clockpackage".equals(pkg)) {
-            return IslandItem.Kind.TIMER;
-        }
         if ("com.sec.android.app.voicenote".equals(pkg)) {
             return IslandItem.Kind.RECORDING;
+        }
+        if ("com.sec.android.app.clockpackage".equals(pkg)
+                || TimerStopwatchParser.isAlarm(n, pkg)
+                || TimerStopwatchParser.isTimer(n, pkg)
+                || TimerStopwatchParser.isStopwatch(n, pkg)) {
+            return IslandItem.Kind.TIMER;
         }
         return "call".equals(category) ? IslandItem.Kind.CALL : IslandItem.Kind.LIVE;
     }
@@ -189,13 +192,16 @@ final class OaCardBuilder {
             it.chronoBase = chrono.base;
             it.chronoCountDown = chrono.countDown;
             it.chronoPosition = Refl.getObjectInt(a.data, "mChronometerPosition", 0);
-            it.chronoMillis = !it.chronoCountDown && isStopwatch(n);
+            it.chronoMillis = !it.chronoCountDown && TimerStopwatchParser.isStopwatch(n, a.pkg);
             if (it.chronoMillis) {
                 stopwatchBases.put(it.key, it.chronoBase);
             }
         }
         if (hasText(chipScore)) {
             showText(it, chipScore);
+        } else if (chrono == null && bindParsedClock(it, n, a.pkg)) {
+            // A parsed timer/stopwatch supplies the value when System UI did not mirror
+            // a native Chronometer view for this notification.
         } else if (hasText(chipText)) {
             showText(it, chipText);
         } else if (frozen) {
@@ -215,6 +221,38 @@ final class OaCardBuilder {
         }
     }
 
+    /** Fallback clock model for timer apps that publish text/actions but no Chronometer view. */
+    private static boolean bindParsedClock(IslandItem item, Notification notification, String packageName) {
+        if (notification == null || item.kind != IslandItem.Kind.TIMER) return false;
+        if (TimerStopwatchParser.isStopwatch(notification, packageName)) {
+            Long elapsed = TimerStopwatchParser.stopwatchElapsedSeconds(notification, packageName);
+            if (elapsed == null) return false;
+            long elapsedMs = Math.max(0L, elapsed) * 1000L;
+            item.chronoMillis = true;
+            item.chronoCountDown = false;
+            if (TimerStopwatchParser.isStopwatchPaused(notification)) {
+                showText(item, IslandView.formatTimeCentis(elapsedMs));
+            } else {
+                item.chronoBase = System.currentTimeMillis() - elapsedMs;
+                item.trailing = IslandItem.Trailing.CHRONOMETER;
+            }
+            return true;
+        }
+        if (!TimerStopwatchParser.isTimer(notification, packageName)) return false;
+        Long remaining = TimerStopwatchParser.timerRemainingSeconds(notification);
+        if (remaining == null) return false;
+        long remainingMs = Math.max(0L, remaining) * 1000L;
+        item.chronoMillis = false;
+        item.chronoCountDown = true;
+        if (TimerStopwatchParser.isTimerPaused(notification)) {
+            showText(item, IslandView.formatTimePadded(remainingMs));
+        } else {
+            item.chronoBase = System.currentTimeMillis() + remainingMs;
+            item.trailing = IslandItem.Trailing.CHRONOMETER;
+        }
+        return true;
+    }
+
     private static void showText(IslandItem it, CharSequence text) {
         it.trailing = IslandItem.Trailing.TEXT;
         it.trailingText = text;
@@ -222,7 +260,7 @@ final class OaCardBuilder {
 
     /** A stopwatch that was paused shows the time elapsed when it was stopped, to the hundredth. */
     private CharSequence frozenClockText(String key, Notification n, StatusBarNotification sbn, OaViews.Chrono chrono) {
-        Long base = isStopwatch(n) ? stopwatchBases.get(key) : null;
+        Long base = isStopwatch(n, null) ? stopwatchBases.get(key) : null;
         if (base != null && sbn != null && sbn.getPostTime() >= base) {
             return IslandView.formatTimeCentis(sbn.getPostTime() - base);
         }
@@ -321,12 +359,8 @@ final class OaCardBuilder {
         }
     }
 
-    private static boolean isStopwatch(Notification n) {
-        if (n == null) {
-            return false;
-        }
-        String channel = n.getChannelId();
-        return "stopwatch".equals(n.category) || (channel != null && channel.contains("stopwatch"));
+    private static boolean isStopwatch(Notification n, String packageName) {
+        return TimerStopwatchParser.isStopwatch(n, packageName);
     }
 
     /** First non-empty candidate; when all are empty, the last one (the notification's own text). */
