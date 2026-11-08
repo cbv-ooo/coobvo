@@ -342,6 +342,7 @@ public final class MediaSource {
         private String prismLyricsStatus = "UNKNOWN";
         private String prismLyricsLook;
         private float[] prismVisualizerBands;
+        private float[] prismSongWaveform;
         private float prismVisualizerLevel;
         private long prismCrossfadeStartMs = -1L;
         private long prismCrossfadeLengthMs;
@@ -578,6 +579,7 @@ public final class MediaSource {
                 prismLyricsStatus = "UNKNOWN";
                 prismLyricsLook = null;
                 prismVisualizerBands = null;
+                prismSongWaveform = null;
                 prismVisualizerLevel = 0.0f;
                 prismCrossfadeStartMs = -1L;
                 prismCrossfadeLengthMs = 0L;
@@ -595,6 +597,7 @@ public final class MediaSource {
             it.mediaLyricsStatus = prismLyricsStatus;
             it.mediaLyricsLook = prismLyricsLook;
             it.mediaVisualizerBands = prismVisualizerBands;
+            it.mediaSongWaveform = prismSongWaveform;
             it.mediaVisualizerLevel = prismVisualizerLevel;
             it.mediaCrossfadeStartMs = prismCrossfadeStartMs;
             it.mediaCrossfadeLengthMs = prismCrossfadeLengthMs;
@@ -619,6 +622,7 @@ public final class MediaSource {
                     prismLyricsStatus = details.lyricsStatus;
                     prismLyricsLook = details.lyricsLook;
                     prismVisualizerBands = details.visualizerBands;
+                    prismSongWaveform = details.songWaveform;
                     prismVisualizerLevel = details.visualizerLevel;
                     prismCrossfadeStartMs = details.crossfadeStartMs;
                     prismCrossfadeLengthMs = details.crossfadeLengthMs;
