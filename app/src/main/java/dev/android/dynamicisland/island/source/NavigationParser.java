@@ -160,12 +160,19 @@ final class NavigationParser {
     }
 
     static Info parse(Notification notification, String packageName) {
+        return parse(notification, packageName, null, null);
+    }
+
+    /** Uses Samsung's already mirrored title/secondary line when notification extras are sparse. */
+    static Info parse(Notification notification, String packageName, String ongoingTitle, String ongoingText) {
         if (notification == null || packageName == null || LIVE_ACTIVITY_APPS.contains(packageName)) return null;
         if (packageName.contains("screenrecorder") || packageName.contains("voicenote")
                 || packageName.contains("soundrecorder") || packageName.contains("hotspot")) return null;
 
         String title = text(notification.extras, Notification.EXTRA_TITLE);
+        if (title.trim().isEmpty() && ongoingTitle != null) title = ongoingTitle;
         String body = firstText(notification.extras, Notification.EXTRA_TEXT, Notification.EXTRA_BIG_TEXT);
+        if (body.trim().isEmpty() && ongoingText != null) body = ongoingText;
         String sub = text(notification.extras, Notification.EXTRA_SUB_TEXT);
         String combined = (title + " " + body + " " + sub).toLowerCase(Locale.ROOT).trim();
         if (combined.isEmpty()) return null;
@@ -206,9 +213,12 @@ final class NavigationParser {
 
         String distance = "";
         if (!distanceMatch.isEmpty()) {
-            boolean hasPrefix = Character.isLetter(distanceMatch.charAt(0))
-                    || distanceMatch.charAt(0) > 127;
-            distance = hasPrefix || distanceMatch.charAt(0) > 127 ? distanceMatch.trim() : "In " + distanceMatch.trim();
+            String value = distanceMatch.trim();
+            String lower = value.toLowerCase(Locale.ROOT);
+            boolean hasPrefix = lower.matches("^(in|after|within)\\b.*");
+            boolean ascii = true;
+            for (int i = 0; i < value.length(); i++) ascii &= value.charAt(i) < 128;
+            distance = hasPrefix || !ascii ? value : "In " + value;
         }
         return new Info(distance, instruction, detail, eta, direction);
     }

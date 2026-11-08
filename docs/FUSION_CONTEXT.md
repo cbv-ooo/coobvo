@@ -89,7 +89,7 @@ Lyrics lookup sends track metadata to external providers. It must be off by defa
 
 The older dev.android.dynamicisland installation had a certificate mismatch with CI-signed updates. Debug builds now use the stable package ID dev.android.dynamicisland.coobvo, a stable debug-only keystore, and monotonically increasing version codes. This intentionally installs as a separate module beside the old package; it does not replace the old package. The owner must enable the new coobvo module for the com.android.systemui LSPosed scope and disable the old module. Future builds must reuse the same debug key and increment the version code.
 
-Current accepted build at last update: version code 124 / version name 0.1.22-dev1. Debug APK run #44 passed compilation, packaging and upload; artifact: https://github.com/cbv-ooo/coobvo/actions/runs/42438606018/artifacts/13599659870.
+Current accepted build at last update: version code 126 / version name 0.1.24-dev1. Debug APK run #46 passed compilation, packaging and upload; artifact: https://github.com/cbv-ooo/coobvo/actions/runs/42438935285/artifacts/13600931647.
 
 ## Backlog
 

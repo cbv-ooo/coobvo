@@ -86,14 +86,18 @@ final class OaCardBuilder {
         Notification n = a.notification;
         String pkg = a.pkg;
         Bundle extras = n != null ? n.extras : new Bundle();
-        NavigationParser.Info navigation = NavigationParser.parse(n, pkg);
+        String ongoingTitle = firstFilled((String) Refl.get(data, "mPrimaryInfo"),
+                (String) Refl.get(data, "mNowbarPrimaryInfo"), null);
+        String ongoingText = firstFilled((String) Refl.get(data, "mSecondaryInfo"),
+                (String) Refl.get(data, "mNowbarSecondaryInfo"), null);
+        NavigationParser.Info navigation = NavigationParser.parse(n, pkg, ongoingTitle, ongoingText);
 
         IslandItem it = new IslandItem("oa:" + a.key);
         it.sourceKey = a.sbn == null ? null : a.sbn.getKey();
         it.packageName = pkg;
         it.userId = Refl.getInt(data, "mUserId", 0);
         it.progressStyle = OaActivity.isProgressStyle(n);
-        it.kind = kindOf(n, pkg);
+        it.kind = navigation != null ? IslandItem.Kind.NAVIGATION : kindOf(n, pkg);
         it.voiceRecording = it.kind == IslandItem.Kind.RECORDING && "com.sec.android.app.voicenote".equals(pkg);
         it.transfer = n != null && (Notification.CATEGORY_PROGRESS.equals(n.category)
                 || (it.kind == IslandItem.Kind.LIVE && !it.progressStyle && extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) > 0));
