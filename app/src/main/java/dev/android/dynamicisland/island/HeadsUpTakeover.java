@@ -204,11 +204,11 @@ final class HeadsUpTakeover {
             }
         };
         cooldownDeliveries.put(packageName, deliver);
-        view.postDelayed(deliver, Math.max(0L, notificationCooldown.remainingQuietMs(packageName, SystemClock.elapsedRealtime())));
+        view.postDelayed(deliver, Math.max(0L, notificationCooldown.remainingMillis(packageName, SystemClock.elapsedRealtime())));
     }
 
     private void deliverBufferedCooldownNotification(String packageName) {
-        StatusBarNotification queued = notificationCooldown.takeDeliverable(packageName, SystemClock.elapsedRealtime());
+        StatusBarNotification queued = notificationCooldown.pollBufferedNotification(packageName, SystemClock.elapsedRealtime());
         if (queued == null || !placement.ready()) return;
         IslandView view = placement.view();
         if (view == null || (ModuleSettings.experimentalRecovery() ? view.isSuppressedNow() : !view.canPeek())) return;
