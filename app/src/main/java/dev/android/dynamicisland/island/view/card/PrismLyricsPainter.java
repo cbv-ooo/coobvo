@@ -7,6 +7,7 @@ import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.RenderEffect;
+import android.graphics.RenderNode;
 import android.graphics.Shader;
 import android.os.Build;
 import android.graphics.Typeface;
@@ -37,6 +38,9 @@ final class PrismLyricsPainter {
     private static final long TYPE_IN_MS = 140L;
     private static final float DEFAULT_ROW_DP = 44.0f;
     private static final Paint BACKGROUND_PAINT = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private static final RenderNode LYRICS_BACKGROUND_NODE =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    ? new RenderNode("CoobvoPrismLyricsBackdrop") : null;
     private static final ConcurrentHashMap<String, Typeface> TYPEFACE_CACHE = new ConcurrentHashMap<>();
 
     private PrismLyricsPainter() {}
@@ -349,14 +353,23 @@ final class PrismLyricsPainter {
                 float artLeft = backdrop.centerX() - size * 0.5f;
                 float artTop = backdrop.centerY() - size * 0.5f;
                 if ("BLUR".equalsIgnoreCase(background)
-                        && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                        && LYRICS_BACKGROUND_NODE != null) {
+                    int widthPx = Math.max(1, Math.round(backdrop.width()));
+                    int heightPx = Math.max(1, Math.round(backdrop.height()));
+                    LYRICS_BACKGROUND_NODE.setPosition(0, 0, widthPx, heightPx);
+                    Canvas recording = LYRICS_BACKGROUND_NODE.beginRecording(widthPx, heightPx);
+                    float recordSize = Math.max(widthPx, heightPx);
+                    float recordLeft = (widthPx - recordSize) * 0.5f;
+                    float recordTop = (heightPx - recordSize) * 0.5f;
+                    mediaFx.drawArt(recording, recordLeft, recordTop, recordSize,
+                            alpha, 0.0f, frameTimeMs);
+                    LYRICS_BACKGROUND_NODE.endRecording();
                     float radius = owner.dp(14.0f);
-                    BACKGROUND_PAINT.setRenderEffect(RenderEffect.createBlurEffect(
+                    LYRICS_BACKGROUND_NODE.setRenderEffect(RenderEffect.createBlurEffect(
                             radius, radius, Shader.TileMode.CLAMP));
-                    int layer = canvas.saveLayer(backdrop, BACKGROUND_PAINT);
-                    mediaFx.drawArt(canvas, artLeft, artTop, size, alpha, 0.0f, frameTimeMs);
-                    canvas.restoreToCount(layer);
-                    BACKGROUND_PAINT.setRenderEffect(null);
+                    canvas.drawRenderNode(LYRICS_BACKGROUND_NODE);
+                    LYRICS_BACKGROUND_NODE.setRenderEffect(null);
                 } else {
                     // CANVAS is represented by the live media-session cover snapshot; Prism's
                     // animated Canvas/video frame is not exposed through MediaSession artwork.

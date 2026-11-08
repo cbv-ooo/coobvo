@@ -6,6 +6,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.RenderEffect;
+import android.graphics.RenderNode;
 import android.graphics.Shader;
 import android.os.Build;
 import android.os.SystemClock;
@@ -70,7 +71,7 @@ public final class MediaBody extends CardBody {
     /** "Device . 80%" line shown under the artist when playing on another output. */
     final StaticLayout output;
     private final Paint glowPaint;
-    private final Paint backdropLayerPaint;
+    private final RenderNode backdropRenderNode;
     /** Lyrics use dedicated paints so their sizes/alignments cannot mutate the shared title layouts. */
     private final TextPaint lyricsCurrentPaint;
     private final TextPaint lyricsNextPaint;
@@ -199,7 +200,8 @@ public final class MediaBody extends CardBody {
         tile = owner.dp(32.0f);
         controlH = owner.dp(52.0f);
         glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        backdropLayerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        backdropRenderNode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                ? new RenderNode("CoobvoPrismPlayerBackdrop") : null;
         glowRect = new RectF();
         int textWidth = Math.max(1, Math.round(((((w - (pad * 2.0f)) - art) - owner.dp(ART_TEXT_GAP_DP)) - tile) - owner.dp(10.0f)));
         playerTitleWidth = textWidth;
@@ -1157,15 +1159,20 @@ public final class MediaBody extends CardBody {
     private void drawBlurredArtworkBackground(Canvas canvas, MediaFx fx, float alpha, long now) {
         float visible = alpha * prismPlayer.backdropShow;
         if (visible <= 0.001f) return;
-        boolean blurred = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+        boolean blurred = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                && backdropRenderNode != null;
         if (blurred) {
+            int widthPx = Math.max(1, Math.round(w));
+            int heightPx = Math.max(1, Math.round(h));
+            backdropRenderNode.setPosition(0, 0, widthPx, heightPx);
+            Canvas recording = backdropRenderNode.beginRecording(widthPx, heightPx);
+            drawCoverFill(recording, fx, visible, now);
+            backdropRenderNode.endRecording();
             float radius = owner.dp(18.0f * prismPlayer.playerBlur);
-            backdropLayerPaint.setRenderEffect(RenderEffect.createBlurEffect(
+            backdropRenderNode.setRenderEffect(RenderEffect.createBlurEffect(
                     radius, radius, Shader.TileMode.CLAMP));
-            int layer = canvas.saveLayer(0.0f, 0.0f, w, h, backdropLayerPaint);
-            drawCoverFill(canvas, fx, visible, now);
-            canvas.restoreToCount(layer);
-            backdropLayerPaint.setRenderEffect(null);
+            canvas.drawRenderNode(backdropRenderNode);
+            backdropRenderNode.setRenderEffect(null);
         } else {
             // Pre-Android 12 fallback: still use the cover as the backing, but do not allocate
             // an expensive software blur in the System UI process.
