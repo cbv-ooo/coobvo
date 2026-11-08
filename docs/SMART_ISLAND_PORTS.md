@@ -47,13 +47,19 @@ Notification history is intentionally adapted to the existing System UI takeover
 
 This is a local history of cards shown by the island, not a replacement for Android's Notification History and not a complete archive of every notification received by the phone.
 
+## Quick-launch interaction constraint
+
+The reference `AppShortcutsSection` uses a pinned-app grid, app selection and recent-app support; a plain tap opens the app, while long-press exposes App Info and optional floating-window/split-screen actions. Coobvo's `TouchController` already assigns the compact iMode long-press to hide the island, horizontal drag to page/cycle/minimize/restore, downward drag to open the shade/cards, and taps to the current island item. Reusing those gestures for a launcher would break existing behaviour.
+
+The port should therefore begin with a dedicated explicit entry point (for example, a separate quick-launch control/page) and a bounded pinned-package list. The initial Java version should open selected apps only. App Info, floating windows and split-screen are separate Android/OEM behaviours and should not be copied until Samsung One UI 7 support is confirmed. No launcher gesture has been repurposed yet.
+
 ## Remaining Smart Island candidates
 
 | Candidate | State / next work |
 |---|---|
 | Rich live-activity parsing | Timer, stopwatch and navigation are integrated. Inspect the reference parser inventory for more card types that map cleanly to Samsung System UI data. |
-| Notification history | Implemented as a local, opt-in archive of cards coobvo actually showed. Verify list, detail and clear actions on the S10e. |
-| Quick-launch shortcuts | Not ported. Reuse coobvo's existing touch controller and settings model; do not add a second overlay. |
+| Notification history | Implemented as a local, opt-in archive of cards coobvo actually showed. Database tests passed; verify list, detail and clear actions on the S10e. |
+| Quick-launch shortcuts | Not ported. Reference behaviour is a pinned app grid; a coobvo entry point must preserve existing gestures before implementation. |
 | Rotating idle widgets | Not ported. Use the existing idle/Director state and Canvas renderer. |
 | System-event cooldown | Not ported. Separate from ordinary notification cooldown; define lifecycle and exemptions first. |
 | Network speed and diagnostics widgets | Not ported. Check data availability, permissions and battery cost before choosing a minimal implementation. |
