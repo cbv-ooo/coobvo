@@ -47,7 +47,7 @@ public class PrismPlayerPreferencesTest {
                         + "\"playerLayout\":\"VINYL\",\"playerBackground\":\"BLUR\","
                         + "\"playerDeck\":[\"SCRUBBER\",\"TRANSPORT\",\"VOLUME\",\"BUTTONS\"],"
                         + "\"playerButtons\":[\"LIKE\",\"QUEUE\"],\"hiddenParts\":[\"VOLUME\"],"
-                        + "\"hideVolumeBar\":false,\"volumeMatchesProgress\":true,"
+                        + "\"hideVolumeBar\":false,\"volumeControl\":\"PRISM\",\"volumeMatchesProgress\":true,"
                         + "\"fullBleedArtwork\":true,\"canvasEnabled\":true,\"canvasFillsBackground\":true,"
                         + "\"lyricsOnPlayer\":false,\"transportStyle\":\"OUTLINE\","
                         + "\"visualizer\":\"WAVE\",\"visualizerColor\":\"ACCENT\","
