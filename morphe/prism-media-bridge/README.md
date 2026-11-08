@@ -30,9 +30,9 @@ The owner tested against Prism 1.8.2.1 / versionCode 58 and supplied this failur
 Failed to match the fingerprint: dev.coobvo.prismmedia.PrismRememberLyricsStateFingerprint
 ```
 
-That fingerprint attempted to hook Prism's `rememberLyricsState` composable and **has been removed**. The current patch does not require that composable fingerprint. Instead, it retains a weak reference from Prism's real LyricsState setter hooks (`lyrics`, `source`, `loading` and `waiting`) and refreshes the object getters on a System UI bridge poll, including the `settled` property that has no reliable setter hook in this target.
+That fingerprint attempted to hook Prism's `rememberLyricsState` composable and **has been removed**. The current patch does not require that composable fingerprint. Instead, the patch hooks the primary `LyricsState` constructor (`<init>(LyricsRepository, Song, CoroutineScope)`) and registers the fully initialized state object before Prism starts its async lookup. The extension retains a bounded set of up to eight strong references keyed by Prism's original Song ID, then refreshes live getters (`lyrics`, `loading`, `waiting`, `settled` and computed `unavailable`) for each permitted System UI bridge poll. Setter hooks are optional accelerators; romanization and translation helper hooks are optional too, so a mismatch in one helper does not block base lyrics.
 
-The current patch also hooks the returns from Prism's romanization and translation helpers. It exports those real return values; it does not call a parallel provider. A successful Morphe build is not an APK fingerprint test. The remaining setter, helper, MediaItem and ArtworkProvider fingerprints must still be checked against the user's exact APK.
+The current patch also hooks the returns from Prism's romanization and translation helpers. It exports those real return values; it does not call a parallel provider. A successful Morphe build is not an APK fingerprint test. The constructor, Song-to-MediaItem, browse MediaItem and ArtworkProvider fingerprints still need to be checked against the user's exact APK. Setter and romanization/translation helper hooks are optional.
 
 ## Coobvo renderer
 
@@ -44,9 +44,11 @@ The expanded media-card Canvas renderer currently maps Prism's current lyric/wor
 
 The dedicated workflow is `.github/workflows/prism-morphe.yml`, using Java 21 and Morphe's `:patches:buildAndroid` task.
 
-Latest bundle source version: `0.1.3` (new source still requires a fresh passing CI run and exact-APK fingerprint/runtime verification).
+Latest bundle source version: `0.1.4`.
 
-- Run [#42474506746](https://github.com/cbv-ooo/coobvo/actions/runs/42474506746) passed and uploaded [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42474506746/artifacts/13614952120).
+- Morphe run [#28](https://github.com/cbv-ooo/coobvo/actions/runs/42487611825) passed and uploaded [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42487611825/artifacts/13620077914).
+- The companion app build, selected tests and APK upload passed in debug run [#175](https://github.com/cbv-ooo/coobvo/actions/runs/42487474819); APK artifact [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42487474819/artifacts/13619808689), versionCode 154 / `0.1.50-dev3`.
+- Both runs validate compilation/package generation only; neither validates applying the patch to the original Prism 1.8.2.1 APK or live lyrics on the S10e.
 
 Build this project locally from this directory:
 
