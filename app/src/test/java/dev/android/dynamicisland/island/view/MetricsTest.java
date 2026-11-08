@@ -24,6 +24,16 @@ public class MetricsTest {
         assertEquals(300, widestDp(2f, 800, true), 1f);
     }
 
+    @Test public void expandedCardWidthRespectsAnExplicitIslandMaximum() {
+        Metrics m = new Metrics(1f);
+        m.update(360, 270, 22, 0, false);
+        assertEquals("automatic mode keeps the normal expanded-card width", 336f, m.cardWidth(), .01f);
+        m.applySize(0, 64, 120);
+        assertEquals("the explicit max width also caps expanded notification cards", 120f, m.cardWidth(), .01f);
+        m.applySize(0, 64, 0);
+        assertEquals("returning to Auto restores the normal card width", 336f, m.cardWidth(), .01f);
+    }
+
     @Test public void theUsersWidestStillWinsOverTheAutomaticOne() {
         Metrics m = new Metrics(3.5f);
         m.update(1440, 720, 140, 105, false);

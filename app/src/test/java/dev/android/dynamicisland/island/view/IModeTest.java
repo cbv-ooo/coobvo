@@ -222,6 +222,50 @@ public class IModeTest {
             f.step(16,70);assertTrue(f.scene.cards.isEmpty());assertTrue(haloPixels(f)>0);
         }
     }
+    @Test public void returningCardDoesNotFadeUntilItsOffRowCompactFoldIsComplete() {
+        try(Fixture f=new Fixture(8)) {
+            f.scene.iMode.open("item7",true);
+            f.step(16,70);
+            Card returning=f.active();
+            assertNotNull(returning);
+            f.view.collapse();
+            assertTrue(returning.leaving);
+            assertTrue("off-row activity is scheduled for a fade after the fold",returning.iModeFadeAfterReturn);
+            assertEquals("surface stays opaque at the start of the compact transition",
+                    1f,returning.iModeOpacity.target(),.001f);
+            assertEquals(1f,returning.iModeOpacity.value(),.001f);
+            f.step(16,4);
+            assertEquals("no fade-through while the expanded geometry is still moving",
+                    1f,returning.iModeOpacity.target(),.001f);
+        }
+    }
+
+    @Test public void expandedCardsUseBlackAndTheSameOutlinePreferenceAsTheCompactPill() {
+        try(Fixture f=new Fixture(1)) {
+            f.scene.iMode.open("item0",true);
+            f.step(16,80);
+            Card card=f.active();
+            RectF r=f.bounds(card);
+            Bitmap image=Bitmap.createBitmap(440,400,Bitmap.Config.ARGB_8888);
+            Canvas canvas=new Canvas(image);
+            f.prefs.edit().putInt(ModuleSettings.KEY_PILL_OUTLINE,ModuleSettings.PILL_OUTLINE_ALWAYS).commit();
+            ModuleSettings.configurePreview(f.prefs);
+            f.scene.iMode.syncOutlineTarget();
+            f.view.drawCard(canvas,card,IslandView.now());
+            int edgeX=Math.min(439,Math.max(0,Math.round(r.right-1)));
+            int middleY=Math.min(399,Math.max(0,Math.round(r.centerY())));
+            assertNotEquals("Always draws the same outline family used by the pill",
+                    Color.BLACK,image.getPixel(edgeX,middleY));
+            image.eraseColor(Color.TRANSPARENT);
+            f.prefs.edit().putInt(ModuleSettings.KEY_PILL_OUTLINE,ModuleSettings.PILL_OUTLINE_NONE).commit();
+            ModuleSettings.configurePreview(f.prefs);
+            f.scene.iMode.syncOutlineTarget();
+            f.view.drawCard(canvas,card,IslandView.now());
+            assertEquals("None removes the expanded-card rim",Color.BLACK,image.getPixel(edgeX,middleY));
+            image.recycle();
+        }
+    }
+
     private static int haloPixels(Fixture f) {
         Bitmap image=Bitmap.createBitmap(440,400,Bitmap.Config.ARGB_8888);f.view.draw(new Canvas(image));
         int[] pixels=new int[440*400];image.getPixels(pixels,0,440,0,0,440,400);image.recycle();int count=0;
