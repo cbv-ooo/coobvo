@@ -24,6 +24,7 @@ import dev.android.dynamicisland.island.source.RuleSource;
 import dev.android.dynamicisland.island.source.TorchSource;
 import dev.android.dynamicisland.island.source.DemoSource;
 import dev.android.dynamicisland.island.source.IdleSource;
+import dev.android.dynamicisland.island.source.QuickLaunchSource;
 import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.xposed.XLog;
 import dev.android.dynamicisland.xposed.hooks.HideDuplicated;
@@ -38,13 +39,10 @@ import java.util.Set;
  * Sources are isolated from each other: one that throws only loses its own islands.
  */
 final class IslandSources {
-    /** What one gathering pass produced. */
     static final class Gathered {
         final List<IslandItem> items = new ArrayList<>();
         IslandItem glowSession;
-        /** Keys of items a source left out because their app is in the foreground. */
         final Set<String> hiddenByForeground = new HashSet<>();
-        /** Packages whose chips the launcher should animate into the island. */
         final Set<String> packages = new LinkedHashSet<>();
     }
 
@@ -71,6 +69,7 @@ final class IslandSources {
     final PeekSource peeks;
     final DemoSource demo;
     final IdleSource idle;
+    final QuickLaunchSource quickLaunch;
 
     IslandSources(Context ctx, ClassLoader classLoader, Handler main, Runnable onChange) {
         this.ctx = ctx;
@@ -104,14 +103,15 @@ final class IslandSources {
         peeks = new PeekSource(ctx, main, onChange);
         demo = new DemoSource(ctx, main, onChange);
         idle = new IdleSource(ctx, main, onChange);
+        quickLaunch = new QuickLaunchSource(ctx, main, onChange);
     }
 
-    /** Starts the sources that listen on their own; the event and privacy islands may fail without harm. */
     void start(Runnable onChange) {
         media.start();
         syncOptionalSources();
         try { demo.start(); } catch (Throwable ignored) {}
         try { idle.start(); } catch (Throwable ignored) {}
+        try { quickLaunch.start(); } catch (Throwable ignored) {}
         try {
             events.start();
             torch.start();
@@ -128,7 +128,6 @@ final class IslandSources {
         guarded("hotspot settings", hotspot::syncSettings);
     }
 
-    /** Cheap vendor-cache query for ordinary banner scans; gather resolves the actual task once per pass. */
     String foregroundPackage() {
         return oa.foregroundPackage();
     }
@@ -172,6 +171,7 @@ final class IslandSources {
         guarded("peeks", () -> peeks.collect(items));
         guarded("demo", () -> demo.collect(items));
         guarded("idle", () -> idle.collectIfIdle(items));
+        guarded("quick launch", () -> quickLaunch.collect(items));
         if (torch.replacesStockNotification()) {
             items.removeIf(TorchSource::isStockItem);
         }
