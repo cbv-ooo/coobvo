@@ -9,6 +9,15 @@ import org.junit.Test;
 import java.util.List;
 
 public class PrismLyricsPainterTest {
+
+    @Test public void islandLyricsUseLargerTextAndReadableTwoLineHistory() {
+        assertEquals(17.0f, PrismLyricsPainter.mainTextSizeDp(null), 0.001f);
+        assertEquals(16.0f, PrismLyricsPainter.lineHeightDp(null), 0.001f);
+        assertEquals(0.48f, PrismLyricsPainter.historyLineAlpha(0, 0.0f), 0.001f);
+        assertEquals(0.70f, PrismLyricsPainter.historyLineAlpha(0, 1.0f), 0.001f);
+        assertEquals(0.36f, PrismLyricsPainter.historyLineAlpha(1, 0.5f), 0.001f);
+    }
+
     @Test public void lineOnlyWordTimingMatchesPrismsWithWordsCalculation() {
         List<MediaLyrics.Word> words = PrismLyricsPainter.synthesizeWords("Hello world", 1000L, 6000L);
         assertEquals(2, words.size());
