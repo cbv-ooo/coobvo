@@ -189,7 +189,7 @@ The playerDeck preference now controls the order of the supported island rows (S
 
 ### Verification state
 
-- Morphe bridge bundle v0.1.5 passed run [#42494854346](https://github.com/cbv-ooo/coobvo/actions/runs/42494854346), with artifact [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42494854346/artifacts/13623266497).
+- Morphe bridge bundle v0.1.5 passed run [#42495119390](https://github.com/cbv-ooo/coobvo/actions/runs/42495119390), with artifact [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42495119390/artifacts/13622709484).
 - Debug APK build and selected unit tests passed on source commit `62ad50b48db32fe782319b03d5bbb330eaad7522` in run [#42494944291](https://github.com/cbv-ooo/coobvo/actions/runs/42494944291). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42494944291/artifacts/13622773402). The run includes `PrismMediaBridgeClientTest`, `PrismLyricsSnapshotTest`, `PrismLyricsPainterTest` (including larger text, 20 dp spacing, history and fallback-height checks) and `PrismPlayerPreferencesTest`, plus selected SI/iMode/cutout tests.
 - These results prove bundle generation, app compilation and selected test fixtures. They do **not** prove that the patch applies to the exact installed Prism 1.8.2.1 / versionCode 58 APK or that its provider route and island rendering work on the Galaxy S10e.
 - Real-device verification is still required for background lookup with Prism closed, live preference changes during playback, 3-line lyrics visibility/transitions, and S10e card sizing.
