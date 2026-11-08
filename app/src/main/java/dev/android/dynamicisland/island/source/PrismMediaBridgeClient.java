@@ -58,7 +58,6 @@ public final class PrismMediaBridgeClient {
         public boolean needsLyricsExtrasRefresh() {
             return lyricsExtrasPending;
         }
-        }
 
         private Snapshot(String info, MediaLyrics lyrics, String lyricsStatus, String lyricsLook,
                          String rawJson, boolean lyricsExtrasPending) {
