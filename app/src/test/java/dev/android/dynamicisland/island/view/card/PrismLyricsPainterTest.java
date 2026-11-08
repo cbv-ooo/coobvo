@@ -76,6 +76,19 @@ public class PrismLyricsPainterTest {
         assertEquals("fourth", state.text);
     }
 
+    @Test public void lyricHistorySurvivesCardRefreshesButResetsOnTrackChange() {
+        PrismLyricsPainter.State first = PrismLyricsPainter.stateFor("media:com.prism.music", "song-a");
+        first.update(0, "first", 1000L);
+        first.update(1, "second", 2000L);
+        PrismLyricsPainter.State refreshed = PrismLyricsPainter.stateFor("media:com.prism.music", "song-a");
+        assertTrue(first == refreshed);
+        assertEquals("first", refreshed.pastLines.get(0));
+
+        PrismLyricsPainter.State nextTrack = PrismLyricsPainter.stateFor("media:com.prism.music", "song-b");
+        assertTrue(first != nextTrack);
+        assertTrue(nextTrack.pastLines.isEmpty());
+    }
+
     @Test public void lyricLineChangesUsePrisms340msFadeAndSlideWindow() {
         PrismLyricsPainter.State state = new PrismLyricsPainter.State();
         assertEquals(1.0f, state.update(0, "first line", 1000L), 0.001f);
