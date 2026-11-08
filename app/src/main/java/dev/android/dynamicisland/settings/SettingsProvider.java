@@ -13,8 +13,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Hands the settings to System UI when the preference file itself is out of its reach (module scope or file mode not
- * applied by the framework). Read-only: {@code call("all")} returns every stored value with its type.
+ * Hands the settings to System UI when the preference file itself is out of its reach. The all-settings
+ * endpoint is read-only; notification-history writes are separately restricted to System UI and reads/clear operations
+ * are restricted to the module app's own UID.
  */
 public final class SettingsProvider extends ContentProvider {
     public static final String AUTHORITY = BuildConfig.APPLICATION_ID + ".settings";
