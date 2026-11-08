@@ -7,6 +7,8 @@ import android.database.MatrixCursor;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 
 import org.json.JSONArray;
@@ -29,6 +31,12 @@ public final class PrismMediaBridge {
     private static final String BRIDGE_URI = "coobvo.prism.bridge.uri";
     private static final String CONTENT_URI = "content://com.prism.music.artwork/bridge";
     private static final String SNAPSHOT_COLUMN = "snapshot";
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static volatile float[] VISUALIZER_BANDS = new float[28];
+    private static volatile float VISUALIZER_LEVEL;
+    private static volatile long VISUALIZER_UPDATED_AT;
+    private static boolean visualizerListening;
+    private static final Runnable STOP_VISUALIZER = () -> setVisualizerListening(false);
     private static final Map<String, JSONObject> LYRICS_BY_SONG = new ConcurrentHashMap<>();
     /** Weak handles let /bridge reads refresh plain state fields that have no stable setter hook. */
     private static final Map<String, WeakReference<Object>> LYRICS_STATE_BY_SONG = new ConcurrentHashMap<>();
@@ -85,11 +93,18 @@ public final class PrismMediaBridge {
             Object app = context.getApplicationContext();
             Object container = invokeNoArgs(app, "getContainer");
             JSONObject snapshot = new JSONObject();
-            snapshot.put("version", 2);
+            snapshot.put("version", 3);
             snapshot.put("updatedAtElapsedRealtime", SystemClock.elapsedRealtime());
             snapshot.put("requestedSongId", requestedSongId);
 
             if (container != null) {
+                JSONObject preferences = readLyricsLook(requestedSongId);
+                if (preferences != null) {
+                    snapshot.put("prismSettings", preferences);
+                    ensureVisualizerListening(!"OFF".equalsIgnoreCase(preferences.optString("visualizer", "OFF")));
+                }
+                copyMixState(snapshot, container);
+                copyVisualizer(snapshot);
                 Object stateFlow = invokeNoArgs(container, "getNerdStats");
                 Object stats = invokeNoArgs(stateFlow, "getValue");
                 if (stats != null) {
@@ -314,7 +329,8 @@ public final class PrismMediaBridge {
             Object settingsRepository = property(container, "settings");
             Object settings = property(settingsRepository, "current");
             Object look = property(settings, "lyricsLook");
-            if (settings == null || look == null) return null;
+            if (settings == null) return null;
+            if (look == null) look = new JSONObject();
 
             JSONObject result = new JSONObject();
             result.put("settingsSchemaVersion", 3);
@@ -385,6 +401,13 @@ public final class PrismMediaBridge {
             copyProperties(player, parts, "hidden", "menuHidden", "menuTiles");
             put(player, "hiddenParts", property(parts, "hidden"));
             player.put("view", viewJson);
+            put(player, "crossfadeMark", property(view, "crossfadeMark"));
+            put(player, "crossfadeShape", property(view, "crossfadeShape"));
+            put(player, "blendCovers", property(view, "blendCovers"));
+            put(player, "buttonsPill", property(view, "buttonsPill"));
+            put(player, "panelPlayer", property(view, "panelPlayer"));
+            put(player, "videoControlsHide", property(view, "videoControlsHide"));
+            put(player, "videoButtonsHide", property(view, "videoButtonsHide"));
 
             Object type = property(settings, "type");
             JSONObject typeJson = copyProperties(type, "weight", "spacing", "titleFont", "playerTitleWeight", "classic");
@@ -551,6 +574,7 @@ public final class PrismMediaBridge {
             put(target, "bufferedPositionMs", invokeNoArgs(player, "getBufferedPosition"));
             put(target, "durationMs", invokeNoArgs(player, "getDuration"));
             put(target, "isPlaying", invokeNoArgs(player, "isPlaying"));
+            put(target, "playerVolume", invokeNoArgs(player, "getVolume"));
             put(target, "mediaItemCount", invokeNoArgs(player, "getMediaItemCount"));
             put(target, "mediaItemIndex", invokeNoArgs(player, "getCurrentMediaItemIndex"));
             put(target, "shuffle", invokeNoArgs(player, "getShuffleModeEnabled"));
@@ -564,6 +588,93 @@ public final class PrismMediaBridge {
     }
 
 
+
+    /** Captures the latest Prism-owned spectrum immediately after Prism's FFT update. */
+    public static void captureVisualizerSpectrum(Object spectrum) {
+        if (spectrum == null) return;
+        try {
+            Object values = property(spectrum, "bands");
+            if (!(values instanceof float[])) return;
+            float[] source = (float[]) values;
+            float[] copy = new float[source.length];
+            System.arraycopy(source, 0, copy, 0, source.length);
+            VISUALIZER_BANDS = copy;
+            Object level = property(spectrum, "level");
+            VISUALIZER_LEVEL = level instanceof Number
+                    ? Math.max(0.0f, Math.min(1.0f, ((Number) level).floatValue())) : 0.0f;
+            VISUALIZER_UPDATED_AT = SystemClock.elapsedRealtime();
+        } catch (Throwable ignored) {
+            // Optional visualizer snapshot; never interfere with Prism playback.
+        }
+    }
+
+    private static void copyVisualizer(JSONObject target) throws Exception {
+        if (target == null) return;
+        float[] values = VISUALIZER_BANDS;
+        JSONArray bands = new JSONArray();
+        for (float value : values) bands.put(Math.max(0.0f, Math.min(1.0f, value)));
+        long age = SystemClock.elapsedRealtime() - VISUALIZER_UPDATED_AT;
+        if (age > 500L) {
+            bands = new JSONArray();
+            for (int i = 0; i < values.length; i++) bands.put(0.0f);
+        }
+        target.put("visualizerBands", bands);
+        target.put("visualizerLevel", age > 500L ? 0.0f : VISUALIZER_LEVEL);
+        target.put("visualizerAgeMs", Math.max(0L, age));
+    }
+
+    /** System UI polling owns a temporary VisualizerTap reference while the configured card is visible. */
+    private static void ensureVisualizerListening(boolean active) {
+        MAIN.removeCallbacks(STOP_VISUALIZER);
+        if (!active) {
+            MAIN.post(() -> setVisualizerListening(false));
+            return;
+        }
+        MAIN.post(() -> {
+            setVisualizerListening(true);
+            MAIN.removeCallbacks(STOP_VISUALIZER);
+            MAIN.postDelayed(STOP_VISUALIZER, 1400L);
+        });
+    }
+
+    private static synchronized void setVisualizerListening(boolean active) {
+        if (visualizerListening == active) return;
+        try {
+            Class<?> type = Class.forName("com.prism.music.playback.VisualizerTap");
+            Object instance = type.getField("INSTANCE").get(null);
+            invokeNoArgs(instance, active ? "listen" : "stop");
+            visualizerListening = active;
+        } catch (Throwable ignored) {
+            // Older or incompatible builds can still export all other Prism preferences.
+        }
+    }
+
+    /** The real MixState is exported; no crossfade position is estimated from duration or mixSeconds. */
+    private static void copyMixState(JSONObject target, Object container) {
+        try {
+            Object state = property(container, "mixState");
+            Object mark = property(property(state, "mark"), "value");
+            if (mark != null) {
+                put(target, "crossfadeSongId", property(mark, "songId"));
+                put(target, "crossfadeStartMs", property(mark, "startMs"));
+                put(target, "crossfadeLengthMs", property(mark, "lengthMs"));
+            }
+            Object blend = property(property(state, "blend"), "value");
+            if (blend != null) {
+                put(target, "crossfadeFromId", property(blend, "fromId"));
+                put(target, "crossfadeToId", property(blend, "toId"));
+                put(target, "crossfadeProgress", property(blend, "progress"));
+            }
+            Object into = property(property(state, "into"), "value");
+            if (into != null) {
+                put(target, "crossfadeIntoSongId", property(into, "songId"));
+                put(target, "crossfadeIntoStartMs", property(into, "inMs"));
+                put(target, "crossfadeIntoLengthMs", property(into, "lengthMs"));
+            }
+        } catch (Throwable ignored) {
+            // Crossfade state is absent when crossfade is disabled.
+        }
+    }
 
     private static Object invokeNoArgs(Object target, String name) throws Exception {
         if (target == null) return null;
