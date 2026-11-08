@@ -98,15 +98,6 @@ private object PrismTranslatedLinesFingerprint : Fingerprint(
     )
 )
 
-/** Prism's own FFT output: 28 bands and beat level, only updated while its visualizer is listening. */
-private object PrismSpectrumUpdateFingerprint : Fingerprint(
-    definingClass = "Lcom/prism/music/playback/Spectrum;",
-    name = "update",
-    isStatic = false,
-    returnType = "V",
-    parameters = listOf("F")
-)
-
 /** Existing exported provider; only its /bridge query path is intercepted. */
 private object PrismArtworkQueryFingerprint : Fingerprint(
     definingClass = "Lcom/prism/music/playback/ArtworkProvider;",
@@ -158,22 +149,6 @@ private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureObje
     }
 }
 
-private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureSpectrumOnReturns() {
-    val returnIndexes = instructions.withIndex()
-        .filter { it.value.opcode == Opcode.RETURN_VOID }
-        .map { it.index }
-        .sortedDescending()
-    if (returnIndexes.isEmpty()) {
-        throw PatchException("Prism Spectrum.update has no void return")
-    }
-    returnIndexes.forEach { index ->
-        addInstructions(
-            index,
-            "invoke-static { p0 }, $EXTENSION->captureVisualizerSpectrum(Ljava/lang/Object;)V"
-        )
-    }
-}
-
 private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureLyricsStateOnReturns() {
     val returnIndexes = instructions.withIndex()
         .filter { it.value.opcode == Opcode.RETURN_VOID }
@@ -217,9 +192,6 @@ val prismMediaBridgePatch = patch(
         PrismTranslatedLinesFingerprint.method.captureObjectResultOnReturns(
             "captureTranslatedLyrics(Ljava/lang/Object;Ljava/lang/Object;)V"
         )
-        // Export the exact 28-band FFT and level Prism computes from its own post-normalizer audio tap.
-        PrismSpectrumUpdateFingerprint.method.captureSpectrumOnReturns()
-
         // Preserve ArtworkProvider's existing artwork routes. Only /bridge returns a cursor here.
         PrismArtworkQueryFingerprint.method.apply {
             val free = findFreeRegister(0)
