@@ -581,9 +581,14 @@ public final class MediaBody extends CardBody {
                     ? IslandView.formatTimePadded(item.mediaDuration) : NO_DURATION;
         }
 
+        if (!prismSession) {
+            drawLegacySeekRow(c, x, centerY, alpha, fx, now, position, clockText, durationText);
+            return;
+        }
+
         boolean dragged = owner.seekBody == this;
-        boolean showElapsed = !prismSession || prismPlayer.showElapsedTime();
-        boolean showRightTime = !prismSession || prismPlayer.showRightTime();
+        boolean showElapsed = prismPlayer.showElapsedTime();
+        boolean showRightTime = prismPlayer.showRightTime();
         String current = clockText;
         String right = durationText;
         if (prismSession && prismPlayer.showRemainingTime() && item.mediaDuration > 0) {
@@ -665,6 +670,45 @@ public final class MediaBody extends CardBody {
                 c.drawCircle(head, centerY, thumbRadius, glowPaint);
             }
         }
+    }
+
+    /** Keep every non-Prism player on its original island seek-bar appearance. */
+    private void drawLegacySeekRow(Canvas c, float x, float centerY, float alpha, MediaFx fx, long now,
+                                   long position, String current, String total) {
+        owner.smallPaint.setColor(Colors.withAlpha(Colors.TEXT_SECONDARY, alpha));
+        Paint.FontMetrics fm = owner.smallPaint.getFontMetrics();
+        float baseline = centerY - ((fm.ascent + fm.descent) / 2.0f);
+        boolean dragged = owner.seekBody == this;
+        if (!dragged) c.drawText(current, x + pad, baseline, owner.smallPaint);
+        float totalWidth = owner.smallPaint.measureText(total);
+        c.drawText(total, ((x + w) - pad) - totalWidth, baseline, owner.smallPaint);
+        float trackLeft = x + barLeft;
+        float trackRight = x + barRight;
+        if (dragged) {
+            String draggedTime = IslandView.formatTimePadded(
+                    (long) (Math.max(0L, item.mediaDuration) * owner.seekFraction));
+            c.drawText(draggedTime, x + pad, baseline, owner.smallPaint);
+        }
+        float barHeight = owner.dp(dragged ? 7.0f : 3.5f);
+        owner.tmpRect.set(trackLeft, centerY - (barHeight / 2.0f),
+                trackRight, (barHeight / 2.0f) + centerY);
+        owner.fillPaint.setColor(Colors.withAlpha(Colors.SEEK_TRACK, alpha));
+        c.drawRoundRect(owner.tmpRect, barHeight / 2.0f, barHeight / 2.0f, owner.fillPaint);
+        float fraction = 0.0f;
+        if (dragged) fraction = owner.seekFraction;
+        else if (item.mediaDuration > 0) fraction = IslandView.clamp01((float) position / (float) item.mediaDuration);
+        owner.tmpRect.right = Math.max(2.4f * barHeight, (trackRight - trackLeft) * fraction) + trackLeft;
+        float head = owner.tmpRect.right;
+        float glowAlpha = ((fx.liveness(now) * ((((float) Math.sin(fx.seekPhase))
+                * IslandView.PAUSED_SPEED) + 0.05f)) + 0.8f) * alpha;
+        glowPaint.setColor(Colors.withAlpha(Colors.WHITE, 0.45f * glowAlpha));
+        glowRect.set(Math.max(trackLeft, head - owner.dp(70.0f)), centerY - (barHeight / 2.0f),
+                head, centerY + (barHeight / 2.0f));
+        c.drawRoundRect(glowRect, barHeight / 2.0f, barHeight / 2.0f, glowPaint);
+        glowPaint.setColor(Colors.withAlpha(Colors.WHITE, glowAlpha * 0.9f));
+        c.drawCircle(head - (barHeight * 0.6f), centerY, 0.95f * barHeight, glowPaint);
+        owner.fillPaint.setColor(Colors.withAlpha(Colors.SEEK_FILL, alpha));
+        c.drawRoundRect(owner.tmpRect, barHeight / 2.0f, barHeight / 2.0f, owner.fillPaint);
     }
 
     private int prismScrubberColor() {
