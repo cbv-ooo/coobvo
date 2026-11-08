@@ -39,6 +39,18 @@ private object PrismBrowseMediaItemFingerprint : Fingerprint(
     )
 )
 
+/** Start Prism's own lyric lookup from the background media-service track lifecycle. */
+private object PrismPlaybackLyricsFingerprint : Fingerprint(
+    definingClass = "Lcom/prism/music/playback/PlaybackService;",
+    name = "onMediaItemTransition",
+    isStatic = false,
+    returnType = "V",
+    parameters = listOf(
+        "Landroidx/media3/common/MediaItem;",
+        "I"
+    )
+)
+
 /** Register the state as soon as Prism constructs it, before its async lookup starts. */
 private object PrismLyricsStateConstructorFingerprint : Fingerprint(
     definingClass = "Lcom/prism/music/ui/player/LyricsState;",
@@ -198,6 +210,22 @@ private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureLyri
     }
 }
 
+private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.requestBackgroundLyricsOnReturns() {
+    val returnIndexes = instructions.withIndex()
+        .filter { it.value.opcode == Opcode.RETURN_VOID }
+        .map { it.index }
+        .sortedDescending()
+    if (returnIndexes.isEmpty()) {
+        throw PatchException("Prism PlaybackService.onMediaItemTransition has no void return")
+    }
+    returnIndexes.forEach { index ->
+        addInstructions(
+            index,
+            "invoke-static { p0, p1 }, $EXTENSION->requestBackgroundLyrics(Ljava/lang/Object;Ljava/lang/Object;)V"
+        )
+    }
+}
+
 @Suppress("unused")
 val prismMediaBridgePatch = patch(
     name = "Prism media details for coobvo",
@@ -214,6 +242,10 @@ val prismMediaBridgePatch = patch(
         // small bounded set and refreshes its live getters on each /bridge read, so it does not depend
         // on a Compose page remaining on screen or on any one setter being a mandatory join point.
         PrismLyricsStateConstructorFingerprint.method.captureLyricsStateOnConstruction()
+
+        // A track transition, including while Prism's Activity is closed, starts Prism's own
+        // saved/network lyrics lookup. No Compose screen or manual lyrics-page open is required.
+        PrismPlaybackLyricsFingerprint.method.requestBackgroundLyricsOnReturns()
 
         // Setter hooks are accelerators only. The bridge still works when a setter's bytecode shape
         // differs on a later Prism build because polling reads the registered live object directly.

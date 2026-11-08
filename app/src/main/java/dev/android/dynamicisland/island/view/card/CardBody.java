@@ -113,6 +113,32 @@ public abstract class CardBody {
     }
 
     private void drawButton(Canvas c, Btn b, float alpha) {
+        if (b.cornerRadiusDp >= 0.0f) {
+            float radius = owner.dp(b.cornerRadiusDp);
+            if (b.outline) {
+                owner.fillPaint.setStyle(Paint.Style.STROKE);
+                owner.fillPaint.setStrokeWidth(owner.dp(1.4f));
+                owner.fillPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha * 0.82f));
+                c.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
+                owner.fillPaint.setStyle(Paint.Style.FILL);
+            } else {
+                owner.fillPaint.setColor(Colors.withAlpha(b.bg, alpha));
+                c.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
+            }
+            float contentSize = owner.tmpRect.height() * 0.42f;
+            if (b.glyph != 0) {
+                owner.fillPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha));
+                Glyphs.draw(c, b.glyph, owner.tmpRect.centerX(), owner.tmpRect.centerY(), contentSize, owner.fillPaint);
+            } else if (b.icon != null) {
+                owner.drawDrawable(c, b.icon, false, Colors.WHITE,
+                        owner.tmpRect.centerX() - contentSize / 2.0f,
+                        owner.tmpRect.centerY() - contentSize / 2.0f,
+                        contentSize, alpha, 0.0f);
+            } else if (b.label != null) {
+                drawLabel(c, b.label, owner.tmpRect, alpha);
+            }
+            return;
+        }
         if (!b.circle) {
             if (b.glyph != 0) {
                 owner.fillPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha));
@@ -126,13 +152,20 @@ public abstract class CardBody {
             }
             return;
         }
-        owner.fillPaint.setColor(Colors.withAlpha(b.bg, alpha));
-        c.drawOval(owner.tmpRect, owner.fillPaint);
+        if (b.outline) {
+            owner.fillPaint.setStyle(Paint.Style.STROKE);
+            owner.fillPaint.setStrokeWidth(owner.dp(1.4f));
+            owner.fillPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha * 0.82f));
+            c.drawOval(owner.tmpRect, owner.fillPaint);
+            owner.fillPaint.setStyle(Paint.Style.FILL);
+        } else {
+            owner.fillPaint.setColor(Colors.withAlpha(b.bg, alpha));
+            c.drawOval(owner.tmpRect, owner.fillPaint);
+        }
         // Bare media custom actions use the same half-button icon size as previous/next. Their
         // touch bounds stay unchanged; the old 60% scale made favorites look oversized (#2).
         float contentSize = owner.tmpRect.height() * (b.bg == Colors.TRANSPARENT_MARK ? 0.5f : 0.44f);
         if (b.glyph != 0) {
-            // a white fill gets a black glyph, anything else a white one
             owner.fillPaint.setColor(Colors.withAlpha(b.bg == Colors.WHITE ? Colors.BLACK : Colors.ON_PRIMARY_CONTAINER, alpha));
             if (b.glyph == Glyphs.PLAY || b.glyph == Glyphs.PAUSE) {
                 contentSize = owner.tmpRect.height() * 0.4f;

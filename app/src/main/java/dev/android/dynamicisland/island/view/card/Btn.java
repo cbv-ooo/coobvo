@@ -16,6 +16,10 @@ public final class Btn {
     int bg;
     /** Round button as opposed to a pill with a label. */
     boolean circle;
+    /** Draw only an outline around a round transport button. */
+    boolean outline;
+    /** Non-negative corner radius in dp for preference-shaped rectangular media buttons. */
+    float cornerRadiusDp = -1.0f;
     /** Vector glyph id from {@code Glyphs}, or 0 for none. */
     int glyph;
     Drawable icon;

@@ -41,6 +41,41 @@ public class PrismPlayerPreferencesTest {
         assertEquals("CIRCLE", prefs.coverShape);
     }
 
+    @Test public void readsPlayerLayoutDeckButtonsBackgroundVolumeAndEffects() {
+        PrismPlayerPreferences prefs = PrismPlayerPreferences.fromLyricsLook(
+                "{\"playerPreferences\":{"
+                        + "\"playerLayout\":\"VINYL\",\"playerBackground\":\"BLUR\","
+                        + "\"playerDeck\":[\"SCRUBBER\",\"TRANSPORT\",\"VOLUME\",\"BUTTONS\"],"
+                        + "\"playerButtons\":[\"LIKE\",\"QUEUE\"],\"hiddenParts\":[\"VOLUME\"],"
+                        + "\"hideVolumeBar\":false,\"volumeMatchesProgress\":true,"
+                        + "\"fullBleedArtwork\":true,\"canvasEnabled\":true,\"canvasFillsBackground\":true,"
+                        + "\"lyricsOnPlayer\":false,\"transportStyle\":\"OUTLINE\","
+                        + "\"visualizer\":\"WAVE\",\"visualizerColor\":\"ACCENT\","
+                        + "\"showOutputDevice\":false,\"crossfadeMark\":true,"
+                        + "\"view\":{\"buttonsPill\":true,\"crossfadeMark\":true,\"crossfadeShape\":true},"
+                        + "\"shapes\":{\"button\":\"SQUARE\"}}}");
+
+        assertEquals("VINYL", prefs.layout);
+        assertEquals("BLUR", prefs.background);
+        assertEquals("OUTLINE", prefs.transportStyle);
+        assertEquals("SQUARE", prefs.buttonShape);
+        assertTrue(prefs.buttonsPill);
+        assertTrue(prefs.hasDeckPart("SCRUBBER"));
+        assertTrue(prefs.hasDeckPart("BUTTONS"));
+        assertFalse(prefs.hasDeckPart("VOLUME"));
+        assertTrue(prefs.hasPlayerButton("LIKE"));
+        assertTrue(prefs.volumeMatchesProgress);
+        assertTrue(prefs.fullBleedArtwork);
+        assertTrue(prefs.canvasEnabled);
+        assertTrue(prefs.canvasFillsBackground);
+        assertFalse(prefs.lyricsOnPlayer);
+        assertFalse(prefs.showOutputDevice);
+        assertTrue(prefs.crossfadeMark);
+        assertTrue(prefs.crossfadeShape);
+        assertEquals("WAVE", prefs.visualizer);
+        assertEquals("ACCENT", prefs.visualizerColor);
+    }
+
     @Test public void readsLegacyFlattenedFieldsAndResolvesAutoThumbByStyle() {
         PrismPlayerPreferences prefs = PrismPlayerPreferences.fromLyricsLook(
                 "{\"playerTimes\":\"ELAPSED\",\"scrubberStyle\":\"RIBBONS\","

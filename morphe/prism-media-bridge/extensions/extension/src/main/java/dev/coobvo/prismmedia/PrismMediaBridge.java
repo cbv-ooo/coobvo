@@ -14,9 +14,15 @@ import android.os.SystemClock;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Proxy;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -47,11 +53,149 @@ public final class PrismMediaBridge {
      */
     private static final Map<String, Object> LYRICS_STATE_BY_SONG = new ConcurrentHashMap<>();
     private static final int MAX_RETAINED_LYRICS_STATES = 8;
+    /** Song IDs already handed to Prism's own background LyricsState.loadAuto() pipeline. */
+    private static final Set<String> BACKGROUND_LYRICS_REQUESTED =
+            Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
     /** Results returned by Prism's own Compose helpers; null means the listener has it disabled/not ready. */
     private static final Map<String, JSONArray> ROMANIZED_LINES_BY_SONG = new ConcurrentHashMap<>();
     private static final Map<String, JSONObject> TRANSLATION_BY_SONG = new ConcurrentHashMap<>();
 
     private PrismMediaBridge() {}
+
+    /**
+     * Invoked from PlaybackService.onMediaItemTransition, not from a player Activity or Compose
+     * page. It constructs Prism's own LyricsState with Prism's application repository and scope,
+     * then calls the same loadAuto(savedOnly) method used by rememberLyricsState().
+     *
+     * Reflection keeps the extension independent of Prism's coroutine/compiler artifacts. The
+     * continuation inherits Prism's application Job and prefers Main.immediate, matching the
+     * state mutations performed by the player screen.
+     */
+    public static void requestBackgroundLyrics(Object service, Object mediaItem) {
+        if (mediaItem == null) return;
+        String requestedId = "";
+        try {
+            Object song = null;
+            Class<?> items = Class.forName("com.prism.music.playback.MediaItemsKt");
+            for (Method method : items.getDeclaredMethods()) {
+                if ("toSong".equals(method.getName()) && Modifier.isStatic(method.getModifiers())
+                        && method.getParameterTypes().length == 1
+                        && method.getParameterTypes()[0].isAssignableFrom(mediaItem.getClass())) {
+                    method.setAccessible(true);
+                    song = method.invoke(null, mediaItem);
+                    break;
+                }
+            }
+            if (song == null || asBoolean(property(song, "isEpisode"))) return;
+            requestedId = String.valueOf(property(song, "id"));
+            if (requestedId.isEmpty() || "null".equals(requestedId)) return;
+
+            // If Prism already created a state for this song (e.g. the player was opened), just
+            // publish that state. Never start a duplicate request for the same track.
+            Object existing = LYRICS_STATE_BY_SONG.get(requestedId);
+            if (existing != null) {
+                captureLyricsState(existing);
+                return;
+            }
+            if (!BACKGROUND_LYRICS_REQUESTED.add(requestedId)) return;
+            if (BACKGROUND_LYRICS_REQUESTED.size() > 64) {
+                for (String oldId : BACKGROUND_LYRICS_REQUESTED) {
+                    if (!requestedId.equals(oldId)) {
+                        BACKGROUND_LYRICS_REQUESTED.remove(oldId);
+                        break;
+                    }
+                }
+            }
+
+            Object app = Class.forName("android.app.ActivityThread")
+                    .getMethod("currentApplication").invoke(null);
+            Object container = invokeNoArgs(app, "getContainer");
+            Object repository = property(container, "lyrics");
+            Object scope = property(container, "scope");
+            Object settingsRepository = property(container, "settings");
+            Object settings = property(settingsRepository, "current");
+            Object network = property(container, "network");
+            Object meteredFlow = property(network, "metered");
+            boolean metered = asBoolean(property(meteredFlow, "value"));
+            boolean mobileAllowed = settings == null || asBoolean(property(settings, "lyricsOnMobileData"));
+            boolean savedOnly = metered && !mobileAllowed;
+
+            Class<?> stateClass = Class.forName("com.prism.music.ui.player.LyricsState");
+            Constructor<?> constructor = null;
+            for (Constructor<?> candidate : stateClass.getDeclaredConstructors()) {
+                if (candidate.getParameterTypes().length == 3) {
+                    Class<?>[] types = candidate.getParameterTypes();
+                    if (types[0].isInstance(repository) && types[1].isInstance(song)
+                            && types[2].isInstance(scope)) {
+                        constructor = candidate;
+                        break;
+                    }
+                }
+            }
+            if (constructor == null) throw new NoSuchMethodException("LyricsState(repository, song, scope)");
+            constructor.setAccessible(true);
+            Object state = constructor.newInstance(repository, song, scope);
+            // The Morphe constructor hook captures this state as soon as it exists. Keep a direct
+            // call too, so the extension remains functional if an installer omits that optional hook.
+            captureLyricsState(state);
+
+            Class<?> continuationType = Class.forName("kotlin.coroutines.Continuation");
+            Class<?> coroutineContextType = Class.forName("kotlin.coroutines.CoroutineContext");
+            Object emptyContext = Class.forName("kotlin.coroutines.EmptyCoroutineContext")
+                    .getField("INSTANCE").get(null);
+            Object continuationContext = property(scope, "coroutineContext");
+            if (continuationContext == null) continuationContext = emptyContext;
+            try {
+                Object dispatchers = Class.forName("kotlinx.coroutines.Dispatchers").getField("INSTANCE").get(null);
+                Object mainDispatcher = property(dispatchers, "main");
+                Object immediateDispatcher = property(mainDispatcher, "immediate");
+                if (immediateDispatcher != null) {
+                    Method plus = coroutineContextType.getMethod("plus", coroutineContextType);
+                    continuationContext = plus.invoke(continuationContext, immediateDispatcher);
+                }
+            } catch (Throwable ignored) {
+                // The application's existing scope context remains a safe fallback.
+            }
+
+            final Object callbackContext = continuationContext;
+            InvocationHandler handler = (proxy, method, args) -> {
+                if ("getContext".equals(method.getName())) return callbackContext;
+                if ("resumeWith".equals(method.getName())) {
+                    captureLyricsState(state);
+                    return null;
+                }
+                if ("toString".equals(method.getName())) return "CoobvoPrismLyricsContinuation";
+                if ("hashCode".equals(method.getName())) return System.identityHashCode(proxy);
+                if ("equals".equals(method.getName())) return args != null && args.length == 1 && proxy == args[0];
+                return null;
+            };
+            Object continuation = Proxy.newProxyInstance(
+                    continuationType.getClassLoader(), new Class<?>[]{continuationType}, handler);
+
+            Method loadAuto = null;
+            for (Method method : stateClass.getDeclaredMethods()) {
+                Class<?>[] types = method.getParameterTypes();
+                if ("loadAuto".equals(method.getName()) && types.length == 2
+                        && (types[0] == boolean.class || types[0] == Boolean.class)
+                        && continuationType.isAssignableFrom(types[1])) {
+                    loadAuto = method;
+                    break;
+                }
+            }
+            if (loadAuto == null) throw new NoSuchMethodException("LyricsState.loadAuto(savedOnly, Continuation)");
+            loadAuto.setAccessible(true);
+            loadAuto.invoke(state, savedOnly, continuation);
+            // A suspend method may finish synchronously when the result is already saved.
+            captureLyricsState(state);
+        } catch (Throwable failure) {
+            if (!requestedId.isEmpty()) {
+                BACKGROUND_LYRICS_REQUESTED.remove(requestedId);
+                LYRICS_STATE_BY_SONG.remove(requestedId);
+                LYRICS_BY_SONG.remove(requestedId);
+            }
+            // Background lyric lookup is optional and must never interfere with playback.
+        }
+    }
 
     /** Injection point at the return of Song.toMediaItem. */
     public static Object decorateMediaItem(Object mediaItem) {
@@ -405,6 +549,7 @@ public final class PrismMediaBridge {
             String[] playerFields = {
                     "playerLayout", "playerDeck", "playerButtons", "sessionButtons",
                     "playerTitleAlign", "playerTitleSize", "playerTitleScroll", "playerTimes",
+                    "visualizer", "visualizerColor", "vinylTonearm", "hideStatusBarPlayer",
                     "playerBackground", "playerBackdropShow", "playerArtCorners", "coverSize",
                     "transportStyle", "scrubberStyle", "scrubberColor", "scrubberThickness",
                     "scrubberThumb", "volumeMatchesProgress", "hideVolumeBar", "volumeControl",

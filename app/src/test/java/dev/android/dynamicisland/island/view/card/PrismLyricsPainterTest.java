@@ -25,6 +25,19 @@ public class PrismLyricsPainterTest {
         assertTrue(PrismLyricsPainter.synthesizeWords("Plain words", 0L, 0L).isEmpty());
     }
 
+    @Test public void lyricHistoryKeepsTheTwoLinesBeforeTheCurrentLine() {
+        PrismLyricsPainter.State state = new PrismLyricsPainter.State();
+        state.update(0, "first", 1000L);
+        state.update(1, "second", 2000L);
+        state.update(2, "third", 3000L);
+        state.update(3, "fourth", 4000L);
+
+        assertEquals(2, state.pastLines.size());
+        assertEquals("third", state.pastLines.get(0));
+        assertEquals("second", state.pastLines.get(1));
+        assertEquals("fourth", state.text);
+    }
+
     @Test public void lyricLineChangesUsePrisms340msFadeAndSlideWindow() {
         PrismLyricsPainter.State state = new PrismLyricsPainter.State();
         assertEquals(1.0f, state.update(0, "first line", 1000L), 0.001f);

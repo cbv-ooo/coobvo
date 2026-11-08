@@ -149,3 +149,46 @@ Owner-provided requirements recorded on 2026-11-08. This is a requirements and i
 6. Record three independent statuses for every item: exported by Morphe, consumed/rendered by Coobvo, and verified on the S10e.
 
 The owner-provided checklist is the feature scope for future Prism bridge and media-card work. The recorded build evidence proves only build/test/package success; it does not prove application to the installed Prism APK or working lyrics on the device.
+
+## Latest implementation addendum (2026-11-08, source update pending CI)
+
+This addendum supersedes the earlier preference-status rows above where they conflict. The source update is being prepared for main; CI and device application are separate verification steps.
+
+### Background lyrics lookup
+
+- The Morphe patch now hooks Prism's PlaybackService.onMediaItemTransition(MediaItem, reason) rather than relying on the player Activity or the Compose lyrics screen.
+- The hook calls the extension's requestBackgroundLyrics(service, mediaItem). It converts the new MediaItem back to Prism's own Song, obtains the existing application LyricsRepository and CoroutineScope, constructs Prism's LyricsState, then calls Prism's loadAuto(savedOnly) method.
+- savedOnly follows the same mobile-data rule as Prism's player UI: when the connection is metered and lyricsOnMobileData is disabled, it checks stored lyrics only and does not start a network search. Otherwise it uses Prism's normal provider selection, source order and saved fallback.
+- Song IDs are deduplicated. The hook is a no-op for null media items and episodes, and failures are caught so they cannot interrupt playback.
+- This is source-level implementation only until the Morphe workflow passes and the new patch is applied to the exact Prism 1.8.2.1 / versionCode 58 APK. The phone test must confirm that a track transition fetches lyrics with Prism fully closed.
+
+### Lyrics strip changes
+
+- Synced lyrics now retain the two lines before the active line. The newest past line moves upward as the next active line fades/slides in; the second past line remains dimmer. The transition is 340 ms.
+- The base font size is now 15 dp (before Prism size and app text scaling), and the measured card height reserves space for both history lines. The no-preferences fallback also reserves the history rows.
+- The painter applies the configured focus blur to dimmed past/upcoming text and supports the exported lyric strip backing choices: DARK, COLOR (including a two-color gradient), COVER_COLOR and an accent-tinted approximation for BLUR/CANVAS.
+- Prism's actual stored timed lyrics and helper-produced romanized/translated lines remain authoritative. Static lyrics do not receive fabricated word timing.
+- The strip background for BLUR/CANVAS is only an accent-colour approximation. The bridge does not currently export Prism's live blurred/animated Canvas bitmap, so this is not pixel-identical to Prism. No frosted or translucent card surface is added.
+
+### Player settings now consumed by the island
+
+The preference parser reads the nested playerPreferences object and its view, type and shapes members, with a fallback for older flattened snapshots. The expanded media card now consumes:
+
+- Layout/deck visibility for the lyrics strip, progress row, transport row, optional volume row and custom-button row. MINIMAL suppresses the extra output line; COVER/VINYL/CASSETTE and the selected cover size increase the artwork slot.
+- Cover corner radius/shape equivalents and the selected standard/large/full cover size. Full cover is represented by a wider artwork slot, not a true full-bleed, edge-to-edge video surface.
+- Title alignment, size, weight and automatic marquee scrolling; artist text and optional playing-from/quality metadata.
+- Elapsed/remaining/track-length display, scrubber thickness/style/color and knob style. Prism's scanned 100-point waveform is used for WAVE when available; otherwise the normal progress bar remains.
+- Transport style (glyph/button/outlined play), custom-button shape, and the grouped bottom-row capsule preference.
+- Optional volume bar and the volume-matches-progress style.
+- The crossfade-start mark and the separate crossfade-bar blend/taper toggle, when Prism supplies a planned crossfade interval.
+- Prism's sampled visualizer bands when the setting is enabled. The current island rendering is a compact bar visualization rather than Prism's full page-specific BARS/WAVE/RING/PULSE/GLOW layouts.
+
+### Explicitly not full parity yet
+
+The snapshot also exports Prism's playerButtons order, but the island still only renders media-session custom actions that Android exposes; it does not create Prism's app-level Lyrics/Video/Queue/Sleep/Like/etc. actions itself. The playerDeck list is currently consumed for row visibility, not as a fully arbitrary row-reordering layout. Canvas/animated cover playback, full-bleed player fill, every custom cover silhouette, Prism's animated RIBBONS/spectrum shader, and the full visualizer styles remain incomplete. The volume row is display-only; it is not wired to a touch volume controller. These must remain marked as partial until a corresponding action/data path is implemented and tested.
+
+### Verification state
+
+- Source changes and unit-test additions are part of this update.
+- Morphe .mpp build, app debug build and selected unit-test results must be recorded from the CI run associated with this exact commit; historical workflow runs above do not verify this source update.
+- Real-device verification is still required for the background lookup with Prism closed, live preference changes while playback continues, 3-line lyrics visibility/transitions, and Galaxy S10e card sizing.
