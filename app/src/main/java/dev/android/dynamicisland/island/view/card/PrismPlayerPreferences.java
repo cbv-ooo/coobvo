@@ -151,6 +151,33 @@ final class PrismPlayerPreferences {
         return deckParts.contains(part) && !hiddenParts.contains(part);
     }
 
+    /**
+     * Returns Prism's visible player rows in the exact user-selected order.
+     * VOLUME has the additional Prism/phone visibility rule; unknown future rows
+     * are ignored rather than being assigned an invented island layout.
+     */
+    List<String> orderedDeckParts() {
+        ArrayList<String> ordered = new ArrayList<>(deckParts.size());
+        for (String part : deckParts) {
+            if (hiddenParts.contains(part)) continue;
+            switch (part) {
+                case "STRIP":
+                case "SCRUBBER":
+                case "TRANSPORT":
+                case "BUTTONS":
+                    ordered.add(part);
+                    break;
+                case "VOLUME":
+                    if (showVolumeBar()) ordered.add(part);
+                    break;
+                default:
+                    // Prism may add a deck row in a later release; do not guess its rendering.
+                    break;
+            }
+        }
+        return Collections.unmodifiableList(ordered);
+    }
+
     boolean hasPlayerButton(String button) {
         return playerButtons.contains(button);
     }
