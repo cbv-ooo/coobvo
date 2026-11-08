@@ -98,3 +98,44 @@ These results prove that the app source compiles, the selected unit tests pass, 
 - [RomanLyrics.kt](https://github.com/Yigder/Prism/blob/1abbed19d374b84e6cda4e1c63db937d1f70befd/app/src/main/java/com/prism/music/ui/player/RomanLyrics.kt)
 - [Morphe patch template](https://github.com/MorpheApp/morphe-patches-template)
 - [Morphe patcher](https://github.com/MorpheApp/morphe-patcher)
+
+## Owner-requested Prism lyrics and player parity scope
+
+Owner-provided requirements recorded on 2026-11-08. This is a requirements and implementation-status record, **not a claim that these features are complete**.
+
+### Lyrics preferences
+
+| Requested control or behavior | Current bridge / island status |
+|---|---|
+| Start from / lyric position | Prism's `ahead` and `position` values are included in the preference snapshot. The inline island strip does not yet reproduce the full-page start/position behavior. |
+| Animation | Prism style/motion preferences are exported. The Canvas strip maps the five lyric motion modes; visual parity still needs device comparison. |
+| Word-by-word on every line | The bridge exports Prism's real word timing and the word-by-word preference. The renderer uses real timing where present and only applies the existing Prism-derived line-timing formula when Prism's preference enables it. Static/unsynced lyrics must not receive invented karaoke timing. |
+| Text alignment, size, weight and line spacing | The relevant lyric-look values are exported and a subset is mapped by the Canvas strip. Verify each control against Prism's live settings. |
+| Sung-line and other-line colors; dim-to-bright behavior | Sung/other color, alpha and motion-related values are exported and partly rendered. Custom, accent, cover and spectrum colors still need parity checks. |
+| Focus blur | The preference value is exported where Prism provides it. Coobvo's standing constraint prohibits blur/frosted/backdrop effects, so this setting must not introduce a blurred or translucent island surface. |
+| Lines to come | Not complete. The current strip focuses on the active line (with optional wrapping of that line); it does not yet show a configurable list of upcoming lyric lines. |
+| Background behind lyrics and effects | Relevant background/look values are exported, but the expanded card does not reproduce Prism's full lyrics-page background/effects. The island card remains opaque. |
+| Background vocals and instrumental breaks | Prism's background-vocal timing, alignment and gap data are exported. The painter already has backing-vocal and gap-marker handling; verify overlap and timing on-device. |
+| Translation and romanized lines | The bridge hooks Prism's own translation and romanization helper results. It must use those actual results, never a second lookup or generated substitute. |
+| Translation/romanization size and color | Related extra-text size/color/placement settings are included in the look snapshot and partly mapped. Verify separate translation and romanization presentation. |
+
+### Player preferences
+
+| Requested control or behavior | Current bridge / island status |
+|---|---|
+| Expanded-card layout; player contents; content under title; button row | Player layout/deck/button/hidden-part settings are exported. The island still uses its own fixed Canvas card structure; these settings are not yet a complete layout adaptation. |
+| Player background and button appearance | Background and player control settings are exported in part. Prism's full player appearance is not reproduced in the island. |
+| Progress-bar color, playhead knob, crossfade overlay and volume bar | Not established as fully exported or rendered by the current bridge/card. Audit the exact Prism setting/property sources before adding mappings; do not guess property names. |
+| Cover corners, edge-to-edge cover, animated cover and fill-player behavior | Cover-corner preference is exported, but the island's cover treatment is still its own card presentation. Edge-to-edge/fill behavior and Prism's animated-cover experience are not implemented as equivalent island features. |
+| Title size, weight and scrolling; artist name; times under progress; visualizer | Several title/time/visualizer settings are exported. The expanded island does not yet consume all of them, and it does not currently reproduce Prism's full visualizer/player page. |
+
+### Required implementation order and acceptance criteria
+
+1. First establish that Morphe v0.1.2 actually applies to the exact Prism 1.8.2.1 / versionCode 58 APK. Verify each remaining fingerprint, then confirm that System UI can query the local `/bridge/{songId}` route.
+2. Confirm that a real Prism song produces a non-empty lyrics snapshot. Exercise loading, waiting, unavailable, static/unsynced, line-synced and word-synced cases before working on visual parity.
+3. Complete the lyrics strip: active line, upcoming lines, exact timing, second voices, backing vocals, instrumental gaps, translation and romanization, with the user's selected text settings.
+4. Expand the media card only after the data contract is reliable. Map player layout, title, controls, cover and progress/volume settings individually. Do not mark a preference complete merely because Morphe serializes it.
+5. Keep the full Prism page-only experience separate from the compact/expanded island card where its behavior does not translate directly. Preserve opaque surfaces and do not add blur/frosting.
+6. Record three independent statuses for every item: exported by Morphe, consumed/rendered by Coobvo, and verified on the S10e.
+
+The owner-provided checklist is the feature scope for future Prism bridge and media-card work. The earlier build evidence still proves only build/test/package success; it does not prove application to the installed Prism APK or working lyrics on the device.
