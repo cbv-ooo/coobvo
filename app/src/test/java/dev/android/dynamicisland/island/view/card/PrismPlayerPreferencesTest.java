@@ -48,6 +48,7 @@ public class PrismPlayerPreferencesTest {
         PrismPlayerPreferences defaults = PrismPlayerPreferences.fromLyricsLook(null);
         assertTrue(defaults.showElapsedTime());
         assertTrue(defaults.showRightTime());
+        assertTrue(defaults.showRemainingTime());
         assertEquals("NONE", defaults.effectiveThumb());
         assertEquals(20, defaults.artCornersDp);
         assertEquals("ROUNDED", defaults.coverShape);
