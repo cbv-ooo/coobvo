@@ -78,7 +78,7 @@ final class LiveActivityParser {
             "arriving", "arrived", "reaching you", "at your location", "nearby",
             "out for delivery", "delivered", "completed", "ready for pickup",
             "ready to collect", "successfully delivered", "trip completed",
-            "viajando"??
+            "delivered", "completed", "viajando", "entregado", "entregue", "consegnato"
     };
 
     private LiveActivityParser() {}
