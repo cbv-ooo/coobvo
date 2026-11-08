@@ -44,6 +44,7 @@ final class PrismPlayerPreferences {
     final boolean lyricsOnPlayer;
     final boolean volumeMatchesProgress;
     final boolean hideVolumeBar;
+    final String volumeControl;
     final boolean fullBleedArtwork;
     final boolean canvasEnabled;
     final boolean canvasFillsBackground;
@@ -99,6 +100,7 @@ final class PrismPlayerPreferences {
         lyricsOnPlayer = player.optBoolean("lyricsOnPlayer", true);
         volumeMatchesProgress = player.optBoolean("volumeMatchesProgress", false);
         hideVolumeBar = player.optBoolean("hideVolumeBar", true);
+        volumeControl = choice(player, "volumeControl", "PHONE", "PHONE", "PRISM");
         fullBleedArtwork = player.optBoolean("fullBleedArtwork", false);
         canvasEnabled = player.optBoolean("canvasEnabled", true);
         canvasFillsBackground = player.optBoolean("canvasFillsBackground", false);
@@ -154,7 +156,9 @@ final class PrismPlayerPreferences {
     }
 
     boolean showVolumeBar() {
-        return hasDeckPart("VOLUME") && !hideVolumeBar;
+        // Prism always keeps its own volume control visible when volumeControl is PRISM.
+        // The hidden-parts list still takes precedence, just as it does in Prism settings.
+        return hasDeckPart("VOLUME") && (!hideVolumeBar || "PRISM".equals(volumeControl));
     }
 
     int titleFontWeight() {
