@@ -72,14 +72,6 @@ private object PrismLyricsSetWaitingFingerprint : Fingerprint(
     parameters = listOf("Z")
 )
 
-private object PrismLyricsSetSettledFingerprint : Fingerprint(
-    definingClass = "Lcom/prism/music/ui/player/LyricsState;",
-    name = "setSettled",
-    isStatic = false,
-    returnType = "V",
-    parameters = listOf("Z")
-)
-
 /** Existing exported provider; only its /bridge query path is intercepted. */
 private object PrismArtworkQueryFingerprint : Fingerprint(
     definingClass = "Lcom/prism/music/playback/ArtworkProvider;",
@@ -140,7 +132,7 @@ private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureLyri
 @Suppress("unused")
 val prismMediaBridgePatch = patch(
     name = "Prism media details for coobvo",
-    description = "Exports Prism's local stream and playback diagnostics to coobvo Dynamic Island."
+    description = "Exports Prism's local stream, playback diagnostics and native lyric state to coobvo Dynamic Island."
 ) {
     compatibleWith(COMPATIBILITY_PRISM)
     extendWith("extensions/prism-media-bridge.mpe")
@@ -154,7 +146,6 @@ val prismMediaBridgePatch = patch(
         PrismLyricsSetSourceFingerprint.method.captureLyricsStateOnReturns()
         PrismLyricsSetLoadingFingerprint.method.captureLyricsStateOnReturns()
         PrismLyricsSetWaitingFingerprint.method.captureLyricsStateOnReturns()
-        PrismLyricsSetSettledFingerprint.method.captureLyricsStateOnReturns()
 
         // Preserve ArtworkProvider's existing artwork routes. Only /bridge returns a cursor here.
         PrismArtworkQueryFingerprint.method.apply {

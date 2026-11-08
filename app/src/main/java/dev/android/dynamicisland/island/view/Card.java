@@ -18,6 +18,8 @@ public final class Card {
     final ContentBlur iModeCompactBlur = new ContentBlur();
     final Spring cx = new Spring(0, Motion.SPATIAL_DEFAULT).setValueThreshold(.15f);
     final Spring iModeOpacity = new Spring(1, Motion.EFFECTS_SLOW).setValueThreshold(.002f);
+    /** A returning activity outside the compact row fades only after its compact-size fold is complete. */
+    boolean iModeFadeAfterReturn;
     float leaveContentAlpha = 1;
     ContentHandoff handoff;
     float handoffScale = 1;

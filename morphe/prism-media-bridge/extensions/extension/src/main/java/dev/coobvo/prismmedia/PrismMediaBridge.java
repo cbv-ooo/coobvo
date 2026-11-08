@@ -12,6 +12,7 @@ import android.os.SystemClock;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,8 @@ public final class PrismMediaBridge {
     private static final String CONTENT_URI = "content://com.prism.music.artwork/bridge";
     private static final String SNAPSHOT_COLUMN = "snapshot";
     private static final Map<String, JSONObject> LYRICS_BY_SONG = new ConcurrentHashMap<>();
+    /** Weak handles let /bridge reads refresh plain state fields that have no stable setter hook. */
+    private static final Map<String, WeakReference<Object>> LYRICS_STATE_BY_SONG = new ConcurrentHashMap<>();
 
     private PrismMediaBridge() {}
 
@@ -98,7 +101,15 @@ public final class PrismMediaBridge {
                 copyPlayerState(snapshot, container);
             }
 
-            JSONObject lyrics = requestedSongId.isEmpty() ? null : LYRICS_BY_SONG.get(requestedSongId);
+            JSONObject lyrics = null;
+            if (!requestedSongId.isEmpty()) {
+                // Prism 1.8.2.1 updates `settled` as a private plain property. Its setter is not
+                // a reliable bytecode join point, so sample the live LyricsState on each poll.
+                WeakReference<Object> stateReference = LYRICS_STATE_BY_SONG.get(requestedSongId);
+                Object liveState = stateReference == null ? null : stateReference.get();
+                if (liveState != null) captureLyricsState(liveState);
+                lyrics = LYRICS_BY_SONG.get(requestedSongId);
+            }
             if (lyrics != null) snapshot.put("prismLyrics", new JSONObject(lyrics.toString()));
 
             MatrixCursor result = new MatrixCursor(new String[]{SNAPSHOT_COLUMN});
@@ -110,8 +121,9 @@ public final class PrismMediaBridge {
     }
 
     /**
-     * Called after Prism's own LyricsState setters. The state already contains the provider result
-     * and its actual word/line timestamps; this method only copies that in-memory data.
+     * Called after Prism's LyricsState mutations and when System UI polls the local bridge.
+     * The state already contains Prism's provider result and exact word/line timestamps; this
+     * method only takes a read-only snapshot of those values.
      */
     public static void captureLyricsState(Object state) {
         if (state == null) return;
@@ -120,6 +132,7 @@ public final class PrismMediaBridge {
             Object idValue = property(song, "id");
             if (idValue == null) return;
             String songId = String.valueOf(idValue);
+            LYRICS_STATE_BY_SONG.put(songId, new WeakReference<>(state));
             Object lyrics = property(state, "lyrics");
             boolean loading = asBoolean(property(state, "loading"));
             boolean waiting = asBoolean(property(state, "waiting"));
@@ -155,6 +168,7 @@ public final class PrismMediaBridge {
                 for (String oldId : LYRICS_BY_SONG.keySet()) {
                     if (!songId.equals(oldId)) {
                         LYRICS_BY_SONG.remove(oldId);
+                        LYRICS_STATE_BY_SONG.remove(oldId);
                         break;
                     }
                 }

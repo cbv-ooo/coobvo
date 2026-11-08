@@ -376,6 +376,7 @@ final class IMode {
             incoming.leaving=false;
             incoming.handoff=ContentHandoff.iMode(incoming.handoff,true,IslandView.now());
         }
+        incoming.iModeFadeAfterReturn=false;
         incoming.iModeOpacity.animateTo(1, Motion.EFFECTS_DEFAULT);
         incoming.startAt=IslandView.now(); incoming.contentStart=incoming.startAt;
         incoming.launched=true;
@@ -563,7 +564,11 @@ final class IMode {
         c.cx.animateTo(end.centerX(), Motion.SPATIAL_DEFAULT); c.cy.animateTo(end.centerY(), Motion.SPATIAL_DEFAULT);
         c.w.animateTo(end.width(), Motion.SPATIAL_DEFAULT); c.h.animateTo(end.height(), Motion.SPATIAL_DEFAULT);
         c.iModeRole.animateTo(n.slot==0 ? 0 : 1);
-        c.iModeOpacity.animateTo(n.slot>=0 && !n.removed && scene.mode!=Mode.HIDDEN ? 1 : 0, Motion.EFFECTS_SLOW);
+        boolean remainsInCompactRow = n.slot>=0 && !n.removed && scene.mode!=Mode.HIDDEN;
+        c.iModeFadeAfterReturn = !remainsInCompactRow;
+        // Keep the surface opaque while it travels and shrinks. If it has no compact slot, the
+        // separate fade begins only after its position and size springs have reached that slot.
+        c.iModeOpacity.snapTo(1f);
     }
     private void trimDepartures() {
         // Repeated taps cannot accumulate expensive RemoteViews or oversized card state.
@@ -699,6 +704,12 @@ final class IMode {
         for(int i=scene.cards.size()-1;i>=0;i--) {
             Card c=scene.cards.get(i);
             boolean moving=c.cx.step(dt)|c.cy.step(dt)|c.w.step(dt)|c.h.step(dt)|c.dx.step(dt)|c.iModeOpacity.step(dt)|c.iModeRole.step(dt);
+            if (c.iModeFadeAfterReturn && c.leaving && !c.iModePreview && !c.iModePaging
+                    && c.cx.isAtRest() && c.cy.isAtRest() && c.w.isAtRest() && c.h.isAtRest()) {
+                c.iModeFadeAfterReturn=false;
+                c.iModeOpacity.animateTo(0, Motion.EFFECTS_SLOW);
+                moving=true; // keep the card alive until this final, compact-size fade completes
+            }
             active|=moving || c.handoff!=null && !c.handoff.finished(time);
             if(c.iModePaging && !c.iModePreview && c!=swipeCard && c.dx.isAtRest()) {
                 if(c.leaving) release(c);else c.iModePaging=false;

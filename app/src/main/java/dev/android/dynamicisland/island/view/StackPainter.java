@@ -102,9 +102,9 @@ final class StackPainter {
         return opening;
     }
 
-    /** Expanded cards use one fully opaque Material surface; no glass, fade-through or gradient fill. */
+    /** Expanded cards follow the compact pill's opaque black surface; no glass or fade-through fill. */
     int fillColor(float opening) {
-        return Colors.SURFACE_CONTAINER;
+        return Colors.BLACK;
     }
 
     /** The neck of goo between two cards that are folding back into the pill one after the other. */
@@ -160,11 +160,14 @@ final class StackPainter {
 
         paints.card.setColor(fillColor(opening));
         canvas.drawRoundRect(r, corner, corner, paints.card);
-        paints.cardStroke.setShader(null);
-        paints.cardStroke.setColor(Colors.OUTLINE_VARIANT);
-        inner.set(r);
-        inner.inset(m.outlineW / 2.0f, m.outlineW / 2.0f);
-        canvas.drawRoundRect(inner, corner, corner, paints.cardStroke);
+        float outlineAlpha = scene.pillOutlineOpacity();
+        if (outlineAlpha > IslandView.MIN_VISIBLE_ALPHA) {
+            paints.cardStroke.setShader(null);
+            paints.cardStroke.setColor(Colors.withAlpha(Colors.PILL_OUTLINE, outlineAlpha));
+            inner.set(r);
+            inner.inset(m.outlineW / 2.0f, m.outlineW / 2.0f);
+            canvas.drawRoundRect(inner, corner, corner, paints.cardStroke);
+        }
 
         if(c.iMode && scene.iMode!=null) {
             int compactSave=canvas.save();
