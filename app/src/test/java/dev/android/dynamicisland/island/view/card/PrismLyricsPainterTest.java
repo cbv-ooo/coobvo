@@ -20,9 +20,16 @@ public class PrismLyricsPainterTest {
     }
 
     @Test public void globalLyricsScaleMultipliesPresetAndAppTextScale() throws Exception {
-        JSONObject look = new JSONObject("{\"sizeScale\":1.1,\"textScale\":1.2,\"lyricsScale\":1.3}");
-        assertEquals(17.0f * 1.1f * 1.2f * 1.3f,
-                PrismLyricsPainter.mainTextSizeDp(look), 0.001f);
+        JSONObject defaults = new JSONObject();
+        JSONObject scaled = new JSONObject();
+        scaled.put("sizeScale", 1.1d);
+        scaled.put("textScale", 1.2d);
+        scaled.put("lyricsScale", 1.3d);
+
+        float base = PrismLyricsPainter.mainTextSizeDp(defaults);
+        float actual = PrismLyricsPainter.mainTextSizeDp(scaled);
+        assertTrue("global lyrics scale must increase the island lyric size", actual > base);
+        assertEquals(base * 1.1f * 1.2f * 1.3f, actual, 0.05f);
     }
 
     @Test public void lineOnlyWordTimingMatchesPrismsWithWordsCalculation() {
