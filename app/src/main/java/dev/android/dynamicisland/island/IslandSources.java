@@ -23,6 +23,7 @@ import dev.android.dynamicisland.island.source.RecorderNotificationSource;
 import dev.android.dynamicisland.island.source.RuleSource;
 import dev.android.dynamicisland.island.source.TorchSource;
 import dev.android.dynamicisland.island.source.DemoSource;
+import dev.android.dynamicisland.island.source.IdleSource;
 import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.xposed.XLog;
 import dev.android.dynamicisland.xposed.hooks.HideDuplicated;
@@ -69,6 +70,7 @@ final class IslandSources {
     final CallSource calls;
     final PeekSource peeks;
     final DemoSource demo;
+    final IdleSource idle;
 
     IslandSources(Context ctx, ClassLoader classLoader, Handler main, Runnable onChange) {
         this.ctx = ctx;
@@ -101,6 +103,7 @@ final class IslandSources {
         calls = new CallSource(ctx, main, onChange, callClock);
         peeks = new PeekSource(ctx, main, onChange);
         demo = new DemoSource(ctx, main, onChange);
+        idle = new IdleSource(ctx, main, onChange);
     }
 
     /** Starts the sources that listen on their own; the event and privacy islands may fail without harm. */
@@ -108,6 +111,7 @@ final class IslandSources {
         media.start();
         syncOptionalSources();
         try { demo.start(); } catch (Throwable ignored) {}
+        try { idle.start(); } catch (Throwable ignored) {}
         try {
             events.start();
             torch.start();
@@ -151,8 +155,6 @@ final class IslandSources {
         guarded("headset", () -> headset.collect(items));
         guarded("hotspot", () -> hotspot.collect(items));
         guarded("unlock notice", () -> unlock.collect(items));
-        // the wide charging popup comes first even with the details card on, and the card follows it; with Samsung's
-        // own effect shown the card replaces the popup, as before
         if (charging.isOffering() && ModuleSettings.stockChargingAnimation()) {
             items.removeIf(item -> "event:charging".equals(item.key));
         }
@@ -160,7 +162,7 @@ final class IslandSources {
         if (ModuleSettings.placementPreviewActive()) {
             items.add(placementSample());
             main.removeCallbacks(onChange);
-            main.postDelayed(onChange, PREVIEW_RECHECK_MS); // so the sample goes away when the page stops asking for it
+            main.postDelayed(onChange, PREVIEW_RECHECK_MS);
         }
         guarded("privacy", () -> privacy.collect(items, foreground));
         guarded("live notifications", () -> promoted.collect(items, foreground));
@@ -169,8 +171,8 @@ final class IslandSources {
         guarded("calls", () -> calls.collect(items, foreground));
         guarded("peeks", () -> peeks.collect(items));
         guarded("demo", () -> demo.collect(items));
+        guarded("idle", () -> idle.collectIfIdle(items));
         if (torch.replacesStockNotification()) {
-            // System UI's own "flashlight in use" notification would show next to the brightness card
             items.removeIf(TorchSource::isStockItem);
         }
         if (ModuleSettings.accentSystem()) ModuleSettings.refreshSystemAccent(ctx);
@@ -184,7 +186,6 @@ final class IslandSources {
         return out;
     }
 
-    /** What the island shows while the position page of the settings app is open, so there is something to move. */
     private IslandItem placementSample() {
         IslandItem it = new IslandItem("preview:position");
         it.kind = IslandItem.Kind.EVENT;
