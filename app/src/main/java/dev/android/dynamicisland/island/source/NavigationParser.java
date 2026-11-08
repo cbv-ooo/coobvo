@@ -155,6 +155,11 @@ final class NavigationParser {
 
     private NavigationParser() { }
 
+    /** Packages whose ongoing activity cards represent rides, courier jobs or food orders. */
+    static boolean isLiveActivityApp(String packageName) {
+        return packageName != null && LIVE_ACTIVITY_APPS.contains(packageName);
+    }
+
     static boolean isNavigation(Notification notification, String packageName) {
         return parse(notification, packageName) != null;
     }

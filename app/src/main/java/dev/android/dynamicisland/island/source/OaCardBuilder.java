@@ -91,6 +91,8 @@ final class OaCardBuilder {
         String ongoingText = firstFilled((String) Refl.get(data, "mSecondaryInfo"),
                 (String) Refl.get(data, "mNowbarSecondaryInfo"), null);
         NavigationParser.Info navigation = NavigationParser.parse(n, pkg, ongoingTitle, ongoingText);
+        LiveActivityParser.Info liveActivity = navigation == null && a.sbn != null
+                ? LiveActivityParser.parse(a.sbn) : null;
 
         IslandItem it = new IslandItem("oa:" + a.key);
         it.sourceKey = a.sbn == null ? null : a.sbn.getKey();
@@ -143,6 +145,16 @@ final class OaCardBuilder {
                 it.trailing = IslandItem.Trailing.TEXT;
                 it.trailingText = navigation.distance;
             }
+        } else if (liveActivity != null) {
+            // Ride/order cards are distinct from turn-by-turn map navigation and transfers.
+            it.kind = IslandItem.Kind.LIVE;
+            it.transfer = false;
+            if (!liveActivity.statusTitle.isEmpty()) it.title = liveActivity.statusTitle;
+            if (!liveActivity.subStatusText.isEmpty()) it.subtitle = liveActivity.subStatusText;
+            it.progress = liveActivity.progressRatio;
+            it.progressIndeterminate = false;
+            it.trailing = IslandItem.Trailing.TEXT;
+            it.trailingText = liveActivity.etaText;
         }
         Object when = Refl.get(data, "mWhen");
         if (when instanceof Long && (Long) when > 0) {
