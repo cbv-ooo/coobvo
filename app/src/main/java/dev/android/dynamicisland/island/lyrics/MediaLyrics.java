@@ -283,8 +283,7 @@ public final class MediaLyrics {
             String romanized = firstString(lead, "Romanji", "Romanized", "romanji", "romanized");
             String translated = firstString(lead, "Translation", "Translated", "translation", "translated");
             result.add(new Line(start, end, text.toString().trim(), words, false, false,
-                    background, romanized, romanized == null ? Collections.emptyList()
-                    : spreadWords(romanized, start, end), translated));
+                    background, romanized, Collections.emptyList(), translated));
         }
         if (result.isEmpty()) return null;
         result.sort((a, b) -> Long.compare(a.startMs, b.startMs));
@@ -498,23 +497,6 @@ public final class MediaLyrics {
             }
             return output.toString("UTF-8");
         }
-    }
-
-    private static List<Word> spreadWords(String text,long start,long end) {
-        List<Word> out=new ArrayList<>();
-        String[] tokens=text.trim().split("\\s+");
-        if(tokens.length==0)return out;
-        int chars=0;
-        for(String token:tokens)chars+=token.length();
-        if(chars<=0)return out;
-        long duration=Math.max(end-start,500);
-        long cursor=start;
-        for(int i=0;i<tokens.length;i++) {
-            long span=i==tokens.length-1?Math.max(end-cursor,100):duration*tokens[i].length()/chars;
-            out.add(new Word(cursor,cursor+span,tokens[i]));
-            cursor+=span;
-        }
-        return out;
     }
 
     private static void addInterludes(List<Line> target) {
