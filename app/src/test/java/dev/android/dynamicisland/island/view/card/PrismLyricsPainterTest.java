@@ -24,6 +24,16 @@ public class PrismLyricsPainterTest {
         assertEquals(0.36f, PrismLyricsPainter.historyLineAlpha(1, 0.5f), 0.001f);
     }
 
+    @Test public void lyricStripIsAlwaysThreeRowsAndIgnoresFuturePreviewCount() throws Exception {
+        JSONObject look = new JSONObject();
+        look.put("aheadLines", 3);
+        look.put("lyricsStripTwoLines", true);
+        assertEquals(72.0f, PrismLyricsPainter.rowHeightDp(look, null), 0.001f);
+        look.put("positionFraction", 0.42d);
+        assertEquals(77.04f, PrismLyricsPainter.rowHeightDp(look, null), 0.02f);
+        assertEquals(72.0f, PrismLyricsPainter.rowHeightDp(null, null), 0.001f);
+    }
+
     @Test public void globalLyricsScaleMultipliesPresetAndAppTextScale() throws Exception {
         JSONObject defaults = new JSONObject();
         JSONObject scaled = new JSONObject();
