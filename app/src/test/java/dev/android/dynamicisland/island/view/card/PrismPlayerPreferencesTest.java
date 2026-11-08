@@ -23,7 +23,8 @@ public class PrismPlayerPreferencesTest {
                         + "\"playerTitleAlign\":\"CENTER\",\"playerTitleSize\":\"LARGE\","
                         + "\"playerTitleScroll\":false,\"playerArtCorners\":26,\"coverSize\":\"FULL\","
                         + "\"shapes\":{\"player\":\"CIRCLE\"},"
-                        + "\"type\":{\"playerTitleWeight\":\"BOLD\"}}}");
+                        + "\"typeSpacingEm\":0.03,"
+                        + "\"type\":{\"playerTitleWeight\":\"BOLD\",\"weight\":\"LIGHT\"}}}");
 
         assertTrue(prefs.showRightTime());
         assertFalse(prefs.showElapsedTime());
@@ -37,6 +38,7 @@ public class PrismPlayerPreferencesTest {
         assertEquals("BOLD", prefs.titleWeight);
         assertEquals(700, prefs.titleFontWeight());
         assertEquals(600, prefs.artistFontWeight());
+        assertEquals(0.03f, prefs.typeSpacingEm, 0.001f);
         assertFalse(prefs.titleScroll);
         assertEquals(26, prefs.artCornersDp);
         assertEquals("FULL", prefs.coverSize);
@@ -80,6 +82,48 @@ public class PrismPlayerPreferencesTest {
     }
 
 
+
+    @Test public void readsRemainingPlayerLookAndWhatsOnPlayerPreferences() {
+        PrismPlayerPreferences prefs = PrismPlayerPreferences.fromLyricsLook(
+                "{\"playerPreferences\":{"
+                        + "\"playerDeck\":[\"STRIP\",\"SCRUBBER\",\"TRANSPORT\",\"VOLUME\"],"
+                        + "\"playerButtons\":[\"LIKE\",\"VIDEO\",\"QUEUE\"],\"showVideoSwitch\":false,"
+                        + "\"playerBackground\":\"GRADIENT\",\"playerBlur\":1.3,\"backdropDim\":0.42,"
+                        + "\"meshSpeed\":0.0,\"meshIntensity\":1.4,\"canvasEnabled\":true,"
+                        + "\"canvasOnCellular\":true,\"canvasFillsBackground\":true,"
+                        + "\"artShrinkOnPause\":false,\"vinylTonearm\":false,"
+                        + "\"hideStatusBarPlayer\":true,\"playerHandle\":false,\"playerNavBand\":true,"
+                        + "\"bestPartButton\":false,\"playerShuffleRepeat\":false,"
+                        + "\"sessionButtons\":[\"LIKE\",\"RADIO\"],"
+                        + "\"view\":{\"gradientDepth\":0.8,\"blendCovers\":true},"
+                        + "\"hiddenParts\":[\"COVER\",\"TITLE\",\"ARTIST\",\"PREV_NEXT\",\"PROGRESS\",\"LYRIC_LINE\"]}}");
+
+        assertFalse(prefs.showsPart("COVER"));
+        assertFalse(prefs.showsPart("TITLE"));
+        assertFalse(prefs.showsPart("ARTIST"));
+        assertFalse(prefs.showsPart("PREV_NEXT"));
+        assertFalse(prefs.showsPart("PROGRESS"));
+        assertFalse(prefs.showsPart("LYRIC_LINE"));
+        assertFalse(prefs.showsPart("HANDLE"));
+        assertTrue(prefs.showsPart("NAV_BAND"));
+        assertFalse(prefs.showsPart("BEST_PART"));
+        assertFalse(prefs.showsPart("SHUFFLE_REPEAT"));
+        assertTrue(prefs.showsPart("BLEND_COVERS"));
+        assertTrue(prefs.hasSessionButton("RADIO"));
+        assertFalse(prefs.hasPlayerButton("VIDEO"));
+        assertEquals(1.3f, prefs.playerBlur, 0.001f);
+        assertEquals(0.42f, prefs.backdropDim, 0.001f);
+        assertEquals(0.0f, prefs.meshSpeed, 0.001f);
+        assertEquals(1.4f, prefs.meshIntensity, 0.001f);
+        assertEquals(0.8f, prefs.gradientDepth, 0.001f);
+        assertTrue(prefs.blendCovers);
+        assertTrue(prefs.canvasOnCellular);
+        assertFalse(prefs.artShrinkOnPause);
+        assertFalse(prefs.vinylTonearm);
+        assertTrue(prefs.hideStatusBarPlayer);
+        assertFalse(prefs.playerHandle);
+        assertTrue(prefs.playerNavBand);
+    }
 
     @Test public void preservesVisiblePlayerDeckOrderAndVolumeVisibility() {
         PrismPlayerPreferences prismVolume = PrismPlayerPreferences.fromLyricsLook(
@@ -144,6 +188,10 @@ public class PrismPlayerPreferencesTest {
         assertEquals("NONE", defaults.effectiveThumb());
         assertEquals(20, defaults.artCornersDp);
         assertEquals("ROUNDED", defaults.coverShape);
+        assertTrue(defaults.buttonsPill);
+        assertTrue(defaults.playerNavBand);
+        assertTrue(defaults.showsPart("LYRIC_LINE"));
+        assertEquals(Arrays.asList("LYRICS", "VIDEO", "QUEUE"), defaults.playerButtons);
 
         PrismPlayerPreferences invalid = PrismPlayerPreferences.fromLyricsLook(
                 "{\"playerPreferences\":{\"playerTimes\":\"BROKEN\","

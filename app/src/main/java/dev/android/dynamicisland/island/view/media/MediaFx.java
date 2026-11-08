@@ -185,14 +185,24 @@ public final class MediaFx {
         }
     }
 
-    /** Draws the glow into the card rectangle at ({@code x}, {@code y}) of size {@code w} x {@code h}. */
+    /** Draws the glow with the default drift speed. */
     public void drawGlow(Canvas c, float x, float y, float w, float h, float alpha, long now) {
+        drawGlow(c, x, y, w, h, alpha, now, 1.0f);
+    }
+
+    /**
+     * Draws the glow with Prism's per-player mesh speed (0 is still; 1 is the normal drift).
+     * The animation clock and pause easing remain owned by MediaFx; this only scales spatial drift.
+     */
+    public void drawGlow(Canvas c, float x, float y, float w, float h,
+            float alpha, long now, float meshSpeed) {
         if (ModuleSettings.stillMusicEffects()) {
             basePaint.setShader(null);
             basePaint.setColor(Colors.withAlpha(accentTo, alpha * .16f));
             c.drawRect(x, y, x + w, y + h, basePaint);
             return;
         }
+        float drift = IslandView.clamp01(meshSpeed);
         float fade = IslandView.easeInOut((now - accentStart) / ACCENT_FADE_MS);
         if (setTo.h != h || setTo.accent != accentTo) {
             setTo.build(accentTo, h);
@@ -201,22 +211,19 @@ public final class MediaFx {
         c.save();
         c.translate(x, y);
         if (fade < 1.0f) {
-            // during an accent change the old colours fade out (partially) under the new ones
             if (setFrom.h != h || setFrom.accent != accentFrom) {
                 setFrom.build(accentFrom, h);
             }
-            // the old colours leave completely by the end and the new ones come in a little ahead of them, so the
-            // glow neither dims in the middle nor jumps when the cross-fade ends
-            drawLayer(c, setFrom, w, h, glowAlpha * (1.0f - fade));
-            drawLayer(c, setTo, w, h, glowAlpha * Math.min(1.0f, fade * NEW_TONES_LEAD));
+            drawLayer(c, setFrom, w, h, glowAlpha * (1.0f - fade), drift);
+            drawLayer(c, setTo, w, h, glowAlpha * Math.min(1.0f, fade * NEW_TONES_LEAD), drift);
         } else {
-            drawLayer(c, setTo, w, h, glowAlpha);
+            drawLayer(c, setTo, w, h, glowAlpha, drift);
         }
         c.restore();
     }
 
     /** Draws the base gradient and the three drifting, breathing blobs of one tone set. */
-    private void drawLayer(Canvas c, ToneSet set, float w, float h, float alpha) {
+    private void drawLayer(Canvas c, ToneSet set, float w, float h, float alpha, float drift) {
         if (alpha <= 0.002f) {
             return;
         }
@@ -224,7 +231,7 @@ public final class MediaFx {
         basePaint.setAlpha(Math.round(alpha * 255.0f));
         c.drawRect(0.0f, h * 0.4f, w, h, basePaint);
         for (int i = 0; i < 3; i++) {
-            float blobPhase = phase[i];
+            float blobPhase = phase[i] * drift;
             float centerX = (IslandView.GLOW_LANE[i] + (((float) Math.sin(blobPhase)) * 0.12f)) * w;
             float centerY = h * (0.95f - (((float) Math.sin((blobPhase * 2.0f) + i)) * 0.07f));
             float breathe = (((float) Math.sin((3.0f * blobPhase) + (i * 2.0f))) * 0.18f) + 0.82f;

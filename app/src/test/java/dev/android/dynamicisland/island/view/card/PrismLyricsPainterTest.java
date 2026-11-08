@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import dev.android.dynamicisland.island.lyrics.MediaLyrics;
+import org.json.JSONObject;
 import org.junit.Test;
 
 import java.util.List;
@@ -16,6 +17,12 @@ public class PrismLyricsPainterTest {
         assertEquals(0.48f, PrismLyricsPainter.historyLineAlpha(0, 0.0f), 0.001f);
         assertEquals(0.70f, PrismLyricsPainter.historyLineAlpha(0, 1.0f), 0.001f);
         assertEquals(0.36f, PrismLyricsPainter.historyLineAlpha(1, 0.5f), 0.001f);
+    }
+
+    @Test public void globalLyricsScaleMultipliesPresetAndAppTextScale() throws Exception {
+        JSONObject look = new JSONObject("{\"sizeScale\":1.1,\"textScale\":1.2,\"lyricsScale\":1.3}");
+        assertEquals(17.0f * 1.1f * 1.2f * 1.3f,
+                PrismLyricsPainter.mainTextSizeDp(look), 0.001f);
     }
 
     @Test public void lineOnlyWordTimingMatchesPrismsWithWordsCalculation() {

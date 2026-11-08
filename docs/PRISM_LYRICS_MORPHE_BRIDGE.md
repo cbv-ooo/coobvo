@@ -193,3 +193,53 @@ The playerDeck preference now controls the order of the supported island rows (S
 - Debug APK build and selected unit tests passed on source commit `62ad50b48db32fe782319b03d5bbb330eaad7522` in run [#42494944291](https://github.com/cbv-ooo/coobvo/actions/runs/42494944291). Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42494944291/artifacts/13622773402). The run includes `PrismMediaBridgeClientTest`, `PrismLyricsSnapshotTest`, `PrismLyricsPainterTest` (including larger text, 20 dp spacing, history and fallback-height checks) and `PrismPlayerPreferencesTest`, plus selected SI/iMode/cutout tests.
 - These results prove bundle generation, app compilation and selected test fixtures. They do **not** prove that the patch applies to the exact installed Prism 1.8.2.1 / versionCode 58 APK or that its provider route and island rendering work on the Galaxy S10e.
 - Real-device verification is still required for background lookup with Prism closed, live preference changes during playback, 3-line lyrics visibility/transitions, and S10e card sizing.
+
+## Follow-up implementation and patcher correction (2026-11-08)
+
+### Morphe patcher failure on Prism 1.8.2.1
+
+The reported InlineSmaliCompiler.kt:68 / Collection is empty failure was caused by the injected background-hook instruction using the short invoke form:
+
+    invoke-static { p0, p1 }, ...
+
+On Prism 1.8.2.1's large PlaybackService.onMediaItemTransition register frame, the parameter registers can exceed v15. Morphe's inline Smali compiler rejected that short-form instruction and then failed while resolving an empty compiled instruction list.
+
+The hook now uses the register-range form:
+
+    invoke-static/range { p0 .. p1 }, ...
+
+The receiver and MediaItem are consecutive one-word parameters, so the range form is valid regardless of their final register numbers. The updated Morphe .mpp workflow passed for commit 6ee387687b9f10d2bb4eee7d01815ab5d939df2f:
+https://github.com/cbv-ooo/coobvo/actions/runs/42496315980
+
+This verifies bundle generation for the patch; it does not by itself verify applying the patch to the exact APK or background lookup on the phone.
+
+### Additional lyrics preference wiring
+
+- lyricsScale is now multiplied with both the preset sizeScale and the application textScale for the active line, dimmed lines, upcoming lines, translation and romanized text.
+- Instrumental/interlude lines now call the shared gap-marker renderer, honoring Prism's selected gapMark style (dots or music note) instead of always displaying a hard-coded note label.
+- The PlayerPart.LYRIC_LINE visibility rule is now applied together with the selected STRIP deck row. Hiding the lyric-line part therefore removes the strip, even when STRIP remains selected in the deck.
+- The strip's BLUR background uses the current media-session cover blurred by Android's RenderEffect on API 31+. Older Android releases use a dimmed cover fallback.
+- The strip's CANVAS choice uses the still artwork supplied by MediaSession. Prism's live Canvas/video frame is not available through the current media-session artwork contract, so animated Canvas remains a limitation.
+
+### Additional player preference wiring
+
+- Title weight now follows Prism's actual LIGHT/REGULAR/BOLD PlayerTitleWeight values. LIGHT inherits the global app TypeLook.weight; global type letter spacing is also applied.
+- The player parser uses Prism's actual defaults for the button capsule, navigation-band setting and default app-level button selection.
+- The expanded card respects the separate player parts for cover, title, artist, previous/next, progress, times, lyric line, volume, output, quality, handle and crossfade marker.
+- MINIMAL layout omits previous/next and the two session-action flank buttons, leaving play/pause.
+- VINYL uses a circular sleeve with optional grooves and tonearm. CASSETTE uses a cassette-style cover treatment. Pause-shrink and the selected cover silhouette are applied.
+- Player BLUR uses the current cover as its blurred background on API 31+. Mesh speed/intensity, gradient depth and backdrop dimming are applied where those modes are selected.
+- Phone-vs-Prism app volume source is respected by the volume row; it remains a display-only row and does not currently accept touch input.
+
+### Remaining boundaries (do not mark as complete)
+
+- Prism's PlayerButton / PlayerActionRow is a separate app-level callback system. Its selected buttons and order are exported, but the island does not yet render or invoke those app-level callbacks. Android SessionButtons are different and remain the media-session transport actions. Do not substitute them for PlayerButton.
+- DeckPart.BUTTONS, PlayerPart.BUTTONS, BEST_PART and SHUFFLE_REPEAT still need a proper app-action bridge before the selected app-level button row can be considered functional.
+- blendCovers requires the next track's cover image; the bridge currently exports crossfade timing/IDs but not the next cover bitmap. The crossfade bar shape and start marker can be displayed, but the two-cover dissolve is incomplete.
+- fullBleedArtwork currently enlarges the cover slot; it is not a true edge-to-edge full-screen player surface. hideStatusBarPlayer and playerNavBand belong to Prism's full-screen player window, not the Dynamic Island card.
+- canvasEnabled / canvasFillsBackground use the still artwork snapshot as a background fallback. They do not reproduce Prism's animated Canvas playback.
+- Device checks remain required for background loading with Prism closed, live preference changes, three-line lyric animation, and card sizing on the Galaxy S10e.
+
+### Verification
+
+The /range patcher correction has a successful Morphe bundle-generation workflow as linked above. The app-source changes in this follow-up need a fresh Debug APK build and unit-test run on the commit containing those changes. Do not infer app build success from the Morphe workflow.

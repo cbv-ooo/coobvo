@@ -28,6 +28,8 @@ final class PrismPlayerPreferences {
     final String titleAlign;
     final String titleSize;
     final String titleWeight;
+    final String appTypeWeight;
+    final float typeSpacingEm;
     final boolean titleScroll;
     final int artCornersDp;
     final String coverSize;
@@ -41,6 +43,7 @@ final class PrismPlayerPreferences {
     final List<String> deckParts;
     final List<String> playerButtons;
     final List<String> hiddenParts;
+    final JSONObject source;
     final boolean lyricsOnPlayer;
     final boolean volumeMatchesProgress;
     final boolean hideVolumeBar;
@@ -48,6 +51,20 @@ final class PrismPlayerPreferences {
     final boolean fullBleedArtwork;
     final boolean canvasEnabled;
     final boolean canvasFillsBackground;
+    final boolean canvasOnCellular;
+    final boolean artShrinkOnPause;
+    final boolean vinylTonearm;
+    final float playerBlur;
+    final float meshSpeed;
+    final float meshIntensity;
+    final float backdropDim;
+    final float gradientDepth;
+    final boolean blendCovers;
+    final boolean showVideoSwitch;
+    final boolean hideStatusBarPlayer;
+    final boolean playerHandle;
+    final boolean playerNavBand;
+    final List<String> sessionButtons;
     final boolean showPlayingFrom;
     final boolean showOutputDevice;
     final boolean showQuality;
@@ -58,6 +75,7 @@ final class PrismPlayerPreferences {
     final float appVolume;
 
     private PrismPlayerPreferences(JSONObject player) {
+        source = player;
         playerTimes = choice(player, "playerTimes", TIME_BOTH,
                 TIME_BOTH, TIME_ELAPSED, TIME_LEFT, TIME_NONE);
         showTrackLength = player.optBoolean("showTrackLength", false);
@@ -72,7 +90,10 @@ final class PrismPlayerPreferences {
         titleSize = choice(player, "playerTitleSize", "MEDIUM", "SMALL", "MEDIUM", "LARGE");
         JSONObject type = player.optJSONObject("type");
         titleWeight = choice(type == null ? player : type, "playerTitleWeight", "LIGHT",
-                "THIN", "LIGHT", "REGULAR", "MEDIUM", "BOLD");
+                "LIGHT", "REGULAR", "BOLD");
+        appTypeWeight = choice(type == null ? player : type, "weight", "REGULAR",
+                "LIGHT", "REGULAR", "BOLD");
+        typeSpacingEm = clamp((float) player.optDouble("typeSpacingEm", 0.0d), -0.04f, 0.08f);
         titleScroll = player.optBoolean("playerTitleScroll", true);
         artCornersDp = Math.max(0, Math.min(32, player.optInt("playerArtCorners", 20)));
         coverSize = choice(player, "coverSize", "STANDARD", "STANDARD", "LARGE", "FULL");
@@ -88,14 +109,14 @@ final class PrismPlayerPreferences {
                 "MESH", "BLUR", "APPEARANCE", "THEME", "BLACK", "WHITE", "GRADIENT");
         backdropShow = clamp((float) player.optDouble("playerBackdropShow", 0.35d), 0.0f, 1.0f);
         transportStyle = choice(player, "transportStyle", "BUTTON", "GLYPHS", "BUTTON", "OUTLINE");
-        buttonsPill = effectiveView.optBoolean("buttonsPill", false);
+        buttonsPill = effectiveView.optBoolean("buttonsPill", true);
         JSONObject shapesObject = player.optJSONObject("shapes");
         buttonShape = choice(shapesObject == null ? player : shapesObject, "button", "PILL",
                 "PILL", "ROUNDED", "SQUARE");
         deckParts = strings(player.optJSONArray("playerDeck"),
                 "STRIP", "SCRUBBER", "TRANSPORT", "VOLUME", "BUTTONS");
         playerButtons = strings(player.optJSONArray("playerButtons"),
-                "LYRICS", "VIDEO", "QUEUE", "OUTPUT", "SLEEP", "LIKE");
+                "LYRICS", "VIDEO", "QUEUE");
         hiddenParts = strings(player.optJSONArray("hiddenParts"));
         lyricsOnPlayer = player.optBoolean("lyricsOnPlayer", true);
         volumeMatchesProgress = player.optBoolean("volumeMatchesProgress", false);
@@ -104,6 +125,21 @@ final class PrismPlayerPreferences {
         fullBleedArtwork = player.optBoolean("fullBleedArtwork", false);
         canvasEnabled = player.optBoolean("canvasEnabled", true);
         canvasFillsBackground = player.optBoolean("canvasFillsBackground", false);
+        canvasOnCellular = player.optBoolean("canvasOnCellular", false);
+        artShrinkOnPause = player.optBoolean("artShrinkOnPause", true);
+        vinylTonearm = player.optBoolean("vinylTonearm", true);
+        playerBlur = clamp((float) player.optDouble("playerBlur", 1.0d), 0.5f, 1.5f);
+        meshSpeed = clamp((float) player.optDouble("meshSpeed", 0.0d), 0.0f, 1.0f);
+        meshIntensity = clamp((float) player.optDouble("meshIntensity", 1.0d), 0.4f, 1.6f);
+        backdropDim = clamp((float) player.optDouble("backdropDim", 0.35d), 0.0f, 1.0f);
+        gradientDepth = clamp((float) effectiveView.optDouble("gradientDepth", 0.5d), 0.0f, 1.0f);
+        blendCovers = effectiveView.optBoolean("blendCovers", false);
+        showVideoSwitch = player.optBoolean("showVideoSwitch", true);
+        hideStatusBarPlayer = player.optBoolean("hideStatusBarPlayer", false);
+        playerHandle = player.optBoolean("playerHandle", true);
+        playerNavBand = player.optBoolean("playerNavBand", true);
+        sessionButtons = strings(player.optJSONArray("sessionButtons"),
+                "LIKE", "SHUFFLE", "REPEAT", "CAR_LYRICS", "RADIO", "DISLIKE");
         showPlayingFrom = player.optBoolean("showPlayingFrom", true);
         showOutputDevice = player.optBoolean("showOutputDevice", true);
         showQuality = player.optBoolean("showQuality", false);
@@ -151,6 +187,29 @@ final class PrismPlayerPreferences {
         return deckParts.contains(part) && !hiddenParts.contains(part);
     }
 
+    /** Mirrors Prism 1.8.2.1 AppSettings.shows(PlayerPart), including independent switches. */
+    boolean showsPart(String part) {
+        switch (part) {
+            case "HANDLE": return playerHandle;
+            case "FROM_ALBUM": return showPlayingFrom && !hiddenParts.contains(part);
+            case "LYRIC_LINE": return lyricsOnPlayer && !hiddenParts.contains(part);
+            case "TIMES": return !TIME_NONE.equals(playerTimes);
+            case "QUALITY": return showQuality;
+            case "BEST_PART": return source.optBoolean("bestPartButton", true);
+            case "SHUFFLE_REPEAT": return source.optBoolean("playerShuffleRepeat", true);
+            case "VOLUME": return showVolumeBar();
+            case "OUTPUT": return showOutputDevice;
+            case "NAV_BAND": return playerNavBand;
+            case "CROSSFADE_MARK": return crossfadeMark;
+            case "BLEND_COVERS": return blendCovers;
+            default: return !hiddenParts.contains(part);
+        }
+    }
+
+    boolean showsTimes() {
+        return showsPart("TIMES");
+    }
+
     /**
      * Returns Prism's visible player rows in the exact user-selected order.
      * VOLUME has the additional Prism/phone visibility rule; unknown future rows
@@ -179,7 +238,19 @@ final class PrismPlayerPreferences {
     }
 
     boolean hasPlayerButton(String button) {
-        return playerButtons.contains(button);
+        return playerButtons.contains(button)
+                && (!"VIDEO".equals(button) || showVideoSwitch);
+    }
+
+    boolean hasSessionButton(String button) {
+        return sessionButtons.contains(button);
+    }
+
+    List<String> visiblePlayerButtons() {
+        if (showVideoSwitch) return playerButtons;
+        ArrayList<String> visible = new ArrayList<>(playerButtons);
+        visible.remove("VIDEO");
+        return Collections.unmodifiableList(visible);
     }
 
     boolean showVolumeBar() {
@@ -194,18 +265,20 @@ final class PrismPlayerPreferences {
 
     int titleFontWeight() {
         switch (titleWeight) {
-            case "THIN": return 300;
-            case "MEDIUM": return 500;
-            case "BOLD": return 700;
             case "REGULAR": return 400;
-            default: return 400;
+            case "BOLD": return 700;
+            default:
+                switch (appTypeWeight) {
+                    case "LIGHT": return 300;
+                    case "BOLD": return 700;
+                    default: return 400;
+                }
         }
     }
 
     int artistFontWeight() {
         if ("BOLD".equals(titleWeight)) return 600;
-        if ("MEDIUM".equals(titleWeight)) return 500;
-        return 400;
+        return "BOLD".equals(appTypeWeight) ? 600 : 400;
     }
 
     String effectiveThumb() {

@@ -5,7 +5,9 @@ import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.RenderEffect;
 import android.graphics.Shader;
+import android.os.Build;
 import android.os.SystemClock;
 import android.text.Layout;
 import android.text.StaticLayout;
@@ -68,6 +70,7 @@ public final class MediaBody extends CardBody {
     /** "Device . 80%" line shown under the artist when playing on another output. */
     final StaticLayout output;
     private final Paint glowPaint;
+    private final Paint backdropLayerPaint;
     /** Lyrics use dedicated paints so their sizes/alignments cannot mutate the shared title layouts. */
     private final TextPaint lyricsCurrentPaint;
     private final TextPaint lyricsNextPaint;
@@ -85,6 +88,11 @@ public final class MediaBody extends CardBody {
     private final boolean prismShowProgress;
     private final boolean prismShowTransport;
     private final boolean prismShowVolume;
+    private final boolean prismShowCover;
+    private final boolean prismShowTitle;
+    private final boolean prismShowArtist;
+    private final boolean prismShowPreviousNext;
+    private final boolean prismShowHandle;
     private final float prismVolumeCenterY;
     private final int prismSeekRow;
     private final int prismVolumeRow;
@@ -135,14 +143,23 @@ public final class MediaBody extends CardBody {
         prismLook = parsePrismLook(item.mediaLyricsLook);
         prismPlayer = prismSession ? PrismPlayerPreferences.fromLyricsLook(item.mediaLyricsLook)
                 : PrismPlayerPreferences.defaults();
-        prismShowProgress = !prismSession || prismPlayer.hasDeckPart("SCRUBBER");
+        prismShowProgress = !prismSession
+                || (prismPlayer.hasDeckPart("SCRUBBER") && prismPlayer.showsPart("PROGRESS"));
         prismShowTransport = !prismSession || prismPlayer.hasDeckPart("TRANSPORT");
         prismShowVolume = prismSession && prismPlayer.showVolumeBar();
+        prismShowCover = !prismSession || prismPlayer.showsPart("COVER");
+        prismShowTitle = !prismSession || prismPlayer.showsPart("TITLE");
+        prismShowArtist = !prismSession || prismPlayer.showsPart("ARTIST");
+        prismShowPreviousNext = !prismSession
+                || (prismPlayer.showsPart("PREV_NEXT") && !"MINIMAL".equals(prismPlayer.layout));
+        prismShowHandle = prismSession && prismPlayer.showsPart("HANDLE");
         playerTitlePaint = new TextPaint(owner.mediaTitlePaint());
         originalPlayerTitle = item.title;
         playerArtistPaint = new TextPaint(owner.mediaArtistPaint());
         if (prismSession) {
             playerTitlePaint.setTextSize(playerTitlePaint.getTextSize() * prismPlayer.titleScale());
+            playerTitlePaint.setLetterSpacing(prismPlayer.typeSpacingEm);
+            playerArtistPaint.setLetterSpacing(prismPlayer.typeSpacingEm);
             playerTitlePaint.setTypeface(Fonts.of(prismPlayer.titleFontWeight()));
             playerArtistPaint.setTypeface(Fonts.of(prismPlayer.artistFontWeight()));
         }
@@ -163,46 +180,53 @@ public final class MediaBody extends CardBody {
         // Prism's bridge is the sole lyric source for Prism sessions; never run a second provider cascade.
         // Prism lyrics belong to Prism's media session; always reserve the row while the bridge is loading too.
         lyricsEnabled = prismSession
-                ? prismPlayer.lyricsOnPlayer && prismPlayer.hasDeckPart("STRIP")
+                ? prismPlayer.hasDeckPart("STRIP") && prismPlayer.showsPart("LYRIC_LINE")
                 : ModuleSettings.mediaLyricsEnabled();
         lyricsKey = !prismSession && lyricsEnabled ? LyricsManager.keyFor(lyricsTitle, lyricsArtist) : "";
         pad = owner.dp(18.0f);
-        float coverDp = 56.0f;
-        if (prismSession) {
+        float coverDp = prismShowCover ? 56.0f : 0.0f;
+        if (prismSession && prismShowCover) {
             // CoverSize.extra in Prism is an amount on each side of the standard 56dp cover.
             if ("LARGE".equals(prismPlayer.coverSize)) coverDp = 92.0f;
-            if ("FULL".equals(prismPlayer.coverSize) || prismPlayer.fullBleedArtwork) coverDp = 116.0f;
-            if ("COVER".equals(prismPlayer.layout) || "VINYL".equals(prismPlayer.layout)
-                    || "CASSETTE".equals(prismPlayer.layout)) coverDp = Math.max(coverDp, 92.0f);
+            boolean vinylOrCassette = "VINYL".equals(prismPlayer.layout)
+                    || "CASSETTE".equals(prismPlayer.layout);
+            if ("FULL".equals(prismPlayer.coverSize)
+                    || (prismPlayer.fullBleedArtwork && !vinylOrCassette)) coverDp = 116.0f;
+            if ("LYRICS".equals(prismPlayer.layout) || "MINIMAL".equals(prismPlayer.layout)) coverDp = 44.0f;
+            if ("COVER".equals(prismPlayer.layout) || vinylOrCassette) coverDp = Math.max(coverDp, 92.0f);
         }
         art = owner.dp(coverDp);
         tile = owner.dp(32.0f);
         controlH = owner.dp(52.0f);
         glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        backdropLayerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         glowRect = new RectF();
         int textWidth = Math.max(1, Math.round(((((w - (pad * 2.0f)) - art) - owner.dp(ART_TEXT_GAP_DP)) - tile) - owner.dp(10.0f)));
         playerTitleWidth = textWidth;
         Layout.Alignment titleAlignment = prismSession && "CENTER".equals(prismPlayer.titleAlign)
                 ? Layout.Alignment.ALIGN_CENTER : Layout.Alignment.ALIGN_NORMAL;
-        title = item.title == null ? null
+        title = !prismShowTitle || item.title == null ? null
                 : IslandView.layout(item.title, playerTitlePaint, textWidth, 1, titleAlignment);
-        CharSequence artistText = item.subtitle;
-        if (artistText != null && item.mediaAlbum != null && item.mediaAlbum.length() > 0) {
+        CharSequence artistText = prismShowArtist ? item.subtitle : null;
+        if (artistText != null && prismPlayer.showPlayingFrom
+                && prismPlayer.showsPart("FROM_ALBUM")
+                && item.mediaAlbum != null && item.mediaAlbum.length() > 0) {
             artistText = artistText + " · " + item.mediaAlbum;
         }
         artist = artistText != null
                 ? IslandView.layout(artistText, playerArtistPaint, textWidth, 1, titleAlignment) : null;
         String outputText = null;
-        if (!prismSession || prismPlayer.showQuality) {
+        if (!prismSession || (prismPlayer.showQuality && prismPlayer.showsPart("QUALITY"))) {
             if (item.mediaFlags != null && item.mediaFlags.length() > 0) {
                 outputText = item.mediaFlags.toString();
             }
         }
-        if ((!prismSession || prismPlayer.showPlayingFrom)
+        if ((!prismSession || (prismPlayer.showPlayingFrom && prismPlayer.showsPart("FROM_ALBUM")))
                 && item.mediaInfo != null && item.mediaInfo.length() > 0) {
             outputText = outputText == null ? item.mediaInfo.toString() : outputText + " · " + item.mediaInfo;
         }
-        if (item.mediaOutput != null && (!prismSession || prismPlayer.showOutputDevice)) {
+        if (item.mediaOutput != null && (!prismSession
+                || (prismPlayer.showOutputDevice && prismPlayer.showsPart("OUTPUT")))) {
             String device = item.mediaOutput.toString() + (item.mediaOutputBattery >= 0 ? " · " + item.mediaOutputBattery + "%" : "");
             outputText = outputText == null ? device : outputText + " · " + device;
         }
@@ -293,8 +317,10 @@ public final class MediaBody extends CardBody {
             h = lyricsTop + (lyricsEnabled ? owner.dp(LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
         }
         String totalText = item.mediaDuration > 0 ? IslandView.formatTimePadded(item.mediaDuration) : NO_DURATION;
-        boolean showElapsed = !prismSession || prismPlayer.showElapsedTime();
-        boolean showRightTime = !prismSession || prismPlayer.showRightTime();
+        boolean showElapsed = !prismSession
+                || (prismPlayer.showsTimes() && prismPlayer.showElapsedTime());
+        boolean showRightTime = !prismSession
+                || (prismPlayer.showsTimes() && prismPlayer.showRightTime());
         barLeft = pad + (showElapsed ? owner.smallPaint.measureText("00:00") + owner.dp(10.0f) : 0.0f);
         String rightWidthText = prismSession && prismPlayer.showRemainingTime() ? "−00:00" : totalText;
         barRight = ((w - pad) - (showRightTime
@@ -303,14 +329,19 @@ public final class MediaBody extends CardBody {
         if (prismShowTransport && controlsTop >= 0.0f) {
             // MediaSession custom actions (Prism's SessionButtons) flank transport;
             // they are not the app's separate PlayerButton row.
-            if (item.mediaCustom.size() > 0) {
+            boolean minimalLayout = prismSession && "MINIMAL".equals(prismPlayer.layout);
+            if (!minimalLayout && item.mediaCustom.size() > 0) {
                 addCustom(item.mediaCustom.get(0), pad + (CUSTOM_LEFT_AT * span), controlsTop);
             }
-            addControl(Glyphs.PREV, pad + (PREV_AT * span), item.mediaPrev, false, controlsTop);
+            if (prismShowPreviousNext) {
+                addControl(Glyphs.PREV, pad + (PREV_AT * span), item.mediaPrev, false, controlsTop);
+            }
             addControl(item.playing ? Glyphs.PAUSE : Glyphs.PLAY,
                     pad + (PLAY_AT * span), item.mediaPlayPause, true, controlsTop);
-            addControl(Glyphs.NEXT, pad + (NEXT_AT * span), item.mediaNext, false, controlsTop);
-            if (item.mediaCustom.size() > 1) {
+            if (prismShowPreviousNext) {
+                addControl(Glyphs.NEXT, pad + (NEXT_AT * span), item.mediaNext, false, controlsTop);
+            }
+            if (!minimalLayout && item.mediaCustom.size() > 1) {
                 addCustom(item.mediaCustom.get(1), pad + (CUSTOM_RIGHT_AT * span), controlsTop);
             }
         }
@@ -404,7 +435,8 @@ public final class MediaBody extends CardBody {
         float topRowProgress = rowAlpha(elapsed, 0);
         float topAlpha = alpha * topRowProgress;
         float topDy = (1.0f - topRowProgress) * owner.dp(ROW_SLIDE_DP);
-        fx.drawArt(c, x + pad, y + pad + topDy, art, topAlpha, artCornerRadius(), now);
+        if (prismShowCover) drawArtwork(c, fx, x + pad, y + pad + topDy, topAlpha, now);
+        if (prismShowHandle) drawPlayerHandle(c, x, y + topDy, topAlpha);
         drawVisualizer(c, x, y + pad + topDy, topAlpha);
         drawTexts(c, x, y, topDy, topAlpha);
         drawAppTile(c, x, y, topDy, topAlpha);
@@ -453,7 +485,8 @@ public final class MediaBody extends CardBody {
     private void drawLyrics(Canvas canvas, float left, float top, float width, float alpha, long positionMs) {
         if (prismSession) {
             PrismLyricsPainter.draw(canvas, owner, prismLyrics, prismLook, prismLyricState, lyricsCurrentPaint, lyricsNextPaint,
-                    prismLyricsStatus, left, top, width, alpha, positionMs, item.accent);
+                    prismLyricsStatus, left, top, width, alpha, positionMs, item.accent,
+                    owner.mediaFx(item), SystemClock.elapsedRealtime());
             return;
         }
         MediaLyrics data = LyricsManager.getByKey(lyricsKey);
@@ -679,11 +712,27 @@ public final class MediaBody extends CardBody {
         float glowAlpha = prismSession
                 ? alpha * (0.35f + 0.65f * prismPlayer.backdropShow) : alpha;
         String background = prismSession ? prismPlayer.background : "MESH";
-        if (!prismSession || "MESH".equals(background)) {
-            fx.drawGlow(c, 0.0f, 0.0f, w, h, glowAlpha, now);
+        boolean staticCanvasBackdrop = prismSession
+                && prismPlayer.canvasEnabled && prismPlayer.canvasFillsBackground;
+        if (staticCanvasBackdrop) {
+            // The media session exports the still cover, not Prism's live Canvas/video frame.
+            // Use that still as a fallback backdrop; the full animated Canvas cannot be transported
+            // into System UI through the current media-session artwork contract.
+            drawCoverFill(c, fx, alpha * (1.0f - prismPlayer.backdropDim), now);
+            owner.tmpRect.set(0.0f, 0.0f, w, h);
+            owner.fillPaint.setColor(Colors.withAlpha(Colors.BLACK,
+                    alpha * prismPlayer.backdropDim));
+            c.drawRect(owner.tmpRect, owner.fillPaint);
+        } else if (!prismSession || "MESH".equals(background)) {
+            float intensity = prismSession ? prismPlayer.meshIntensity : 1.0f;
+            float motion = prismSession ? prismPlayer.meshSpeed : 1.0f;
+            fx.drawGlow(c, 0.0f, 0.0f, w, h,
+                    glowAlpha * Math.min(1.0f, Math.max(0.0f, intensity)), now, motion);
         } else {
             owner.tmpRect.set(0.0f, 0.0f, w, h);
-            if ("BLACK".equals(background)) {
+            if ("BLUR".equals(background)) {
+                drawBlurredArtworkBackground(c, fx, alpha, now);
+            } else if ("BLACK".equals(background)) {
                 owner.fillPaint.setColor(Colors.withAlpha(Colors.BLACK, alpha));
                 c.drawRoundRect(owner.tmpRect, owner.dp(24.0f), owner.dp(24.0f), owner.fillPaint);
             } else if ("WHITE".equals(background)) {
@@ -694,15 +743,17 @@ public final class MediaBody extends CardBody {
                 c.drawRoundRect(owner.tmpRect, owner.dp(24.0f), owner.dp(24.0f), owner.fillPaint);
             } else if ("GRADIENT".equals(background)) {
                 int accent = item.accent != 0 && item.accent != -1 ? item.accent : Colors.SURFACE_CONTAINER;
+                float depth = prismPlayer.gradientDepth;
                 owner.fillPaint.setShader(new LinearGradient(0.0f, 0.0f, 0.0f, h,
-                        Colors.withAlpha(accent, alpha), Colors.withAlpha(Colors.BLACK, alpha),
-                        Shader.TileMode.CLAMP));
+                        new int[]{Colors.withAlpha(accent, alpha),
+                                Colors.withAlpha(Colors.BLACK, alpha * (0.45f + depth * 0.5f))},
+                        null, Shader.TileMode.CLAMP));
                 c.drawRoundRect(owner.tmpRect, owner.dp(24.0f), owner.dp(24.0f), owner.fillPaint);
                 owner.fillPaint.setShader(null);
-            } else if (("BLUR".equals(background) || "APPEARANCE".equals(background))
+            } else if ("APPEARANCE".equals(background)
                     && item.accent != 0 && item.accent != -1) {
                 owner.fillPaint.setColor(Colors.withAlpha(item.accent,
-                        alpha * Math.min(0.2f, prismPlayer.backdropShow * 0.2f)));
+                        alpha * prismPlayer.backdropShow * (1.0f - prismPlayer.backdropDim) * 0.22f));
                 c.drawRoundRect(owner.tmpRect, owner.dp(24.0f), owner.dp(24.0f), owner.fillPaint);
             }
         }
@@ -723,7 +774,8 @@ public final class MediaBody extends CardBody {
         float textHeight = (title != null ? title.getHeight() : 0)
                 + (artist != null ? gap + artist.getHeight() : 0.0f)
                 + (output != null ? gap + output.getHeight() : 0.0f);
-        float lineY = y + pad + dy + ((art - textHeight) / 2.0f);
+        float textSlotHeight = Math.max(art, textHeight);
+        float lineY = y + pad + dy + ((textSlotHeight - textHeight) / 2.0f);
         if (title != null) {
             playerTitlePaint.setColor(Colors.withAlpha(
                 prismSession && "WHITE".equals(prismPlayer.background)
@@ -794,8 +846,8 @@ public final class MediaBody extends CardBody {
         }
 
         boolean dragged = owner.seekBody == this;
-        boolean showElapsed = prismPlayer.showElapsedTime();
-        boolean showRightTime = prismPlayer.showRightTime();
+        boolean showElapsed = prismPlayer.showsTimes() && prismPlayer.showElapsedTime();
+        boolean showRightTime = prismPlayer.showsTimes() && prismPlayer.showRightTime();
         String current = clockText;
         String right = durationText;
         if (prismSession && prismPlayer.showRemainingTime() && item.mediaDuration > 0) {
@@ -869,7 +921,8 @@ public final class MediaBody extends CardBody {
             c.drawRoundRect(owner.tmpRect, radius, radius, owner.fillPaint);
         }
 
-        if (prismSession && item.mediaDuration > 0 && trackWidth > 0.0f
+        if (prismSession && prismPlayer.showsPart("CROSSFADE_MARK")
+                && item.mediaDuration > 0 && trackWidth > 0.0f
                 && item.mediaCrossfadeStartMs >= 0L && item.mediaCrossfadeLengthMs > 0L) {
             float crossfadeStart = IslandView.clamp01(
                     (float) item.mediaCrossfadeStartMs / (float) item.mediaDuration);
@@ -1020,7 +1073,7 @@ public final class MediaBody extends CardBody {
 
     /** Prism's own sampled spectrum is drawn subtly behind the top player row. */
     private void drawVisualizer(Canvas canvas, float x, float top, float alpha) {
-        if (!prismSession || "OFF".equals(prismPlayer.visualizer)
+        if (!prismSession || art <= 0.0f || "OFF".equals(prismPlayer.visualizer)
                 || item.mediaVisualizerBands == null || item.mediaVisualizerBands.length == 0) return;
         float start = x + pad + art + owner.dp(ART_TEXT_GAP_DP);
         float end = x + w - pad - tile - owner.dp(8.0f);
@@ -1083,6 +1136,161 @@ public final class MediaBody extends CardBody {
         }
     }
 
+    private void drawPlayerHandle(Canvas canvas, float x, float y, float alpha) {
+        float width = owner.dp(28.0f);
+        float height = owner.dp(3.0f);
+        float left = x + (w - width) * 0.5f;
+        owner.tmpRect.set(left, y + owner.dp(2.0f), left + width, y + owner.dp(2.0f) + height);
+        owner.fillPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha * 0.46f));
+        canvas.drawRoundRect(owner.tmpRect, height / 2.0f, height / 2.0f, owner.fillPaint);
+    }
+
+    /** Crop a square media-session cover into the expanded card's rectangular backdrop. */
+    private void drawCoverFill(Canvas canvas, MediaFx fx, float alpha, long now) {
+        float size = Math.max(w, h);
+        float left = (w - size) * 0.5f;
+        float top = (h - size) * 0.5f;
+        fx.drawArt(canvas, left, top, size, alpha, 0.0f, now);
+    }
+
+    /** Uses the current artwork as a dimmed, softly blurred backing for Prism's BLUR mode. */
+    private void drawBlurredArtworkBackground(Canvas canvas, MediaFx fx, float alpha, long now) {
+        float visible = alpha * prismPlayer.backdropShow;
+        if (visible <= 0.001f) return;
+        boolean blurred = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
+        if (blurred) {
+            float radius = owner.dp(18.0f * prismPlayer.playerBlur);
+            backdropLayerPaint.setRenderEffect(RenderEffect.createBlurEffect(
+                    radius, radius, Shader.TileMode.CLAMP));
+            int layer = canvas.saveLayer(0.0f, 0.0f, w, h, backdropLayerPaint);
+            drawCoverFill(canvas, fx, visible, now);
+            canvas.restoreToCount(layer);
+            backdropLayerPaint.setRenderEffect(null);
+        } else {
+            // Pre-Android 12 fallback: still use the cover as the backing, but do not allocate
+            // an expensive software blur in the System UI process.
+            drawCoverFill(canvas, fx, visible * 0.32f, now);
+        }
+        owner.tmpRect.set(0.0f, 0.0f, w, h);
+        owner.fillPaint.setColor(Colors.withAlpha(Colors.BLACK, alpha * prismPlayer.backdropDim));
+        canvas.drawRect(owner.tmpRect, owner.fillPaint);
+    }
+
+    /** Draws the album artwork using Prism's selected size, pause shrink and cover silhouette. */
+    private void drawArtwork(Canvas canvas, MediaFx fx, float left, float top, float alpha, long now) {
+        float scale = prismSession && !item.playing && prismPlayer.artShrinkOnPause ? 0.92f : 1.0f;
+        float size = art * scale;
+        float x = left + (art - size) * 0.5f;
+        float y = top + (art - size) * 0.5f;
+        String shape = prismSession
+                ? ("VINYL".equals(prismPlayer.layout) ? "CIRCLE" : prismPlayer.coverShape)
+                : "ROUNDED";
+        if (prismSession && ("SQUIRCLE".equals(shape) || "ARCH".equals(shape)
+                || "SLANTED".equals(shape) || "FLOWER".equals(shape) || "COOKIE".equals(shape))) {
+            int save = canvas.save();
+            Path path = coverShapePath(left, top, art, shape);
+            canvas.clipPath(path);
+            fx.drawArt(canvas, x, y, size, alpha, 0.0f, now);
+            canvas.restoreToCount(save);
+        } else {
+            fx.drawArt(canvas, x, y, size, alpha, artCornerRadius(), now);
+        }
+        if (prismSession && "VINYL".equals(prismPlayer.layout) && prismPlayer.vinylTonearm) {
+            drawVinylTonearm(canvas, left, top, size, alpha, now);
+        } else if (prismSession && "CASSETTE".equals(prismPlayer.layout)) {
+            drawCassetteDetails(canvas, left, top, size, alpha);
+        }
+    }
+
+    private Path coverShapePath(float left, float top, float size, String shape) {
+        Path path = new Path();
+        float right = left + size;
+        float bottom = top + size;
+        if ("ARCH".equals(shape)) {
+            path.moveTo(left, bottom);
+            path.lineTo(left, top + size * 0.42f);
+            path.quadTo(left + size * 0.5f, top - size * 0.12f,
+                    right, top + size * 0.42f);
+            path.lineTo(right, bottom);
+            path.close();
+        } else if ("SLANTED".equals(shape)) {
+            float cut = size * 0.18f;
+            path.moveTo(left + cut, top);
+            path.lineTo(right, top);
+            path.lineTo(right - cut, bottom);
+            path.lineTo(left, bottom);
+            path.close();
+        } else {
+            int points = "FLOWER".equals(shape) ? 12 : 16;
+            float cx = left + size * 0.5f;
+            float cy = top + size * 0.5f;
+            float base = size * 0.5f;
+            for (int i = 0; i < points; i++) {
+                double angle = (Math.PI * 2.0d * i / points) - Math.PI / 2.0d;
+                float modulation = "FLOWER".equals(shape)
+                        ? (i % 2 == 0 ? 1.0f : 0.82f)
+                        : (i % 4 < 2 ? 1.0f : 0.94f);
+                float px = cx + (float) Math.cos(angle) * base * modulation;
+                float py = cy + (float) Math.sin(angle) * base * modulation;
+                if (i == 0) path.moveTo(px, py); else path.lineTo(px, py);
+            }
+            path.close();
+        }
+        return path;
+    }
+
+    private void drawCassetteDetails(Canvas canvas, float left, float top, float size, float alpha) {
+        glowPaint.setStyle(Paint.Style.STROKE);
+        glowPaint.setStrokeWidth(owner.dp(1.2f));
+        glowPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha * 0.62f));
+        owner.tmpRect.set(left + size * 0.08f, top + size * 0.08f,
+                left + size * 0.92f, top + size * 0.92f);
+        canvas.drawRoundRect(owner.tmpRect, owner.dp(7.0f), owner.dp(7.0f), glowPaint);
+        owner.tmpRect.set(left + size * 0.17f, top + size * 0.15f,
+                left + size * 0.83f, top + size * 0.38f);
+        glowPaint.setStyle(Paint.Style.FILL);
+        glowPaint.setColor(Colors.withAlpha(Colors.BLACK, alpha * 0.34f));
+        canvas.drawRoundRect(owner.tmpRect, owner.dp(3.0f), owner.dp(3.0f), glowPaint);
+        glowPaint.setStyle(Paint.Style.STROKE);
+        glowPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha * 0.70f));
+        float cy = top + size * 0.67f;
+        float radius = size * 0.14f;
+        float leftCx = left + size * 0.34f;
+        float rightCx = left + size * 0.66f;
+        canvas.drawCircle(leftCx, cy, radius, glowPaint);
+        canvas.drawCircle(rightCx, cy, radius, glowPaint);
+        canvas.drawCircle(leftCx, cy, radius * 0.36f, glowPaint);
+        canvas.drawCircle(rightCx, cy, radius * 0.36f, glowPaint);
+        glowPaint.setStyle(Paint.Style.FILL);
+        glowPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha * 0.58f));
+        canvas.drawCircle(left + size * 0.5f, top + size * 0.50f, owner.dp(2.0f), glowPaint);
+    }
+
+    /** Small record groove/ring and a moving tonearm accent for the VINYL layout. */
+    private void drawVinylTonearm(Canvas canvas, float left, float top, float size,
+            float alpha, long now) {
+        float cx = left + size * 0.5f;
+        float cy = top + size * 0.5f;
+        glowPaint.setStyle(Paint.Style.STROKE);
+        glowPaint.setStrokeWidth(owner.dp(0.8f));
+        glowPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha * 0.28f));
+        canvas.drawCircle(cx, cy, size * 0.38f, glowPaint);
+        canvas.drawCircle(cx, cy, size * 0.31f, glowPaint);
+        float progress = item.mediaDuration > 0
+                ? IslandView.clamp01((float) owner.mediaFx(item)
+                        .shownPosition(item, SystemClock.elapsedRealtime()) / item.mediaDuration) : 0.0f;
+        float angle = (float) (Math.PI * (0.15d + progress * 0.22d));
+        float armStartX = left + size * 0.88f;
+        float armStartY = top + size * 0.14f;
+        float armEndX = cx + (float) Math.cos(angle) * size * 0.30f;
+        float armEndY = cy + (float) Math.sin(angle) * size * 0.30f;
+        glowPaint.setStrokeWidth(owner.dp(1.5f));
+        glowPaint.setColor(Colors.withAlpha(Colors.WHITE, alpha * 0.82f));
+        canvas.drawLine(armStartX, armStartY, armEndX, armEndY, glowPaint);
+        glowPaint.setStyle(Paint.Style.FILL);
+        canvas.drawCircle(armStartX, armStartY, owner.dp(2.2f), glowPaint);
+    }
+
     private int prismScrubberColor() {
         switch (prismPlayer.scrubberColor) {
             case "WHITE":
@@ -1100,9 +1308,8 @@ public final class MediaBody extends CardBody {
 
     private float artCornerRadius() {
         if (!prismSession) return owner.dp(ART_CORNER_DP);
-        if ("FULL".equals(prismPlayer.coverSize) || "SQUARE".equals(prismPlayer.coverShape)) return 0.0f;
-        if ("CIRCLE".equals(prismPlayer.coverShape)) return art / 2.0f;
         if ("SQUARE".equals(prismPlayer.coverShape)) return 0.0f;
+        if ("CIRCLE".equals(prismPlayer.coverShape) || "VINYL".equals(prismPlayer.layout)) return art / 2.0f;
         return Math.min(art / 2.0f, owner.dp(prismPlayer.artCornersDp));
     }
 }

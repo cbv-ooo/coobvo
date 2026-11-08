@@ -6,13 +6,16 @@ import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.RenderEffect;
 import android.graphics.Shader;
+import android.os.Build;
 import android.graphics.Typeface;
 import android.os.SystemClock;
 import android.text.TextPaint;
 import dev.android.dynamicisland.island.graphics.Colors;
 import dev.android.dynamicisland.island.lyrics.MediaLyrics;
 import dev.android.dynamicisland.island.view.IslandView;
+import dev.android.dynamicisland.island.view.media.MediaFx;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -97,7 +100,9 @@ final class PrismLyricsPainter {
                 : clamp((float) look.optDouble("sizeScale", 1.0d), 0.7f, 1.4f);
         float textScale = look == null ? 1.0f
                 : clamp((float) look.optDouble("textScale", 1.0d), 0.7f, 1.4f);
-        return 17.0f * sizeScale * textScale;
+        float lyricsScale = look == null ? 1.0f
+                : clamp((float) look.optDouble("lyricsScale", 1.0d), 0.75f, 1.4f);
+        return 17.0f * sizeScale * textScale * lyricsScale;
     }
 
     /** Keeps the two historical lines, active line and preview lines on distinct baselines. */
@@ -145,11 +150,13 @@ final class PrismLyricsPainter {
 
     static void draw(Canvas canvas, IslandView owner, MediaLyrics data, JSONObject look, State state,
                      TextPaint mainPaint, TextPaint extraPaint, String status,
-                     float left, float top, float width, float alpha, long positionMs, int accent) {
+                     float left, float top, float width, float alpha, long positionMs,
+                     int accent, MediaFx mediaFx, long frameTimeMs) {
         if (look == null) look = new JSONObject();
         configureMainPaint(owner, mainPaint, look);
         configureExtraPaint(owner, extraPaint, look);
-        drawLyricsBackground(canvas, owner, data, look, left, top, width, alpha, accent);
+        drawLyricsBackground(canvas, owner, data, look, left, top, width, alpha,
+                accent, mediaFx, frameTimeMs);
 
         if (data == null || data.isEmpty()) {
             state.reset();
@@ -187,7 +194,8 @@ final class PrismLyricsPainter {
         MediaLyrics.Line line = data.line(index);
         if (line.interlude || line.text.trim().isEmpty()) {
             state.reset();
-            drawStatus(canvas, owner, look, mainPaint, "♫  Instrumental", left, top, width, alpha);
+            drawGapMark(canvas, owner, look, mainPaint, left, top, width, alpha,
+                    positionMs, line);
             return;
         }
 
@@ -319,7 +327,8 @@ final class PrismLyricsPainter {
 
     /** Applies Prism's requested backdrop/effect without depending on its Compose page being open. */
     private static void drawLyricsBackground(Canvas canvas, IslandView owner, MediaLyrics data,
-            JSONObject look, float left, float top, float width, float alpha, int accent) {
+            JSONObject look, float left, float top, float width, float alpha, int accent,
+            MediaFx mediaFx, long frameTimeMs) {
         String background = look.optString("background", "PLAYER");
         boolean card = look.optBoolean("cardNow", false)
                 || "CARD".equalsIgnoreCase(look.optString("style", ""));
@@ -332,8 +341,35 @@ final class PrismLyricsPainter {
         } else if ("COVER_COLOR".equalsIgnoreCase(background)) {
             color = accent != 0 && accent != -1 ? accent : 0xFF252525;
         } else if ("BLUR".equalsIgnoreCase(background) || "CANVAS".equalsIgnoreCase(background)) {
-            // Prism's live blur/canvas bitmap is not exported by the bridge; use a subdued
-            // cover-derived backing rather than claiming to render that unavailable image.
+            float height = owner.dp(rowHeightDp(look, data));
+            RectF backdrop = new RectF(left - owner.dp(5.0f), top - owner.dp(2.0f),
+                    left + width + owner.dp(5.0f), top + height);
+            if (mediaFx != null) {
+                float size = Math.max(backdrop.width(), backdrop.height());
+                float artLeft = backdrop.centerX() - size * 0.5f;
+                float artTop = backdrop.centerY() - size * 0.5f;
+                if ("BLUR".equalsIgnoreCase(background)
+                        && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    float radius = owner.dp(14.0f);
+                    BACKGROUND_PAINT.setRenderEffect(RenderEffect.createBlurEffect(
+                            radius, radius, Shader.TileMode.CLAMP));
+                    int layer = canvas.saveLayer(backdrop, BACKGROUND_PAINT);
+                    mediaFx.drawArt(canvas, artLeft, artTop, size, alpha, 0.0f, frameTimeMs);
+                    canvas.restoreToCount(layer);
+                    BACKGROUND_PAINT.setRenderEffect(null);
+                } else {
+                    // CANVAS is represented by the live media-session cover snapshot; Prism's
+                    // animated Canvas/video frame is not exposed through MediaSession artwork.
+                    mediaFx.drawArt(canvas, artLeft, artTop, size,
+                            alpha * ("BLUR".equalsIgnoreCase(background) ? 0.35f : 0.82f),
+                            0.0f, frameTimeMs);
+                }
+                BACKGROUND_PAINT.setShader(null);
+                BACKGROUND_PAINT.setColor(Colors.withAlpha(Colors.BLACK,
+                        alpha * ("BLUR".equalsIgnoreCase(background) ? 0.42f : 0.18f)));
+                canvas.drawRoundRect(backdrop, owner.dp(12.0f), owner.dp(12.0f), BACKGROUND_PAINT);
+                return;
+            }
             color = accent != 0 && accent != -1 ? Colors.withAlpha(accent, 0.78f) : 0xCC202020;
         } else if (card) {
             color = accent != 0 && accent != -1 ? Colors.withAlpha(accent, 0.72f) : 0xB8242424;
@@ -643,7 +679,9 @@ final class PrismLyricsPainter {
         float oldSize = paint.getTextSize();
         Typeface oldTypeface = paint.getTypeface();
         Paint.Align oldAlign = paint.getTextAlign();
-        paint.setTextSize(owner.dp(12.0f * sizeScale * 0.52f));
+        float textScale = clamp((float) look.optDouble("textScale", 1.0d), 0.7f, 1.4f);
+        float lyricsScale = clamp((float) look.optDouble("lyricsScale", 1.0d), 0.75f, 1.4f);
+        paint.setTextSize(owner.dp(12.0f * sizeScale * 0.52f * textScale * lyricsScale));
         paint.setTypeface(typeface(owner, look, "REGULAR", look.optBoolean("extraItalic", false)));
         paint.setTextAlign(alignEnd ? Paint.Align.RIGHT : align);
         setShadow(owner, paint, look, color);
@@ -701,7 +739,8 @@ final class PrismLyricsPainter {
     private static void configureMainPaint(IslandView owner, TextPaint paint, JSONObject look) {
         float size = clamp((float) look.optDouble("sizeScale", 1.0d), 0.7f, 1.4f);
         float textScale = clamp((float) look.optDouble("textScale", 1.0d), 0.7f, 1.4f);
-        paint.setTextSize(owner.dp(12.0f * size * textScale));
+        float lyricsScale = clamp((float) look.optDouble("lyricsScale", 1.0d), 0.75f, 1.4f);
+        paint.setTextSize(owner.dp(17.0f * size * textScale * lyricsScale));
         paint.setTypeface(typeface(owner, look,
                 look.optString("weightNow", look.optString("weight", "LIGHT")), false));
         paint.setFakeBoldText(look.optBoolean("boldLinesNow", "CARD".equalsIgnoreCase(look.optString("style", ""))));
@@ -712,7 +751,9 @@ final class PrismLyricsPainter {
 
     private static void configureExtraPaint(IslandView owner, TextPaint paint, JSONObject look) {
         float textScale = clamp((float) look.optDouble("textScale", 1.0d), 0.7f, 1.4f);
-        paint.setTextSize(owner.dp(6.2f * clamp((float) look.optDouble("extraSize", 1.0d), 0.7f, 1.4f) * textScale));
+        float lyricsScale = clamp((float) look.optDouble("lyricsScale", 1.0d), 0.75f, 1.4f);
+        paint.setTextSize(owner.dp(6.2f * clamp((float) look.optDouble("extraSize", 1.0d), 0.7f, 1.4f)
+                * textScale * lyricsScale));
         paint.setTypeface(typeface(owner, look, "REGULAR", false));
         paint.setLetterSpacing((float) look.optDouble("typeSpacingEm", 0.0d));
         paint.setFakeBoldText(false);
