@@ -73,6 +73,7 @@ public final class PrismMediaBridgeClient {
         public final String crossfadeFromId;
         public final String crossfadeToId;
         public final float crossfadeProgress;
+        public final long bestPartStartMs;
         public final float playerVolume;
         private final boolean lyricsExtrasPending;
 
@@ -106,6 +107,7 @@ public final class PrismMediaBridgeClient {
             this.crossfadeFromId = emptyToNull(data.optString("crossfadeFromId", null));
             this.crossfadeToId = emptyToNull(data.optString("crossfadeToId", null));
             this.crossfadeProgress = clamp(data.optDouble("crossfadeProgress", 0.0d));
+            this.bestPartStartMs = readBestPartStartMs(data);
             this.playerVolume = clamp(data.optDouble("playerVolume", 1.0d));
         }
     }
@@ -183,6 +185,12 @@ public final class PrismMediaBridgeClient {
     }
 
     /** Prefer Prism's own state status; retain bridge-registration diagnostics before state exists. */
+    static long readBestPartStartMs(JSONObject data) {
+        if (data == null) return -1L;
+        long value = data.optLong("bestPartStartMs", -1L);
+        return value >= 0L ? value : -1L;
+    }
+
     static String lyricsStatus(JSONObject data) {
         if (data == null) return "UNKNOWN";
         JSONObject prismLyrics = data.optJSONObject("prismLyrics");
