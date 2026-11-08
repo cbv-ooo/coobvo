@@ -176,8 +176,18 @@ public final class PrismMediaBridge {
                     if (translation.has("to")) exported.put("translationTo", translation.opt("to"));
                 }
                 snapshot.put("lyrics", exported);
-                snapshot.put("status", exported.optJSONArray("lines") != null
-                        && exported.optJSONArray("lines").length() > 0 ? "AVAILABLE" : "UNAVAILABLE");
+                JSONArray lyricLines = exported.optJSONArray("lines");
+                if (lyricLines != null && lyricLines.length() > 0) {
+                    snapshot.put("status", "AVAILABLE");
+                } else if (loading) {
+                    snapshot.put("status", "LOADING");
+                } else if (waiting) {
+                    snapshot.put("status", "WAITING");
+                } else if (settled || unavailable) {
+                    snapshot.put("status", "UNAVAILABLE");
+                } else {
+                    snapshot.put("status", "UNKNOWN");
+                }
             } else if (loading) {
                 snapshot.put("status", "LOADING");
             } else if (waiting) {
