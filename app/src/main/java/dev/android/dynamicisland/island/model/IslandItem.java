@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.widget.RemoteViews;
 import dev.android.dynamicisland.island.graphics.ArtworkPalette;
+import dev.android.dynamicisland.island.lyrics.MediaLyrics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -227,6 +228,12 @@ public final class IslandItem {
     public CharSequence mediaFlags;
     /** Technical stream information supplied by the Prism Morphe bridge. */
     public CharSequence mediaInfo;
+    /** Prism's own resolved lyric lines and their original provider timestamps. */
+    public MediaLyrics mediaLyrics;
+    /** Prism LyricsState status: UNKNOWN, LOADING, WAITING, AVAILABLE or UNAVAILABLE. */
+    public String mediaLyricsStatus;
+    /** Resolved Prism lyric appearance preferences, copied as JSON for later Canvas mapping. */
+    public String mediaLyricsLook;
 
     /** What the compact pill shows at its trailing edge. */
     public enum Trailing {

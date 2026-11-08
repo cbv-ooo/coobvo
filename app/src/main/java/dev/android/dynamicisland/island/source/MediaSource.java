@@ -15,6 +15,7 @@ import android.os.Handler;
 import android.os.SystemClock;
 import dev.android.dynamicisland.island.graphics.ArtworkPalette;
 import dev.android.dynamicisland.island.graphics.GlyphIcon;
+import dev.android.dynamicisland.island.lyrics.MediaLyrics;
 import dev.android.dynamicisland.island.model.IslandItem;
 import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.xposed.XLog;
@@ -336,6 +337,10 @@ public final class MediaSource {
         private String prismInfoKey;
         private String prismInfo;
         private long prismInfoUpdatedAt;
+        private String prismSnapshotJson;
+        private MediaLyrics prismLyrics;
+        private String prismLyricsStatus = "UNKNOWN";
+        private String prismLyricsLook;
 
         Session(MediaController controller) {
             this.controller = controller;
@@ -551,17 +556,28 @@ public final class MediaSource {
             if (!key.equals(prismInfoKey)) {
                 prismInfoKey = key;
                 prismInfo = null;
+                prismSnapshotJson = null;
+                prismLyrics = null;
+                prismLyricsStatus = "UNKNOWN";
+                prismLyricsLook = null;
                 prismInfoUpdatedAt = 0L;
             }
             it.mediaInfo = prismInfo;
+            it.mediaLyrics = prismLyrics;
+            it.mediaLyricsStatus = prismLyricsStatus;
+            it.mediaLyricsLook = prismLyricsLook;
             if (SystemClock.elapsedRealtime() - prismInfoUpdatedAt < 1000L) return;
 
             MediaSession.Token token = controller.getSessionToken();
             PrismMediaBridgeClient.request(ctx, extras, key, details -> {
                 if (details == null || sessions.get(token) != this || !key.equals(prismInfoKey)) return;
                 prismInfoUpdatedAt = SystemClock.elapsedRealtime();
-                if (details.equals(prismInfo)) return;
-                prismInfo = details;
+                if (details.rawJson.equals(prismSnapshotJson)) return;
+                prismSnapshotJson = details.rawJson;
+                prismInfo = details.info;
+                prismLyrics = details.lyrics;
+                prismLyricsStatus = details.lyricsStatus;
+                prismLyricsLook = details.lyricsLook;
                 card = null;
                 onChange.run();
             });

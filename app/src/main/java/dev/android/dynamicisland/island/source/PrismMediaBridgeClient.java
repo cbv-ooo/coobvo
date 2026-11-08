@@ -7,7 +7,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import dev.android.dynamicisland.island.lyrics.MediaLyrics;
 import org.json.JSONObject;
+
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -16,8 +18,8 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
- * Reads Prism's optional, local-only Morphe bridge. Calls are made off the System UI thread;
- * the returned text is small enough to use in the media card's existing metadata row.
+ * Reads Prism's optional, local-only Morphe bridge. Calls are made off the System UI thread.
+ * The snapshot contains Prism-owned diagnostics and, when available, Prism's own lyric state.
  */
 public final class PrismMediaBridgeClient {
     private static final String VERSION_KEY = "coobvo.prism.bridge.version";
@@ -39,7 +41,23 @@ public final class PrismMediaBridgeClient {
 
     private PrismMediaBridgeClient() {}
 
-    public static void request(Context context, Bundle extras, String trackKey, Consumer<String> callback) {
+    public static final class Snapshot {
+        public final String info;
+        public final MediaLyrics lyrics;
+        public final String lyricsStatus;
+        public final String lyricsLook;
+        public final String rawJson;
+
+        private Snapshot(String info, MediaLyrics lyrics, String lyricsStatus, String lyricsLook, String rawJson) {
+            this.info = info;
+            this.lyrics = lyrics;
+            this.lyricsStatus = lyricsStatus == null ? "UNKNOWN" : lyricsStatus;
+            this.lyricsLook = lyricsLook;
+            this.rawJson = rawJson;
+        }
+    }
+
+    public static void request(Context context, Bundle extras, String trackKey, Consumer<Snapshot> callback) {
         if (context == null || extras == null || callback == null) return;
         final String bridgeUri;
         try {
@@ -55,27 +73,24 @@ public final class PrismMediaBridgeClient {
         synchronized (CACHE) {
             Cached cached = CACHE.get(key);
             if (cached != null && now - cached.time < CACHE_MS) {
-                if (cached.info != null && !cached.info.isEmpty()) {
-                    String value = cached.info;
-                    MAIN.post(() -> callback.accept(value));
-                }
+                Snapshot value = cached.snapshot;
+                if (value != null) MAIN.post(() -> callback.accept(value));
                 return;
             }
         }
 
-        final Context app = context.getApplicationContext();
+        final Context appContext = context.getApplicationContext();
+        final Context app = appContext != null ? appContext : context;
         IO.execute(() -> {
-            String info = read(app, bridgeUri);
+            Snapshot snapshot = read(app, bridgeUri);
             synchronized (CACHE) {
-                CACHE.put(key, new Cached(info, SystemClock.elapsedRealtime()));
+                CACHE.put(key, new Cached(snapshot, SystemClock.elapsedRealtime()));
             }
-            if (info != null && !info.isEmpty()) {
-                MAIN.post(() -> callback.accept(info));
-            }
+            if (snapshot != null) MAIN.post(() -> callback.accept(snapshot));
         });
     }
 
-    private static String read(Context context, String bridgeUri) {
+    private static Snapshot read(Context context, String bridgeUri) {
         try (Cursor cursor = context.getContentResolver().query(
                 Uri.parse(bridgeUri), new String[]{SNAPSHOT_COLUMN}, null, null, null)) {
             if (cursor == null || !cursor.moveToFirst()) return null;
@@ -83,9 +98,20 @@ public final class PrismMediaBridgeClient {
             if (column < 0) return null;
             String json = cursor.getString(column);
             if (json == null || json.isEmpty()) return null;
-            return format(new JSONObject(json));
+            JSONObject data = new JSONObject(json);
+            JSONObject prismLyrics = data.optJSONObject("prismLyrics");
+            MediaLyrics lyrics = null;
+            String status = "UNKNOWN";
+            String look = null;
+            if (prismLyrics != null) {
+                status = prismLyrics.optString("status", "UNKNOWN");
+                lyrics = MediaLyrics.fromPrismSnapshot(prismLyrics.optJSONObject("lyrics"));
+                JSONObject lyricLook = prismLyrics.optJSONObject("look");
+                if (lyricLook != null) look = lyricLook.toString();
+            }
+            return new Snapshot(format(data), lyrics, status, look, json);
         } catch (Throwable ignored) {
-            // The bridge is optional. A missing or incompatible Prism patch must not break media cards.
+            // The bridge is optional. Missing/incompatible patch must never break media cards.
             return null;
         }
     }
@@ -115,7 +141,6 @@ public final class PrismMediaBridgeClient {
 
         int bitrate = data.optInt("streamBitrateKbps", 0);
         if (bitrate > 0) append(result, bitrate + " kbps");
-
         return result.length() == 0 ? null : result.toString();
     }
 
@@ -149,10 +174,10 @@ public final class PrismMediaBridgeClient {
     }
 
     private static final class Cached {
-        final String info;
+        final Snapshot snapshot;
         final long time;
-        Cached(String info, long time) {
-            this.info = info;
+        Cached(Snapshot snapshot, long time) {
+            this.snapshot = snapshot;
             this.time = time;
         }
     }

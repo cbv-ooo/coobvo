@@ -65,6 +65,9 @@ public final class MediaBody extends CardBody {
     private final String lyricsTitle;
     private final String lyricsArtist;
     private final String lyricsKey;
+    private final boolean prismSession;
+    private final MediaLyrics prismLyrics;
+    private final String prismLyricsStatus;
     private final boolean lyricsEnabled;
     /** Prepared text is rebuilt only when the track or current line changes, never per frame. */
     private MediaLyrics cachedLyrics;
@@ -88,9 +91,12 @@ public final class MediaBody extends CardBody {
         lyricsNextPaint = new TextPaint(owner.mediaArtistPaint());
         lyricsTitle = item.title == null ? "" : item.title.toString();
         lyricsArtist = item.subtitle == null ? "" : item.subtitle.toString();
-        // Prism owns its own lyrics providers. Never run the separate coobvo lookup for Prism sessions.
-        lyricsEnabled = ModuleSettings.mediaLyricsEnabled() && !"com.prism.music".equals(item.packageName);
-        lyricsKey = lyricsEnabled ? LyricsManager.keyFor(lyricsTitle, lyricsArtist) : "";
+        prismSession = "com.prism.music".equals(item.packageName);
+        prismLyrics = item.mediaLyrics;
+        prismLyricsStatus = item.mediaLyricsStatus == null ? "UNKNOWN" : item.mediaLyricsStatus;
+        // Prism's bridge is the sole lyric source for Prism sessions; never run a second provider cascade.
+        lyricsEnabled = prismSession ? !"UNKNOWN".equals(prismLyricsStatus) : ModuleSettings.mediaLyricsEnabled();
+        lyricsKey = !prismSession && lyricsEnabled ? LyricsManager.keyFor(lyricsTitle, lyricsArtist) : "";
         pad = owner.dp(18.0f);
         art = owner.dp(56.0f);
         tile = owner.dp(32.0f);
@@ -134,7 +140,7 @@ public final class MediaBody extends CardBody {
             addCustom(item.mediaCustom.get(1), pad + (CUSTOM_RIGHT_AT * span));
         }
         h = lyricsTop + (lyricsEnabled ? owner.dp(LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
-        if (lyricsEnabled && item.title != null && item.subtitle != null) {
+        if (lyricsEnabled && !prismSession && item.title != null && item.subtitle != null) {
             LyricsManager.request(owner.getContext(), lyricsTitle, lyricsArtist,
                     item.mediaDuration, owner::postInvalidateOnAnimation);
         }
@@ -205,7 +211,7 @@ public final class MediaBody extends CardBody {
 
     /** Current and next line of synced lyrics, using the playback clock shared with the seek row. */
     private void drawLyrics(Canvas canvas, float left, float top, float width, float alpha, long positionMs) {
-        MediaLyrics data = LyricsManager.getByKey(lyricsKey);
+        MediaLyrics data = prismSession ? prismLyrics : LyricsManager.getByKey(lyricsKey);
         TextPaint current = lyricsCurrentPaint;
         TextPaint next = lyricsNextPaint;
         current.setTextSize(owner.dp(12.0f));
@@ -215,10 +221,23 @@ public final class MediaBody extends CardBody {
         Paint.FontMetrics fm = current.getFontMetrics();
         float baseline = top + owner.dp(5.0f) - fm.ascent;
         if (data == null || data.isEmpty()) {
-            String status = LyricsManager.isLoadingByKey(lyricsKey)
-                    ? "Finding synced lyrics…" : "No synced lyrics found";
+            String status;
+            if (prismSession) {
+                if ("LOADING".equals(prismLyricsStatus)) status = "Loading Prism lyrics…";
+                else if ("WAITING".equals(prismLyricsStatus)) status = "Open Prism to load lyrics";
+                else status = "No lyrics available in Prism";
+            } else {
+                status = LyricsManager.isLoadingByKey(lyricsKey)
+                        ? "Finding synced lyrics…" : "No synced lyrics found";
+            }
             current.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
             canvas.drawText(status, left, baseline, current);
+            return;
+        }
+
+        if (prismSession && data.type() == MediaLyrics.Type.STATIC) {
+            current.setColor(Colors.withAlpha(Colors.ON_SURFACE_VARIANT, 0.78f * alpha));
+            canvas.drawText("Prism lyrics are not synchronized", left, baseline, current);
             return;
         }
 

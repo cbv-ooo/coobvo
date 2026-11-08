@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.InflaterInputStream;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /** Immutable line- or word-synced lyrics used by the media card. All times are track-relative milliseconds. */
 public final class MediaLyrics {
@@ -30,11 +32,21 @@ public final class MediaLyrics {
         public final long endMs;
         public final String text;
         public final List<Word> words;
+        public final List<Word> background;
         public final boolean interlude;
-        public Line(long startMs,long endMs,String text) { this(startMs,endMs,text,Collections.emptyList(),false); }
+        public final boolean alignEnd;
+        public Line(long startMs,long endMs,String text) {
+            this(startMs,endMs,text,Collections.emptyList(),false,false,Collections.emptyList());
+        }
         public Line(long startMs,long endMs,String text,List<Word> words,boolean interlude) {
+            this(startMs,endMs,text,words,interlude,false,Collections.emptyList());
+        }
+        public Line(long startMs,long endMs,String text,List<Word> words,boolean interlude,
+                    boolean alignEnd,List<Word> background) {
             this.startMs=startMs; this.endMs=endMs; this.text=text==null?"":text;
-            this.words=Collections.unmodifiableList(new ArrayList<>(words)); this.interlude=interlude;
+            this.words=Collections.unmodifiableList(new ArrayList<>(words));
+            this.background=Collections.unmodifiableList(new ArrayList<>(background));
+            this.interlude=interlude; this.alignEnd=alignEnd;
         }
     }
 
@@ -80,6 +92,46 @@ public final class MediaLyrics {
             if(positionMs>=word.startMs && positionMs<word.endMs) return i;
         }
         return -1;
+    }
+
+    /**
+     * Imports Prism's already-resolved lyric model. Timestamps are copied verbatim; missing timestamps
+     * stay missing rather than being estimated from line length or playback duration.
+     */
+    public static MediaLyrics fromPrismSnapshot(JSONObject snapshot) {
+        if (snapshot == null) return null;
+        JSONArray sourceLines = snapshot.optJSONArray("lines");
+        if (sourceLines == null || sourceLines.length() == 0) return null;
+        List<Line> parsed = new ArrayList<>(sourceLines.length());
+        boolean hasWordTiming = false;
+        for (int i = 0; i < sourceLines.length(); i++) {
+            JSONObject source = sourceLines.optJSONObject(i);
+            if (source == null) continue;
+            long start = source.optLong("timeMs", -1L);
+            long end = source.optLong("endMs", -1L);
+            String text = source.optString("text", "");
+            List<Word> words = prismWords(source.optJSONArray("words"));
+            List<Word> background = prismWords(source.optJSONArray("background"));
+            hasWordTiming |= !words.isEmpty();
+            parsed.add(new Line(start, end, text, words, source.optBoolean("isGap"),
+                    source.optBoolean("alignEnd"), background));
+        }
+        if (parsed.isEmpty()) return null;
+        boolean synced = snapshot.optBoolean("synced", false);
+        Type type = hasWordTiming ? Type.SYLLABLE : (synced ? Type.LINE : Type.STATIC);
+        return new MediaLyrics(type, snapshot.optString("source", "Prism"), parsed);
+    }
+
+    private static List<Word> prismWords(JSONArray values) {
+        if (values == null || values.length() == 0) return Collections.emptyList();
+        List<Word> result = new ArrayList<>(values.length());
+        for (int i = 0; i < values.length(); i++) {
+            JSONObject word = values.optJSONObject(i);
+            if (word == null) continue;
+            result.add(new Word(word.optLong("startMs", -1L), word.optLong("endMs", -1L),
+                    word.optString("text", "")));
+        }
+        return result;
     }
 
     static MediaLyrics parseLrc(String raw) { return parseLrc(raw,"LRCLIB"); }
