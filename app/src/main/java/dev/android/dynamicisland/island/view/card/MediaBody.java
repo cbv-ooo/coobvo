@@ -50,7 +50,7 @@ public final class MediaBody extends CardBody {
     /** Slide-up distance of a row while it fades in. */
     private static final float ROW_SLIDE_DP = 8.0f;
     /** Extra lines are reserved for SpicyLyrics/other providers that return backing or alternate text. */
-    private static final float LYRICS_ROW_DP = 56.0f;
+    private static final float LYRICS_ROW_DP = 38.0f;
     private static final String NO_DURATION = "--:--";
 
     final float art;
@@ -128,8 +128,9 @@ public final class MediaBody extends CardBody {
                 prismLook.optString("lyricsAlign", "START"));
         prismTextAlign = "CENTER".equalsIgnoreCase(align) ? Paint.Align.CENTER : Paint.Align.LEFT;
         // Prism's bridge is the sole lyric source for Prism sessions; never run a second provider cascade.
-        lyricsEnabled = prismSession ? !"UNKNOWN".equals(prismLyricsStatus) : ModuleSettings.mediaLyricsEnabled();
-        lyricsKey = !prismSession && lyricsEnabled ? LyricsManager.keyFor(lyricsTitle, lyricsArtist, item.mediaTrackId) : "";
+        // Prism lyrics belong to Prism's media session; always reserve the row while the bridge is loading too.
+        lyricsEnabled = prismSession || ModuleSettings.mediaLyricsEnabled();
+        lyricsKey = !prismSession && lyricsEnabled ? LyricsManager.keyFor(lyricsTitle, lyricsArtist) : "";
         pad = owner.dp(18.0f);
         art = owner.dp(56.0f);
         tile = owner.dp(32.0f);
@@ -175,7 +176,7 @@ public final class MediaBody extends CardBody {
         h = lyricsTop + (lyricsEnabled ? owner.dp(prismSession ? prismLyricsRowDp : LYRICS_ROW_DP) : 0.0f) + owner.dp(12.0f);
         if (lyricsEnabled && !prismSession && item.title != null && item.subtitle != null) {
             LyricsManager.request(owner.getContext(), lyricsTitle, lyricsArtist,
-                    item.mediaDuration, item.mediaTrackId, owner::postInvalidateOnAnimation);
+                    item.mediaDuration, owner::postInvalidateOnAnimation);
         }
     }
 

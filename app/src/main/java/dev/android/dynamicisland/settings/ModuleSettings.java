@@ -29,8 +29,6 @@ public final class ModuleSettings {
     /** The island's music card in place of the stock music player of the notification shade. */
     public static final String KEY_SHADE_MEDIA = "shade_media_player";
     public static final String KEY_MEDIA_LYRICS = "media_lyrics_enabled";
-    /** User-supplied SpicyLyrics publishable key; secret keys are deliberately rejected. */
-    public static final String KEY_SPICY_LYRICS_KEY = "spicy_lyrics_client_key";
     public static final String KEY_EVENT_CHARGING = "event_charging";
     public static final String KEY_STOCK_CHARGING_ANIMATION = "stock_charging_animation";
     /** Experimental concurrent input; opt-in because vendor recording policies differ. */
@@ -202,7 +200,7 @@ public final class ModuleSettings {
     private static volatile boolean colorIcons;
     private static volatile boolean shadeMedia = true;
     private static volatile boolean mediaLyrics = false;
-    private static volatile String spicyLyricsKey = "";
+
     private static volatile boolean eventCharging = true;
     private static volatile boolean stockChargingAnimation;
     private static volatile boolean concurrentRecordingInput;
@@ -640,7 +638,6 @@ public final class ModuleSettings {
             colorIcons = source.getBoolean(KEY_COLOR_ICONS, false);
             shadeMedia = source.getBoolean(KEY_SHADE_MEDIA, true);
             mediaLyrics = source.getBoolean(KEY_MEDIA_LYRICS, false);
-            spicyLyricsKey = readSpicyLyricsKey(source);
             eventCharging = source.getBoolean(KEY_EVENT_CHARGING, true);
             readOptionalDeviceSettings(source);
             eventRinger = source.getBoolean(KEY_EVENT_RINGER, true);
@@ -981,23 +978,6 @@ public final class ModuleSettings {
     public static boolean mediaLyricsEnabled() {
         ensureStarted();
         return mediaLyrics;
-    }
-
-    /** Optional SpicyLyrics developer publishable key (sl_pk_...); never returns a secret key. */
-    public static String spicyLyricsClientKey() {
-        ensureStarted();
-        return spicyLyricsKey;
-    }
-
-    private static String readSpicyLyricsKey(SharedPreferences source) {
-        try {
-            String value = source.getString(KEY_SPICY_LYRICS_KEY, "");
-            if (value == null) return "";
-            value = value.trim();
-            return value.matches("sl_pk_[A-Za-z0-9_-]+") ? value : "";
-        } catch (RuntimeException ignored) {
-            return "";
-        }
     }
 
     /** Keep the real colours of an app's icon or a team's logo in the small pill, instead of a grey version of it. */

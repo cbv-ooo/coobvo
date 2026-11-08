@@ -13,7 +13,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.text.InputType;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.Settings;
@@ -22,7 +21,6 @@ import android.view.View;
 import android.view.Window;
 import android.window.OnBackInvokedDispatcher;
 import android.widget.ArrayAdapter;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Switch;
@@ -374,7 +372,6 @@ public final class SettingsActivity extends Activity {
         toggle(controls, R.string.auto_open_cards, R.string.auto_open_cards_desc, ModuleSettings.KEY_AUTO_OPEN_CARDS, false);
         toggle(controls, R.string.setting_progress, R.string.setting_progress_desc, ModuleSettings.KEY_PROGRESS_NOTIFICATIONS, true);
         ui.switchRow(controls, "LyricSync · synced lyrics", "Optional network lookups send the playing track title and artist to lyric providers. Off by default.", flag(ModuleSettings.KEY_MEDIA_LYRICS, false), on -> prefs.edit().putBoolean(ModuleSettings.KEY_MEDIA_LYRICS, on).apply());
-        ui.valueRow(controls, "SpicyLyrics publishable key", spicyLyricsKeySummary(), this::editSpicyLyricsKey);
         ui.category(page, "Manage");
         LinearLayout links = ui.card(page);
         ui.linkRow(links, getString(R.string.ui_notifications), getString(R.string.ui_notifications_summary), () -> open(this::notificationsPage));
@@ -382,49 +379,6 @@ public final class SettingsActivity extends Activity {
         ui.linkRow(links, "Dynamic App Settings", "Per-app include and exclude lists", () -> open(this::appsPage));
         ui.linkRow(links, getString(R.string.rules_title), getString(R.string.hub_rules_sum), () -> open(rules::advancedPage));
         ui.note(page, "Still to port: notification history, rotating idle widgets and dedicated quick-launch controls. Notification cooldown is now available for ordinary island cards; system-event cooldown is still pending.");
-    }
-
-    private String spicyLyricsKeySummary() {
-        String key;
-        try { key = prefs.getString(ModuleSettings.KEY_SPICY_LYRICS_KEY, ""); }
-        catch (RuntimeException wrongType) { key = ""; }
-        if (key == null || key.trim().isEmpty()) return "Not set · Kugou, Netease and LRCLIB remain available";
-        String value = key.trim();
-        return value.length() > 4 ? "Saved · …" + value.substring(value.length() - 4) : "Saved";
-    }
-
-    private void editSpicyLyricsKey() {
-        String current;
-        try { current = prefs.getString(ModuleSettings.KEY_SPICY_LYRICS_KEY, ""); }
-        catch (RuntimeException wrongType) { current = ""; }
-        EditText input = new EditText(this);
-        input.setSingleLine(true);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-        input.setHint("sl_pk_…");
-        input.setText(current == null ? "" : current);
-        int pad = ui.dp(20);
-        input.setPadding(pad, ui.dp(12), pad, ui.dp(12));
-        AlertDialog.Builder dialog = new AlertDialog.Builder(this)
-                .setTitle("SpicyLyrics publishable key")
-                .setMessage("Optional. Paste your own sl_pk_ publishable key. Secret sl_sk_ keys are not accepted. The key is stored in this module's settings and is used only for a track with a Spotify media ID.")
-                .setView(input)
-                .setPositiveButton("Save", (d, which) -> {
-                    String value = input.getText().toString().trim();
-                    if (value.isEmpty()) prefs.edit().remove(ModuleSettings.KEY_SPICY_LYRICS_KEY).apply();
-                    else if (!value.matches("sl_pk_[A-Za-z0-9_-]+")) {
-                        Toast.makeText(this, "That does not look like an sl_pk_ publishable key.", Toast.LENGTH_LONG).show();
-                        return;
-                    } else prefs.edit().putString(ModuleSettings.KEY_SPICY_LYRICS_KEY, value).apply();
-                    render();
-                })
-                .setNegativeButton(android.R.string.cancel, null);
-        if (current != null && !current.trim().isEmpty()) {
-            dialog.setNeutralButton("Remove key", (d, which) -> {
-                prefs.edit().remove(ModuleSettings.KEY_SPICY_LYRICS_KEY).apply();
-                render();
-            });
-        }
-        dialog.show();
     }
 
     /** Documents the shared M3 Expressive treatment now used by the Canvas island. */

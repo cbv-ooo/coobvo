@@ -64,11 +64,10 @@ public final class LyricsManager {
     }
 
     /** Normalized cache key computed once when a media body is constructed. */
-    public static String keyFor(String title,String artist) { return key(title,artist,null); }
-    public static String keyFor(String title,String artist,String mediaTrackId) { return key(title,artist,mediaTrackId); }
+    public static String keyFor(String title,String artist) { return key(title,artist); }
 
     public static MediaLyrics get(String title,String artist) {
-        return getByKey(key(title,artist,null));
+        return getByKey(key(title,artist));
     }
 
     /** Frame-loop-safe lookup: caller supplies the already normalized cache key. */
@@ -93,16 +92,12 @@ public final class LyricsManager {
     }
 
     public static void request(Context context,String title,String artist,long durationMs,Runnable completed) {
-        request(context,title,artist,durationMs,null,completed);
-    }
-
-    public static void request(Context context,String title,String artist,long durationMs,String mediaTrackId,Runnable completed) {
         if(context==null||blank(title)||blank(artist))return;
         // This class runs in System UI, not the module settings app. Verify that the
         // hosting process itself has INTERNET permission before attempting any provider.
         if(context.checkCallingOrSelfPermission(android.Manifest.permission.INTERNET)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
-        String key=key(title,artist,mediaTrackId);
+        String key=key(title,artist);
         synchronized(CACHE){
             Entry entry=CACHE.get(key);
             if(entry!=null&&SystemClock.uptimeMillis()<entry.expiresAt){post(completed);return;}
@@ -112,11 +107,11 @@ public final class LyricsManager {
             waiters=new ArrayList<>();if(completed!=null)waiters.add(completed);WAITERS.put(key,waiters);
         }
         Context app=context.getApplicationContext()!=null?context.getApplicationContext():context;
-        try{WORKER.execute(()->fetch(app,key,title.trim(),artist.trim(),durationMs,mediaTrackId));}
+        try{WORKER.execute(()->fetch(app,key,title.trim(),artist.trim(),durationMs));}
         catch(RuntimeException rejected){finish(key,null,MISS_TTL_MS);}
     }
 
-    private static void fetch(Context context,String key,String title,String artist,long durationMs,String mediaTrackId) {
+    private static void fetch(Context context,String key,String title,String artist,long durationMs) {
         MediaLyrics result=null;
         try{
             long waitUntil=Math.max(retryAfterUptime,lastRequestUptime+MIN_REQUEST_INTERVAL_MS);
@@ -124,14 +119,8 @@ public final class LyricsManager {
             if(pause>0)Thread.sleep(Math.min(pause,MAX_RETRY_AFTER_MS));
             lastRequestUptime=SystemClock.uptimeMillis();
 
-            // SpicyLyrics is opt-in and only queried when this media session supplied a real Spotify id.
-            // Other sessions and builds without a user key immediately continue to the existing providers.
-            result=fetchSpicy(mediaTrackId);
             // Better word timing wins. Try independent catalogues even if one returns only LRC.
-            if(result==null||result.type()!=MediaLyrics.Type.SYLLABLE) {
-                MediaLyrics kugou=fetchKugou(title,artist,durationMs);
-                if(better(kugou,result))result=kugou;
-            }
+            result=fetchKugou(title,artist,durationMs);
             if(result==null||result.type()!=MediaLyrics.Type.SYLLABLE){
                 MediaLyrics netease=fetchNetease(title,artist,durationMs);
                 if(better(netease,result))result=netease;
@@ -158,53 +147,6 @@ public final class LyricsManager {
     private static void post(Runnable callback) {
         if(callback==null)return;
         try{new android.os.Handler(android.os.Looper.getMainLooper()).post(callback);}catch(Throwable ignored){}
-    }
-
-    private static MediaLyrics fetchSpicy(String rawTrackId) {
-        String trackId=spotifyTrackId(rawTrackId);
-        if(trackId==null)return null;
-        String clientKey=dev.android.dynamicisland.settings.ModuleSettings.spicyLyricsClientKey();
-        if(clientKey==null||clientKey.isEmpty())return null;
-        HttpURLConnection connection=null;
-        try {
-            connection=(HttpURLConnection)new URL("https://api.spicylyrics.org/v1/lyrics/"+trackId).openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(3500);
-            connection.setReadTimeout(5000);
-            connection.setRequestProperty("Authorization","Bearer "+clientKey);
-            connection.setRequestProperty("Accept","application/json");
-            connection.setRequestProperty("User-Agent",BROWSER_UA);
-            int status=connection.getResponseCode();
-            if(status==404)return null;
-            if(status!=200)return null;
-            try(InputStream input=connection.getInputStream();
-                BufferedReader reader=new BufferedReader(new InputStreamReader(input,StandardCharsets.UTF_8))) {
-                StringBuilder json=new StringBuilder();
-                char[] buffer=new char[4096];
-                for(int n;(n=reader.read(buffer))!=-1;) {
-                    if(json.length()+n>1_000_000) return null;
-                    json.append(buffer,0,n);
-                }
-                return MediaLyrics.parseSpicyResponse(json.toString());
-            }
-        } catch(Throwable ignored) {
-            return null;
-        } finally {
-            if(connection!=null)connection.disconnect();
-        }
-    }
-
-    /** Accept Spotify's track URI, open.spotify.com URL, or a bare 22-character track id only. */
-    static String spotifyTrackId(String raw) {
-        if(raw==null)return null;
-        String value=raw.trim();
-        if(value.startsWith("spotify:track:"))value=value.substring("spotify:track:".length());
-        else if(value.startsWith("https://open.spotify.com/track/")||value.startsWith("http://open.spotify.com/track/")) {
-            int slash=value.lastIndexOf('/');
-            value=slash>=0?value.substring(slash+1):value;
-            int query=value.indexOf('?');if(query>=0)value=value.substring(0,query);
-        }
-        return value.matches("[A-Za-z0-9]{22}")?value:null;
     }
 
     private static MediaLyrics fetchKugou(String title,String artist,long durationMs) {
@@ -408,13 +350,7 @@ public final class LyricsManager {
         int hits=0;for(String part:left)if(right.contains(part))hits++;
         return 2.0*hits/(left.size()+right.size());
     }
-    private static String key(String title,String artist){return key(title,artist,null);}
-    private static String key(String title,String artist,String mediaTrackId){
-        String normalizedTitle=normalize(title),normalizedArtist=normalize(artist);
-        if(normalizedTitle.isEmpty()||normalizedArtist.isEmpty())return "";
-        String id=spotifyTrackId(mediaTrackId);
-        return normalizedTitle+"|"+normalizedArtist+(id==null?"":"|spotify:"+id);
-    }
+    private static String key(String title,String artist){return normalize(title)+"|"+normalize(artist);}
     private static String normalize(String text){return text==null?"":text.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]","");}
     private static boolean blank(String value){return value==null||value.trim().isEmpty();}
 }

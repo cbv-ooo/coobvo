@@ -489,7 +489,6 @@ public final class MediaSource {
             it.isMedia = true;
             it.packageName = pkg;
             it.userId = userId;
-            it.mediaTrackId = meta == null ? null : meta.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
             it.playing = isPlaying();
             it.appName = assets.label(pkg);
             it.trailing = IslandItem.Trailing.WAVEFORM;
