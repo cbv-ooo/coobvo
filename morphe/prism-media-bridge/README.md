@@ -1,39 +1,53 @@
-# Coobvo Prism Media Bridge patches
+# Coobvo Prism Media Bridge
 
-A third-party Morphe patch project for Prism Player. It exposes Prism-owned media/session information to coobvo Dynamic Island. It is not part of the Morphe project and is not an official Morphe patch.
+A third-party Morphe patch project for Prism Player. It exposes Prism-owned media/session and lyrics state to coobvo Dynamic Island. It is not an official Morphe patch.
 
-## Data exported today
+## Exported Prism state
 
-The patch adds a versioned local content URI to Prism's Media3 metadata extras. Prism's MediaItem ID is the original Song ID, so the route is content://com.prism.music.artwork/bridge/{songId}. It hooks only the /bridge branch of Prism's existing exported ArtworkProvider; ordinary artwork queries continue through Prism's original implementation.
+The patch decorates Prism's Media3 Song and browse MediaItem paths with a versioned local content URI. Prism's original Song ID remains the bridge key. It intercepts only the `/bridge/{songId}` query on Prism's existing `ArtworkProvider`; all ordinary artwork queries stay with Prism.
 
-The route returns a small JSON snapshot from Prism's in-memory state:
+The bounded in-memory JSON snapshot includes:
 
-- Song ID and Prism Song flags.
-- Stream source, container, codec, decoder, itag and content length.
-- Stream bitrate, input sample rate, bit depth and channel count.
+- Song ID, song flags and album metadata.
+- Stream source/container/codec/decoder/itag/content length, bitrate, input sample rate, bit depth and channel count.
 - Output encoding/sample rate, offload and audio session.
 - Current bandwidth estimate and buffer duration.
-- Loudness and normalization gain.
-- Output device, spatializer and effects.
+- Loudness/normalization gain, output device, spatializer and effects.
 - Video resolution/codec, dropped frames and audio underruns.
-- Playback position/duration/speed and queue index/count when Prism's active player service is reachable.
-- Shuffle and repeat state when available.
-- Current Prism LyricsState: provider, loading/waiting/settled state, sync flag, ordered line times, word times, background-vocal word times, alignment and gap markers. The patch keeps a weak reference from the real LyricsState setter hooks and refreshes its current getters when System UI polls, so a private plain `settled` property does not need a synthetic or guessed setter hook.
-- Resolved Prism lyric-look settings and translation/romanization preference flags.
+- Playback position/duration/speed, queue index/count where Prism's player service exposes it, shuffle and repeat state where available.
+- The real Prism LyricsState: provider, loading/waiting/settled/unavailable state, original sync flag, line text and timestamps, word timing, background-vocal word timing, second-voice alignment and instrumental gaps.
+- Actual romanized lines returned by Prism's `rememberRomanized` helper and actual translated lines returned by Prism's `rememberLyricTranslation` helper, when those helpers have produced them.
+- The resolved LyricsLook preferences, romanization mode/per-song override, translation preference and applicable typography/font preferences.
 
-The patch does not add another metadata scraper, lyric provider or network request. Prism remains the source of truth. Standard title, artist, album, artwork, duration, playback state and transport actions continue through Android's MediaSession.
+The patch adds no second metadata scraper, lyric provider or network request. Prism remains the source of truth. Standard title, artist, album, artwork, duration, playback state, position and transport controls continue through Android's MediaSession.
 
-The current bridge does not yet export final translated or romanized lines produced by Prism's Compose helpers.
+## Exact fingerprint failure reported by the owner
 
-The owner's Prism 1.8.2.1 Morphe log identified a `setSettled(boolean)` fingerprint mismatch. That fingerprint is deliberately not used: the extension refreshes the live state's `settled` getter during each local bridge query. The resulting `.mpp` still needs to be applied to the exact Prism APK; bundle compilation is not proof of successful patching. Coobvo now maps a subset of Prism's appearance settings to Canvas (sung/non-sung colours, opacity, weight emphasis, size scale, uppercase, alignment and one/two-line strip choice), but does not reproduce every Prism style, animation, glow/shadow or background override. Unsynchronized/static lines are not assigned estimated timestamps.
+The owner tested against Prism 1.8.2.1 / versionCode 58 and supplied this failure:
+
+```
+Failed to match the fingerprint: dev.coobvo.prismmedia.PrismRememberLyricsStateFingerprint
+```
+
+That fingerprint attempted to hook Prism's `rememberLyricsState` composable and **has been removed**. The current patch does not require that composable fingerprint. Instead, it retains a weak reference from Prism's real LyricsState setter hooks (`lyrics`, `source`, `loading` and `waiting`) and refreshes the object getters on a System UI bridge poll, including the `settled` property that has no reliable setter hook in this target.
+
+The current patch also hooks the returns from Prism's romanization and translation helpers. It exports those real return values; it does not call a parallel provider. A successful Morphe build is not an APK fingerprint test. The remaining setter, helper, MediaItem and ArtworkProvider fingerprints must still be checked against the user's exact APK.
+
+## Coobvo renderer
+
+Prism sessions use the local bridge only; the independent LyricSync provider cascade is disabled for Prism. Other media apps can continue to use the separate LyricSync implementation.
+
+The expanded media-card Canvas renderer currently maps Prism's current lyric/word timing and line-selection behavior, its five motion choices, the one/two-line current-text wrap setting, alignment, uppercase, weight, size, spacing/tracking, selected colors/alpha, extra placement/size/italic, backing vocals, gap marker, romanization/translation toggles and font selection. It uses a fallback system font if Prism's packaged/imported font is not accessible from System UI. It does not yet provide pixel-identical Compose rendering: Spectrum/Cover fills, glow/halo, full page/background appearance and page-only controls are not completely replicated. The card background remains opaque; blur/frosted surfaces are not part of this project. Unsynchronized/static lyrics are not assigned invented timing.
 
 ## Build
 
-The dedicated GitHub Actions workflow is .github/workflows/prism-morphe.yml. It uses Java 21 and Morphe's :patches:buildAndroid task. A successful run uploads coobvo-prism-media-bridge-mpp.
+The dedicated workflow is `.github/workflows/prism-morphe.yml`, using Java 21 and Morphe's `:patches:buildAndroid` task.
 
-Latest recorded bundle: Morphe run #3 at https://github.com/cbv-ooo/coobvo/actions/runs/42446806609, artifact https://github.com/cbv-ooo/coobvo/actions/runs/42446806609/artifacts/13603559103.
+Latest bundle version: `0.1.2`.
 
-Run the same build locally from this directory:
+- Run [#42474506746](https://github.com/cbv-ooo/coobvo/actions/runs/42474506746) passed and uploaded [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42474506746/artifacts/13614952120).
+
+Build this project locally from this directory:
 
 ```sh
 ./gradlew :patches:buildAndroid --no-daemon
@@ -41,11 +55,6 @@ Run the same build locally from this directory:
 
 ## Privacy and compatibility
 
-The provider returns snapshots only to callers whose UID owns com.android.systemui. The URI is local to the device; other callers receive an empty cursor. The patch targets Prism 1.8.2.1 / versionCode 58; later Prism versions require fresh fingerprint validation.
+The provider returns a snapshot only to callers whose UID belongs to `com.android.systemui`; other callers receive an empty cursor. The route is local to the device. The source target is Prism 1.8.2.1 / versionCode 58; later Prism versions require fresh fingerprint validation.
 
-Building the .mpp does not prove that the patch applies to a particular Prism APK. The original Prism APK still needs to be patched, installed and tested with coobvo on the owner's S10e.
-
-Official references:
-- Morphe patch template: https://github.com/MorpheApp/morphe-patches-template
-- Morphe patcher: https://github.com/MorpheApp/morphe-patcher
-- Prism source commit: https://github.com/Yigder/Prism/tree/1abbed19d374b84e6cda4e1c63db937d1f70befd
+Building the .mpp proves bundle generation only. The resulting bundle still needs to be applied to the original Prism APK, then installed with coobvo and tested on the owner's S10e.

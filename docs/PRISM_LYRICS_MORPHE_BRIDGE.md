@@ -2,95 +2,97 @@
 
 Last updated: 2026-11-08.
 
-This document separates source implementation, build evidence and the remaining APK/device validation. A built Morphe patch bundle is not proof that it applies to a particular Prism APK.
+This document records the exact Prism target, patch hooks, coobvo rendering path, build evidence and the remaining APK/device checks. **Building an `.mpp` does not prove that it applies to the installed Prism APK.**
 
-## Purpose and ownership
+## Ownership and target
 
-The Prism Morphe patch exposes media/session facts that Prism already knows internally but does not put in ordinary Android MediaSession metadata. Standard title, artist, album, artwork, duration, playback state, position, speed and transport actions continue through the existing MediaSession path.
+Prism is the sole source of truth for Prism-session media and lyrics. Coobvo must not run LyricSync or another provider cascade for `com.prism.music`, must not make a second lyrics search, and must not invent provider text or timestamps.
 
-For lyrics, Prism remains the only source of truth. The patch snapshots Prism's existing player LyricsState. Coobvo does not perform a second lyric-provider search for Prism sessions. It must not estimate timestamps, invent word timings or silently fall back to LyricSync for Prism.
+The source inspected is [Yigder/Prism commit 1abbed19d374b84e6cda4e1c63db937d1f70befd](https://github.com/Yigder/Prism/tree/1abbed19d374b84e6cda4e1c63db937d1f70befd):
 
-## Target source inspected
+- Package: `com.prism.music`
+- Version: `1.8.2.1`, versionCode `58`
+- Prism's Media3 `Song.toMediaItem()` uses the original `Song.id` as `mediaId` and also serializes `prism.song` in metadata extras.
+- `LyricsState` owns the selected song, stored lyrics, provider, loading/waiting/settled/unavailable state.
+- Prism's `Lyrics` / `LyricLine` model contains original line and word timing, background vocal word timing, second-voice alignment and instrumental gaps.
+- Prism separately computes the actual romanized lines and translations in its player Compose helpers. These are not the same fields as the stored base `Lyrics` object.
+- `LyricsLookPrefs` and player settings control the lyric style, animation, type, colours, font, size, spacing, romanization, translation, backing vocals and other effects.
 
-The source target inspected is Yigder/Prism commit 1abbed19d374b84e6cda4e1c63db937d1f70befd:
+## Morphe patch and the owner's fingerprint failure
 
-- Package: com.prism.music
-- Version: 1.8.2.1, versionCode 58
-- playback/MediaItems.kt: Song.toMediaItem() puts the original Song.id in Media3's mediaId and serializes the Song as prism.song metadata extras. This is the same ID used by Prism's lyric state.
-- ui/player/PlayerLyrics.kt: LyricsState owns song, lyrics, source, loading, waiting, settled and unavailable.
-- data/lyrics/Lyrics.kt: Lyrics owns provider source, sync flag and ordered LyricLine objects. Lines can carry start/end times, word start/end times, second-voice alignment, instrumental-gap markers and timed background vocals.
-- data/prefs/Settings.kt: LyricsLookPrefs owns the selected style and independent visual overrides.
-- ui/player/RomanLyrics.kt and the player translation helpers produce additional Compose-side romanized/translated lines. These are distinct from the stored base Lyrics object.
+Source lives in `morphe/prism-media-bridge/`; its build is `.github/workflows/prism-morphe.yml`.
 
-## Current Morphe patch
+The owner supplied this actual Morphe error from Prism 1.8.2.1:
 
-Source lives under morphe/prism-media-bridge/. It uses the official Morphe patch-template/patcher layout and the dedicated workflow .github/workflows/prism-morphe.yml.
+```
+Failed to match the fingerprint: dev.coobvo.prismmedia.PrismRememberLyricsStateFingerprint
+```
 
-The patch currently:
+That fingerprint targeted Prism's `rememberLyricsState` Compose helper. It did not match the installed APK, so it has been **removed**. The current patch does not require `PrismRememberLyricsStateFingerprint` or hook that composable.
 
-1. Decorates Prism's Song-to-MediaItem and browse MediaItem results with a versioned local bridge marker and URI while preserving original metadata.
-2. Hooks Prism's existing ArtworkProvider.query() and intercepts only the /bridge/{songId} route. Other artwork routes are left alone.
-3. Reads Prism's current in-memory stream diagnostics and player/queue state.
-4. Hooks the return from Prism LyricsState setters for lyrics, source, loading and waiting. Those hooks retain a weak reference to the live state object. Each permitted /bridge/{songId} read refreshes the snapshot from Prism's current getters, including the plain `settled` property. This avoids relying on a `setSettled(boolean)` method that the reported Prism 1.8.2.1 APK does not expose as a matching patch target.
-5. Exports a bounded, in-memory JSON snapshot to callers whose UID belongs to Android System UI. Other callers receive an empty cursor. The route is local and does not add a network lyric provider.
+Instead, the patch hooks the actual `LyricsState` setters for `lyrics`, `source`, `loading` and `waiting`. Those calls retain a weak reference to the real state object, and each permitted local `/bridge/{songId}` query refreshes the snapshot from its getters, including the plain `settled` property. This is a source-level correction to the exact reported failure. It is not yet proof that all remaining fingerprints match the user's APK.
 
-The lyric snapshot includes:
+The patch also hooks the return values of Prism's existing `rememberRomanized` and `rememberLyricTranslation` helpers. It exports the actual arrays those helpers return; it does not call their provider engines again or synthesize replacement lines.
 
-The owner reported Morphe's exact failure at `PrismLyricsSetSettledFingerprint`. That fingerprint has been removed rather than weakened. The bridge now reads the live `settled` getter when System UI polls, using the state reference retained by the other setter hooks. This is a source-level correction; the rebuilt `.mpp` still must be applied to the exact Prism 1.8.2.1 APK to confirm the remaining fingerprints and runtime export.
+The patch:
 
-- Selected provider/source name when present.
-- Loading, waiting, settled and unavailable state.
-- The actual stored lyric source and sync flag.
-- Ordered lines with original start/end timestamps and text.
-- Original word-level timestamps and text.
-- Background-vocal word timings.
-- Second-voice alignment and instrumental-gap markers.
-- Prism's resolved lyric-look preference values and translation/romanization preference flags.
+1. Decorates Prism's Song-to-MediaItem and browse MediaItem results with a versioned local bridge URI while preserving the original data.
+2. Intercepts only the `/bridge/{songId}` route in Prism's existing `ArtworkProvider.query()`; ordinary artwork requests continue through Prism.
+3. Exposes Prism's in-memory stream diagnostics and player/queue state where available.
+4. Snapshots the real LyricsState, its provider/status and original lyric data, plus the actual romanized/translated helper results when Prism has produced them.
+5. Exports the resolved lyric-look preferences and song-specific romanization state.
+6. Returns snapshots only to callers belonging to Android System UI. The URI is local; this patch adds no external lyric endpoint or network provider.
 
-No timestamp is synthesized. If Prism has only plain/unsynchronized lyrics, coobvo does not present them as timed karaoke. It indicates that Prism's lyrics are not synchronized instead.
+## Coobvo consumer and expanded-card rendering
 
-## Not yet exported
+The Java consumer is in:
 
-The actual rendered translation and romanized line arrays produced by Prism's Compose helpers are not yet included. The snapshot contains Prism's translation/romanization preference flags and target setting, but not the resulting extra line text/timing. Canvas now applies a subset of exported LyricsLookPrefs: sung/non-sung/custom colours, other-line opacity, weight emphasis, text size scale, uppercase, strip alignment and one/two-line selection. Full animations, glow/shadow, background modes and style-specific behaviour remain follow-up tasks.
+- `app/src/main/java/dev/android/dynamicisland/island/source/PrismMediaBridgeClient.java`
+- `app/src/main/java/dev/android/dynamicisland/island/source/MediaSource.java`
+- `app/src/main/java/dev/android/dynamicisland/island/lyrics/MediaLyrics.java`
+- `app/src/main/java/dev/android/dynamicisland/island/view/card/MediaBody.java`
+- `app/src/main/java/dev/android/dynamicisland/island/view/card/PrismLyricsPainter.java`
 
-## Coobvo consumer
+The consumer normally reads the versioned URI from media metadata. It also falls back to Prism's actual MediaSession `mediaId` if the Android compat metadata conversion drops Prism's custom extras. The original Song ID is used as the bridge route key.
 
-The Java consumer and model are located at:
+For a Prism session, the expanded media card reads only the bridge result; the independent LyricSync lookup is suppressed. Other media apps retain their separate LyricSync path.
 
-- app/src/main/java/dev/android/dynamicisland/island/source/PrismMediaBridgeClient.java
-- app/src/main/java/dev/android/dynamicisland/island/source/MediaSource.java
-- app/src/main/java/dev/android/dynamicisland/island/model/IslandItem.java
-- app/src/main/java/dev/android/dynamicisland/island/lyrics/MediaLyrics.java
-- app/src/main/java/dev/android/dynamicisland/island/view/card/MediaBody.java
+The current Canvas mapping includes:
 
-It reads the local URI on a worker thread, caches the snapshot briefly, and passes Prism's actual line/word times through without approximation. It polls again while Prism reports unknown/loading/waiting. It keys the route by Media3 media ID, which Prism's source confirms is the original Song.id.
+- Prism's current-line selection rule (latest line whose timestamp has passed), with the line/word timestamps copied from Prism.
+- Prism's line-to-word timing formula for line-synced lyrics only when its selected `wordByWordNow` preference asks for it. Unsynchronized/static lyrics are not assigned karaoke timing.
+- The five lyric motion choices: GROW/PRISM, FILL/KARAOKE, SWEEP, TYPEWRITER and NONE/CALM, plus word-by-word behavior.
+- Current-line wrap limit (one or two lines), alignment, uppercase, weight, size scale, spacing and text tracking.
+- Prism's sung/other/extra colour selection, alpha, extra placement/size/italic, timed background vocals and gap markers.
+- Actual romanized/translated lines returned by Prism's helpers, including UNDER/INSTEAD romanization behavior and the translation toggle.
+- Prism's lyrics-font choice, app-font choice and a guarded attempt to load its bundled or imported font, with a system-font fallback if the System UI process cannot access it.
 
-For com.prism.music, the media card uses only this bridge snapshot. The independent LyricSync provider cascade is disabled for that session. Other media apps can continue using the separate opt-in LyricSync implementation.
+The expanded card is not the Prism lyrics page. Page-only controls such as `ahead`, `position` and the full-screen/page background are not applied to the inline media-card row. Some appearance details are still approximations rather than pixel-identical Compose rendering: for example, Spectrum/Cover-derived fills are represented through the media accent, and halo/glow and every background/style detail are not yet reproduced exactly. The project also deliberately keeps card surfaces opaque; no frosted or blurred card background is added. Do not describe the renderer as fully 1:1 yet.
 
-The Canvas card renders synchronized line/word data and applies a subset of Prism's exported appearance preferences: sung/non-sung/custom colours, non-sung opacity, weight emphasis, text scale, uppercase, strip alignment and one/two-line selection. It does not clone Prism's full six styles, motion, glow/shadow, background modes, translations or romanization. If the bridge is absent, no Prism lyrics are fabricated or independently fetched.
+## Latest build evidence
 
-## Build evidence
+Latest source revision: app `0.1.48-dev1` / versionCode `150`; Morphe bridge `0.1.2`.
 
-- Dedicated Morphe workflow: Prism Morphe Patch run #3 at https://github.com/cbv-ooo/coobvo/actions/runs/42446806609
-- The run passed Morphe's :patches:buildAndroid task and produced coobvo-prism-media-bridge-mpp, artifact https://github.com/cbv-ooo/coobvo/actions/runs/42446806609/artifacts/13603559103
-- Coobvo consumer source passed Debug APK run #61 for commit ef0633627ee3c939695dbbf59e5f8d424944fb48, artifact https://github.com/cbv-ooo/coobvo/actions/runs/42447445219/artifacts/13604575694
-- These runs prove source compilation, patch bundle generation and app APK packaging. They do not prove bytecode fingerprints match the installed Prism APK, that Morphe successfully applies the bundle to that APK, or that the bridge works on the S10e. The `setSettled` fingerprint reported by the owner has now been removed; the new bundle must still be applied to the exact APK to validate the remaining targets.
+- Debug APK run [#42474506677](https://github.com/cbv-ooo/coobvo/actions/runs/42474506677) passed the APK build, targeted test step and artifact upload. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42474506677/artifacts/13614489292).
+- Prism Morphe run [#42474506746](https://github.com/cbv-ooo/coobvo/actions/runs/42474506746) passed the Morphe build, .mpp verification and artifact upload. Artifact: [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42474506746/artifacts/13614952120).
 
-## Remaining validation and work
+These results prove that the app source compiles, the selected unit tests pass, and the Morphe bundle is generated. They do **not** prove that the new .mpp applies to the exact Prism 1.8.2.1 APK or that lyrics render correctly on the S10e.
 
-1. Apply the generated .mpp to the exact Prism 1.8.2.1 / versionCode 58 APK and inspect every fingerprint result.
-2. Install the patched Prism APK and coobvo debug APK together. Verify System UI-only access, current-song ID, queue changes, empty lyrics, no-lyrics and waiting/loading states.
-3. Verify seeking, pause/resume, track changes, word timings, background vocals, second-voice lines and gaps on the S10e.
-4. Decide whether Prism's rendered translation and romanized lines can be exported safely from the existing app model without invoking Compose UI cross-process.
-5. Extend the partial LyricsLookPrefs mapping to remaining Canvas behaviour (motion, card/halo semantics, backing vocals and supported background choices), keeping the Java/System UI process free of Prism dependencies and Compose.
-6. Recheck fingerprints whenever the Prism target version changes.
+## Still required
+
+1. Apply the new `0.1.2` .mpp to the exact Prism 1.8.2.1 / versionCode 58 APK. Confirm each remaining fingerprint individually; the removed `PrismRememberLyricsStateFingerprint` must no longer be requested.
+2. Install the patched Prism APK and coobvo debug APK together. Confirm the /bridge route is queried by System UI and the correct Song ID is returned.
+3. Verify that the actual stored lyric lines, romanization and translation helper results reach the expanded card. Exercise loading, waiting, unavailable, static/unsynced, line-synced and word-synced cases.
+4. Verify pause/resume, seeking, track changes, word timing, overlapping/second-voice lines, background vocals and gaps.
+5. Compare the available Prism look controls against the expanded card, record remaining visual differences, and finish any needed style/font/color mapping.
+6. Verify expanded-to-compact animation, lyrics placement and all rendering on the owner's Galaxy S10e.
 
 ## References
 
-- Prism source: https://github.com/Yigder/Prism/tree/1abbed19d374b84e6cda4e1c63db937d1f70befd
-- MediaItems.kt: https://github.com/Yigder/Prism/blob/1abbed19d374b84e6cda4e1c63db937d1f70befd/app/src/main/java/com/prism/music/playback/MediaItems.kt
-- PlayerLyrics.kt: https://github.com/Yigder/Prism/blob/1abbed19d374b84e6cda4e1c63db937d1f70befd/app/src/main/java/com/prism/music/ui/player/PlayerLyrics.kt
-- Lyrics.kt: https://github.com/Yigder/Prism/blob/1abbed19d374b84e6cda4e1c63db937d1f70befd/app/src/main/java/com/prism/music/data/lyrics/Lyrics.kt
-- RomanLyrics.kt: https://github.com/Yigder/Prism/blob/1abbed19d374b84e6cda4e1c63db937d1f70befd/app/src/main/java/com/prism/music/ui/player/RomanLyrics.kt
-- Morphe patch template: https://github.com/MorpheApp/morphe-patches-template
-- Morphe patcher: https://github.com/MorpheApp/morphe-patcher
+- [Prism source commit](https://github.com/Yigder/Prism/tree/1abbed19d374b84e6cda4e1c63db937d1f70befd)
+- [MediaItems.kt](https://github.com/Yigder/Prism/blob/1abbed19d374b84e6cda4e1c63db937d1f70befd/app/src/main/java/com/prism/music/playback/MediaItems.kt)
+- [PlayerLyrics.kt](https://github.com/Yigder/Prism/blob/1abbed19d374b84e6cda4e1c63db937d1f70befd/app/src/main/java/com/prism/music/ui/player/PlayerLyrics.kt)
+- [Lyrics.kt](https://github.com/Yigder/Prism/blob/1abbed19d374b84e6cda4e1c63db937d1f70befd/app/src/main/java/com/prism/music/data/lyrics/Lyrics.kt)
+- [RomanLyrics.kt](https://github.com/Yigder/Prism/blob/1abbed19d374b84e6cda4e1c63db937d1f70befd/app/src/main/java/com/prism/music/ui/player/RomanLyrics.kt)
+- [Morphe patch template](https://github.com/MorpheApp/morphe-patches-template)
+- [Morphe patcher](https://github.com/MorpheApp/morphe-patcher)

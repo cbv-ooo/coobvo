@@ -3,6 +3,10 @@ name: Debug APK
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "morphe/**"
+      - "**/*.md"
   workflow_dispatch:
 
 permissions:
