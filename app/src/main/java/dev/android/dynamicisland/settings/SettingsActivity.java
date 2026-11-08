@@ -20,6 +20,7 @@ import android.app.LocaleManager;
 import android.view.View;
 import android.view.Window;
 import android.window.OnBackInvokedDispatcher;
+import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Switch;
@@ -28,9 +29,12 @@ import android.widget.Toast;
 import dev.android.dynamicisland.R;
 import dev.android.dynamicisland.island.rules.RuleDictionary;
 import dev.android.dynamicisland.xposed.Diagnostics;
+import org.json.JSONObject;
 import java.util.ArrayDeque;
+import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -564,6 +568,10 @@ public final class SettingsActivity extends Activity {
         Switch foreground = toggle(banners, R.string.foreground_notifications, R.string.foreground_notifications_desc, ModuleSettings.KEY_FOREGROUND_NOTIFICATIONS, false);
         toggle(banners, R.string.notification_cooldown_title, R.string.notification_cooldown_desc,
                 ModuleSettings.KEY_NOTIFICATION_COOLDOWN, false);
+        toggle(banners, R.string.notification_history_title, R.string.notification_history_desc,
+                ModuleSettings.KEY_NOTIFICATION_HISTORY, false);
+        ui.linkRow(banners, getString(R.string.notification_history_view),
+                getString(R.string.notification_history_view_desc), this::showNotificationHistory);
         toggle(banners, R.string.setting_peek_progress, R.string.setting_peek_progress_desc, ModuleSettings.KEY_PEEK_PROGRESS, false);
         OneUi.setDependentsEnabled(mode > 0 || flag(ModuleSettings.KEY_OTP_CARD, true), OneUi.rowOf(foreground));
         ui.linkRow(banners, getString(R.string.apps_title), appsSummary(), () -> open(this::appsPage));
@@ -584,6 +592,86 @@ public final class SettingsActivity extends Activity {
         Switch copy = toggle(codes, R.string.setting_otp_copy, R.string.setting_otp_copy_desc, ModuleSettings.KEY_OTP_AUTO_COPY, false);
         dependent(otp, OneUi.rowOf(copy));
         OneUi.listen(otp, on -> OneUi.setDependentsEnabled(mode > 0 || on, OneUi.rowOf(foreground)));
+    }
+
+    private void showNotificationHistory() {
+        Bundle result;
+        try {
+            result = getContentResolver().call(
+                    Uri.parse("content://" + SettingsProvider.AUTHORITY),
+                    SettingsProvider.METHOD_HISTORY_LIST, null, null);
+        } catch (RuntimeException ignored) {
+            result = null;
+        }
+        ArrayList<String> entries = result == null ? null : result.getStringArrayList("entries");
+        if (entries == null || entries.isEmpty()) {
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.notification_history_title)
+                    .setMessage(R.string.notification_history_empty)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+            return;
+        }
+
+        ArrayList<String> labels = new ArrayList<>(entries.size());
+        for (String raw : entries) {
+            try {
+                JSONObject entry = new JSONObject(raw);
+                String app = entry.optString("appName", entry.optString("packageName", ""));
+                String title = entry.optString("title", "");
+                String text = entry.optString("text", "");
+                String when = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                        .format(new Date(entry.optLong("postTime", 0L)));
+                labels.add(app + " · " + when + "\n" + (text.isEmpty() ? title : title + "\n" + text));
+            } catch (Exception ignored) {
+                labels.add(getString(R.string.notification_history_entry_unavailable));
+            }
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.notification_history_title)
+                .setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, labels),
+                        (shown, which) -> showNotificationHistoryEntry(entries.get(which)))
+                .setNeutralButton(R.string.notification_history_clear, (shown, which) -> confirmClearNotificationHistory())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void showNotificationHistoryEntry(String raw) {
+        try {
+            JSONObject entry = new JSONObject(raw);
+            String app = entry.optString("appName", entry.optString("packageName", ""));
+            String title = entry.optString("title", "");
+            String text = entry.optString("text", "");
+            String packageName = entry.optString("packageName", "");
+            String when = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                    .format(new Date(entry.optLong("postTime", 0L)));
+            new AlertDialog.Builder(this)
+                    .setTitle(title.isEmpty() ? app : title)
+                    .setMessage(app + "\n" + when + "\n\n" + text
+                            + (packageName.isEmpty() ? "" : "\n\n" + packageName))
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+        } catch (Exception ignored) {
+            Toast.makeText(this, R.string.notification_history_entry_unavailable, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void confirmClearNotificationHistory() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.notification_history_clear)
+                .setMessage(R.string.notification_history_clear_confirm)
+                .setPositiveButton(R.string.notification_history_clear, (dialog, which) -> {
+                    try {
+                        getContentResolver().call(Uri.parse("content://" + SettingsProvider.AUTHORITY),
+                                SettingsProvider.METHOD_HISTORY_CLEAR, null, null);
+                        Toast.makeText(this, R.string.notification_history_cleared, Toast.LENGTH_SHORT).show();
+                    } catch (RuntimeException ignored) {
+                        Toast.makeText(this, R.string.notification_history_clear_failed, Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     private void eventsPage() {
