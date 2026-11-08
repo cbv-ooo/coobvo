@@ -22,6 +22,7 @@ import dev.android.dynamicisland.island.source.ProgressSource;
 import dev.android.dynamicisland.island.source.RecorderNotificationSource;
 import dev.android.dynamicisland.island.source.RuleSource;
 import dev.android.dynamicisland.island.source.TorchSource;
+import dev.android.dynamicisland.island.source.DemoSource;
 import dev.android.dynamicisland.settings.ModuleSettings;
 import dev.android.dynamicisland.xposed.XLog;
 import dev.android.dynamicisland.xposed.hooks.HideDuplicated;
@@ -67,6 +68,7 @@ final class IslandSources {
     final RuleSource rules;
     final CallSource calls;
     final PeekSource peeks;
+    final DemoSource demo;
 
     IslandSources(Context ctx, ClassLoader classLoader, Handler main, Runnable onChange) {
         this.ctx = ctx;
@@ -98,12 +100,14 @@ final class IslandSources {
         torch.onShownChanged = () -> main.post(HideDuplicated::rebuild);
         calls = new CallSource(ctx, main, onChange, callClock);
         peeks = new PeekSource(ctx, main, onChange);
+        demo = new DemoSource(ctx, main, onChange);
     }
 
     /** Starts the sources that listen on their own; the event and privacy islands may fail without harm. */
     void start(Runnable onChange) {
         media.start();
         syncOptionalSources();
+        try { demo.start(); } catch (Throwable ignored) {}
         try {
             events.start();
             torch.start();
@@ -164,6 +168,7 @@ final class IslandSources {
         guarded("rules", () -> rules.collect(items, foreground));
         guarded("calls", () -> calls.collect(items, foreground));
         guarded("peeks", () -> peeks.collect(items));
+        guarded("demo", () -> demo.collect(items));
         if (torch.replacesStockNotification()) {
             // System UI's own "flashlight in use" notification would show next to the brightness card
             items.removeIf(TorchSource::isStockItem);
