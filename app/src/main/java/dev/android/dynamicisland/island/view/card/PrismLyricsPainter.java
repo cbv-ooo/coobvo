@@ -413,6 +413,8 @@ final class PrismLyricsPainter {
         Typeface oldTypeface = paint.getTypeface();
         Paint.Align oldAlign = paint.getTextAlign();
         boolean oldBold = paint.isFakeBoldText();
+        float blurDp = look == null ? 0.0f
+                : clamp((float) look.optDouble("blurAmount", 0.0d), 0.0f, 2.0f);
         paint.setTextSize(baseSize * 0.88f);
         paint.setFakeBoldText(false);
         float baseline = top + owner.dp(3.0f) - paint.getFontMetrics().ascent;
