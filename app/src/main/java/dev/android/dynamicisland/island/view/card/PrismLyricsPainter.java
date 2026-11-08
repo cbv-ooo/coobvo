@@ -3,6 +3,7 @@ package dev.android.dynamicisland.island.view.card;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Typeface;
+import android.os.SystemClock;
 import android.text.TextPaint;
 import dev.android.dynamicisland.island.graphics.Colors;
 import dev.android.dynamicisland.island.lyrics.MediaLyrics;
@@ -176,7 +177,7 @@ final class PrismLyricsPainter {
         boolean twoRows = look.optBoolean("lyricsStripTwoLines", false);
         int rowLimit = twoRows ? 2 : 1;
         List<Segment> segments = wrapCurrentLine(mainText, mainPaint, width, rowLimit);
-        float firstRowBaseline = mainBaseline + owner.dp(rowLimit - segments.size()) * lineHeight;
+        float firstRowBaseline = mainBaseline + lineHeight * (rowLimit - segments.size());
         for (Segment segment : segments) {
             List<MediaLyrics.Word> segmentWords = segment.clipped ? Collections.emptyList()
                     : wordsForRange(words, segment.start, segment.end, segment.text, look);
