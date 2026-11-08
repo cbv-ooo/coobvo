@@ -9,6 +9,7 @@ import android.text.StaticLayout;
 import android.text.TextPaint;
 import dev.android.dynamicisland.island.graphics.Colors;
 import dev.android.dynamicisland.island.graphics.Glyphs;
+import dev.android.dynamicisland.island.graphics.Fonts;
 import dev.android.dynamicisland.island.lyrics.LyricsManager;
 import dev.android.dynamicisland.island.lyrics.MediaLyrics;
 import dev.android.dynamicisland.island.model.IslandItem;
@@ -125,10 +126,8 @@ public final class MediaBody extends CardBody {
         playerArtistPaint = new TextPaint(owner.mediaArtistPaint());
         if (prismSession) {
             playerTitlePaint.setTextSize(playerTitlePaint.getTextSize() * prismPlayer.titleScale());
-            if ("BOLD".equals(prismPlayer.titleWeight)) {
-                playerTitlePaint.setFakeBoldText(true);
-                playerArtistPaint.setFakeBoldText(true);
-            }
+            playerTitlePaint.setTypeface(Fonts.of(prismPlayer.titleFontWeight()));
+            playerArtistPaint.setTypeface(Fonts.of(prismPlayer.artistFontWeight()));
         }
         prismLyricsRowDp = PrismLyricsPainter.rowHeightDp(prismLook, prismLyrics);
         prismSungColor = prismColor(prismLook, "sungColor", "sungCustom", item.accent, Colors.ON_SURFACE);
@@ -747,6 +746,7 @@ public final class MediaBody extends CardBody {
 
     private float artCornerRadius() {
         if (!prismSession) return owner.dp(ART_CORNER_DP);
+        if ("FULL".equals(prismPlayer.coverSize) || "SQUARE".equals(prismPlayer.coverShape)) return 0.0f;
         if ("CIRCLE".equals(prismPlayer.coverShape)) return art / 2.0f;
         if ("SQUARE".equals(prismPlayer.coverShape)) return 0.0f;
         return Math.min(art / 2.0f, owner.dp(prismPlayer.artCornersDp));
