@@ -222,6 +222,8 @@ public final class IslandItem {
     public Drawable mediaOutputIcon;
     /** Battery percent of the output device, -1 = unknown. */
     public int mediaOutputBattery = -1;
+    /** Stable media-session track ID; used to reset Prism lyric history only on a real track change. */
+    public String mediaTrackId;
     /** Album title supplied by the media session. */
     public CharSequence mediaAlbum;
     /** Optional Prism playback flags such as LIVE, EPISODE or EXPLICIT. */
