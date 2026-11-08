@@ -39,6 +39,47 @@ private object PrismBrowseMediaItemFingerprint : Fingerprint(
     )
 )
 
+/** Prism's player keeps the authoritative active lyrics in this state object. */
+private object PrismLyricsSetLyricsFingerprint : Fingerprint(
+    definingClass = "Lcom/prism/music/ui/player/LyricsState;",
+    name = "setLyrics",
+    isStatic = false,
+    returnType = "V",
+    parameters = listOf("Lcom/prism/music/data/lyrics/Lyrics;")
+)
+
+private object PrismLyricsSetSourceFingerprint : Fingerprint(
+    definingClass = "Lcom/prism/music/ui/player/LyricsState;",
+    name = "setSource",
+    isStatic = false,
+    returnType = "V",
+    parameters = listOf("Lcom/prism/music/data/prefs/LyricsSource;")
+)
+
+private object PrismLyricsSetLoadingFingerprint : Fingerprint(
+    definingClass = "Lcom/prism/music/ui/player/LyricsState;",
+    name = "setLoading",
+    isStatic = false,
+    returnType = "V",
+    parameters = listOf("Z")
+)
+
+private object PrismLyricsSetWaitingFingerprint : Fingerprint(
+    definingClass = "Lcom/prism/music/ui/player/LyricsState;",
+    name = "setWaiting",
+    isStatic = false,
+    returnType = "V",
+    parameters = listOf("Z")
+)
+
+private object PrismLyricsSetSettledFingerprint : Fingerprint(
+    definingClass = "Lcom/prism/music/ui/player/LyricsState;",
+    name = "setSettled",
+    isStatic = false,
+    returnType = "V",
+    parameters = listOf("Z")
+)
+
 /** Existing exported provider; only its /bridge query path is intercepted. */
 private object PrismArtworkQueryFingerprint : Fingerprint(
     definingClass = "Lcom/prism/music/playback/ArtworkProvider;",
@@ -77,6 +118,25 @@ private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.decorateMed
     }
 }
 
+/** Re-publish after each authoritative state mutation, not on a timer or through a second provider. */
+private fun app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.captureLyricsStateOnReturns() {
+    val returnIndexes = instructions.withIndex()
+        .filter { it.value.opcode == Opcode.RETURN_VOID }
+        .map { it.index }
+        .sortedDescending()
+
+    if (returnIndexes.isEmpty()) {
+        throw PatchException("Prism LyricsState setter has no void return")
+    }
+
+    returnIndexes.forEach { index ->
+        addInstructions(
+            index,
+            "invoke-static { p0 }, $EXTENSION->captureLyricsState(Ljava/lang/Object;)V"
+        )
+    }
+}
+
 @Suppress("unused")
 val prismMediaBridgePatch = patch(
     name = "Prism media details for coobvo",
@@ -88,6 +148,13 @@ val prismMediaBridgePatch = patch(
     execute {
         PrismSongToMediaItemFingerprint.method.decorateMediaItemReturns()
         PrismBrowseMediaItemFingerprint.method.decorateMediaItemReturns()
+
+        // Snapshot Prism's own resolved lyric state after it changes. No Compose UI is called from System UI.
+        PrismLyricsSetLyricsFingerprint.method.captureLyricsStateOnReturns()
+        PrismLyricsSetSourceFingerprint.method.captureLyricsStateOnReturns()
+        PrismLyricsSetLoadingFingerprint.method.captureLyricsStateOnReturns()
+        PrismLyricsSetWaitingFingerprint.method.captureLyricsStateOnReturns()
+        PrismLyricsSetSettledFingerprint.method.captureLyricsStateOnReturns()
 
         // Preserve ArtworkProvider's existing artwork routes. Only /bridge returns a cursor here.
         PrismArtworkQueryFingerprint.method.apply {
