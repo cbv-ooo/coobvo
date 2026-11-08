@@ -563,9 +563,7 @@ public final class PrismMediaBridge {
         }
     }
 
-    private static void put(JSONObject target, String key, Object value) throws Exception {
-        if (value != null) target.put(key, value);
-    }
+
 
     private static Object invokeNoArgs(Object target, String name) throws Exception {
         if (target == null) return null;
