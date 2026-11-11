@@ -1,0 +1,56 @@
+package dev.android.dynamicisland.settings;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import android.content.Context;
+import android.content.Intent;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowActivity;
+import org.robolectric.Shadows;
+
+/** Exercises app-side crash breadcrumbs and the launcher recovery route. */
+@RunWith(RobolectricTestRunner.class)
+@Config(sdk = 35)
+public class AppDiagnosticsTest {
+    @Test
+    public void reportContainsAppEventsAndNonFatalExceptions() {
+        Context context = RuntimeEnvironment.getApplication();
+        AppDiagnostics.install(context);
+        AppDiagnostics.event("test_feature_toggle=true");
+        AppDiagnostics.error("test_settings_failure", new IllegalStateException("test_failure_marker"));
+
+        String report = AppDiagnostics.report(context);
+        assertTrue(report.contains("COOBVO DEBUG REPORT"));
+        assertTrue(report.contains("test_feature_toggle=true"));
+        assertTrue(report.contains("test_settings_failure"));
+        assertTrue(report.contains("test_failure_marker"));
+        assertTrue(report.contains("SYSTEM UI / LSPOSED REPORT"));
+    }
+
+    @Test
+    public void launcherRoutesNormalStartToSettings() {
+        Context context = RuntimeEnvironment.getApplication();
+        AppDiagnostics.dismissPendingCrash(context);
+
+        AppLauncherActivity activity = Robolectric.buildActivity(AppLauncherActivity.class).setup().get();
+        ShadowActivity shadow = Shadows.shadowOf(activity);
+        Intent next = shadow.getNextStartedActivity();
+
+        assertNotNull(next);
+        assertEquals(SettingsActivity.class.getName(), next.getComponent().getClassName());
+    }
+
+    @Test
+    public void standaloneDiagnosticsScreenCanBeCreated() {
+        DiagnosticsActivity activity = Robolectric.buildActivity(DiagnosticsActivity.class).setup().get();
+        assertNotNull(activity.findViewById(android.R.id.content));
+        assertTrue(AppDiagnostics.report(activity).contains("COOBVO DEBUG REPORT"));
+    }
+}
