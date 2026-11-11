@@ -17,11 +17,15 @@ Smart Island detail: `docs/SMART_ISLAND_PORTS.md`, `docs/SMART_ISLAND_PORT_CONTE
 
 - **Owner-reported:** the installed coobvo settings app still will not launch on the Galaxy S10e. The owner therefore cannot inspect or confirm whether the new Prism appearance options are available, customizable or toggleable.
 - The latest completed Debug APK run #221 (versionCode 154 / `0.1.50-dev3`) proves compilation, the selected unit tests and artifact upload only. It did not launch the app on a phone. Do not describe Prism player/lyrics controls as verified or usable.
-- Static inspection found an existing Robolectric smoke test, `SettingsRenderTest.everyPageBuildsAndLaysOut`, that launches `SettingsActivity` and builds its settings pages. That test and `SettingsUxTest` are now included in the Debug APK workflow. The next build is versionCode 155 / `0.1.50-dev4`, with the CrashGuard build marker synchronized.
+- Static inspection found an existing Robolectric smoke test, `SettingsRenderTest.everyPageBuildsAndLaysOut`, that launches `SettingsActivity` and builds its settings pages. That test and `SettingsUxTest` are now included in the Debug APK workflow.
+- **Debug APK run #224 passed** for commit `1874cd244393317f43561e899276a252fb60557c`, versionCode 155 / `0.1.50-dev4`. It compiled and packaged the APK, passed `SettingsRenderTest.everyPageBuildsAndLaysOut`, `SettingsUxTest`, and the selected Prism/SI/iMotion/cutout tests, then uploaded [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42973534626/artifacts/13834052687). This confirms settings Activity initialization and page construction under Robolectric only—not launch on the S10e.
 - The current startup failure has **no confirmed root cause** yet. The latest Prism card/bridge changes primarily execute in System UI and do not establish why the separate settings Activity fails to open. Obtain the Android `AndroidRuntime` crash stack from a fresh launch before making a speculative startup fix.
 - Until a successful on-device app launch is confirmed, all newly mapped Prism preference controls and toggles remain **not verified**. The app-start blocker takes priority over further player customization work.
 
 ## Current owner-confirmed results
+
+- **Settings app launch — owner-reported failure; still unresolved.** The versionCode 155 / `0.1.50-dev4` build now has an explicit settings startup/page-build smoke test in CI, but only the owner can confirm launch on the S10e. Capture the AndroidRuntime crash trace if this build still exits when opened.
+
 
 - **S10e cutout alignment — owner-confirmed.** The owner reports the island is positioned relative to the camera cutout.
 - **Right-anchor bubble side — owner-confirmed.** When the pill is on the right, the bubbles move to the left.
