@@ -16,7 +16,7 @@ Smart Island detail: `docs/SMART_ISLAND_PORTS.md`, `docs/SMART_ISLAND_PORT_CONTE
 ## Current runtime blocker — settings app does not launch
 
 - **Owner-reported:** the installed coobvo settings app still will not launch on the Galaxy S10e. The owner therefore cannot inspect or confirm whether the new Prism appearance options are available, customizable or toggleable.
-- The latest completed Debug APK run #221 (versionCode 154 / `0.1.50-dev3`) proves compilation, the selected unit tests and artifact upload only. It did not launch the app on a phone. Do not describe Prism player/lyrics controls as verified or usable.
+- The pre-recovery versionCode 155 / `0.1.50-dev4` build passed Robolectric settings startup/page construction but did not resolve the owner-reported S10e launch issue. Prism player/lyrics controls remain unverified.
 - Static inspection found an existing Robolectric smoke test, `SettingsRenderTest.everyPageBuildsAndLaysOut`, that launches `SettingsActivity` and builds its settings pages. That test and `SettingsUxTest` are now included in the Debug APK workflow.
 - **Debug APK run #224 passed** for versionCode 155 / `0.1.50-dev4`; it verified settings Activity initialization under Robolectric, not S10e launch.
 - **Debug APK run #239 passed** for commit `b2baf4d202b263d4fcf2bb934588d9a4236db82b`, versionCode 156 / `0.1.50-dev5`. It compiled, passed `AppDiagnosticsTest`, `SettingsRenderTest`, `SettingsUxTest` and the selected Prism/SI/iMotion/cutout tests, and uploaded [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42976526742/artifacts/13835358211). This remains CI/Robolectric evidence, not a real-device launch confirmation.
