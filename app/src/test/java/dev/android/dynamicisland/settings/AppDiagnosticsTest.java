@@ -6,6 +6,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
@@ -32,6 +33,18 @@ public class AppDiagnosticsTest {
         assertTrue(report.contains("test_settings_failure"));
         assertTrue(report.contains("test_failure_marker"));
         assertTrue(report.contains("SYSTEM UI / LSPOSED REPORT"));
+    }
+
+    @Test
+    public void settingsPreferenceWritesAreRecorded() throws Exception {
+        SettingsActivity activity = Robolectric.buildActivity(SettingsActivity.class).setup().get();
+        java.lang.reflect.Field field = SettingsActivity.class.getDeclaredField("prefs");
+        field.setAccessible(true);
+        SharedPreferences prefs = (SharedPreferences) field.get(activity);
+        prefs.edit().putBoolean("diagnostics.test_toggle", true).commit();
+
+        assertTrue(AppDiagnostics.report(activity).contains("preference changed: diagnostics.test_toggle"));
+        activity.finish();
     }
 
     @Test
