@@ -13,6 +13,14 @@ Smart Island detail: `docs/SMART_ISLAND_PORTS.md`, `docs/SMART_ISLAND_PORT_CONTE
 - **Implemented, not device-verified:** source code exists and is connected, but the owner has not confirmed the visible result.
 - **Incomplete:** only a foundation, subset or descriptive placeholder exists. Do not present it as finished.
 
+## Current runtime blocker — settings app does not launch
+
+- **Owner-reported:** the installed coobvo settings app still will not launch on the Galaxy S10e. The owner therefore cannot inspect or confirm whether the new Prism appearance options are available, customizable or toggleable.
+- The latest completed Debug APK run #221 (versionCode 154 / `0.1.50-dev3`) proves compilation, the selected unit tests and artifact upload only. It did not launch the app on a phone. Do not describe Prism player/lyrics controls as verified or usable.
+- Static inspection found an existing Robolectric smoke test, `SettingsRenderTest.everyPageBuildsAndLaysOut`, that launches `SettingsActivity` and builds its settings pages. That test and `SettingsUxTest` are now included in the Debug APK workflow. The next build is versionCode 155 / `0.1.50-dev4`, with the CrashGuard build marker synchronized.
+- The current startup failure has **no confirmed root cause** yet. The latest Prism card/bridge changes primarily execute in System UI and do not establish why the separate settings Activity fails to open. Obtain the Android `AndroidRuntime` crash stack from a fresh launch before making a speculative startup fix.
+- Until a successful on-device app launch is confirmed, all newly mapped Prism preference controls and toggles remain **not verified**. The app-start blocker takes priority over further player customization work.
+
 ## Current owner-confirmed results
 
 - **S10e cutout alignment — owner-confirmed.** The owner reports the island is positioned relative to the camera cutout.
