@@ -13,7 +13,7 @@ The fusion uses the original Dynamic Island event, hook, window and Canvas archi
 ## Working contract
 
 - Work directly on main. Do not create branches or routine pull requests.
-- Make focused commits that leave the project compilable. Increment versionCode before each new debug APK build and retain the established debug package identity and signing key.
+- Make focused commits that leave the project compilable. Increment versionCode before each new debug APK build and retain the established debug package identity and signing key. Current debug identity is versionCode 157 / `0.1.50-dev6`; debug APK run #243 passed CI.
 - CI has two workflows. .github/workflows/debug-apk.yml builds the app with Java 17, runs assembleDebug, executes the selected settings, app-diagnostics/recovery, Prism, Smart Island, iMotion and cutout tests, then uploads the APK. .github/workflows/prism-morphe.yml uses Java 21 to run :patches:buildAndroid, verifies that an .mpp exists and uploads it. Neither workflow verifies runtime behaviour on the owner's phone.
 - Read the latest Debug APK result after changes. A green result proves compilation, packaging and artifact upload only.
 - Never claim S10e appearance, cutout alignment, touch behaviour or animation quality was verified without a real-device test.
