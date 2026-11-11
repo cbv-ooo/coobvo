@@ -48,6 +48,22 @@ public class AppDiagnosticsTest {
     }
 
     @Test
+    public void launcherRoutesPendingCrashToRecoveryScreen() throws Exception {
+        Context context = RuntimeEnvironment.getApplication();
+        java.io.File dir = new java.io.File(context.getFilesDir(), "diagnostics");
+        assertTrue(dir.mkdirs() || dir.isDirectory());
+        java.io.File marker = new java.io.File(dir, "crash-pending.flag");
+        assertTrue(marker.createNewFile() || marker.isFile());
+
+        AppLauncherActivity activity = Robolectric.buildActivity(AppLauncherActivity.class).setup().get();
+        Intent next = Shadows.shadowOf(activity).getNextStartedActivity();
+
+        assertNotNull(next);
+        assertEquals(DiagnosticsActivity.class.getName(), next.getComponent().getClassName());
+        AppDiagnostics.dismissPendingCrash(context);
+    }
+
+    @Test
     public void standaloneDiagnosticsScreenCanBeCreated() {
         DiagnosticsActivity activity = Robolectric.buildActivity(DiagnosticsActivity.class).setup().get();
         assertNotNull(activity.findViewById(android.R.id.content));
