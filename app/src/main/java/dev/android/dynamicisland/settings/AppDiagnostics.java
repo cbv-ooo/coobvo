@@ -261,7 +261,11 @@ public final class AppDiagnostics {
                 "Prism lyrics",
                 "Other"
         };
-        final int[] selected = {0};
+        final android.widget.Spinner category = new android.widget.Spinner(context);
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
+                context, android.R.layout.simple_spinner_item, categories);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        category.setAdapter(adapter);
         final android.widget.EditText details = new android.widget.EditText(context);
         details.setHint("What did you expect, and what happened instead?");
         details.setMinLines(2);
@@ -274,14 +278,14 @@ public final class AppDiagnostics {
         android.widget.TextView note = new android.widget.TextView(context);
         note.setText("Saved only on this device. Do not include passwords or private messages.");
         content.addView(note);
+        content.addView(category);
         content.addView(details);
         new android.app.AlertDialog.Builder(context)
                 .setTitle("Report a problem")
-                .setSingleChoiceItems(categories, 0, (dialog, which) -> selected[0] = which)
                 .setView(content)
                 .setPositiveButton("Save to debug report", (dialog, which) -> {
                     String description = details.getText() == null ? "" : details.getText().toString().trim();
-                    event("USER_REPORTED_PROBLEM category=" + categories[selected[0]]
+                    event("USER_REPORTED_PROBLEM category=" + String.valueOf(category.getSelectedItem())
                             + (description.isEmpty() ? "" : " details=" + safe(description, 1200)));
                     android.widget.Toast.makeText(context, "Problem added to the local debug report", android.widget.Toast.LENGTH_LONG).show();
                 })
