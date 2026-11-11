@@ -69,6 +69,8 @@ public final class SettingsActivity extends Activity {
     private SettingsSearchScreen search;
     private ReleaseRecommendations recommendations;
     private String pendingDiagnosticsExport;
+    private final SharedPreferences.OnSharedPreferenceChangeListener diagnosticsPreferenceListener =
+            (sharedPreferences, key) -> AppDiagnostics.event("preference changed: " + key);
     /** Builders of the open pages, the visible one on top. */
     private static final class PageState {
         final Runnable build;
@@ -98,6 +100,7 @@ public final class SettingsActivity extends Activity {
         super.onCreate(savedInstanceState);
         AppDiagnostics.event("settings activity onCreate");
         prefs = openPrefs();
+        prefs.registerOnSharedPreferenceChangeListener(diagnosticsPreferenceListener);
         ui = new OneUi(this);
         rules = new RulesScreen(this, ui, prefs);
         position = new PositionScreen(this, ui, prefs);
@@ -171,6 +174,7 @@ public final class SettingsActivity extends Activity {
     }
     @Override protected void onDestroy() {
         if(search!=null)search.close();
+        if(prefs!=null)prefs.unregisterOnSharedPreferenceChangeListener(diagnosticsPreferenceListener);
         super.onDestroy();
     }
 
@@ -335,10 +339,7 @@ public final class SettingsActivity extends Activity {
 
     Switch toggle(LinearLayout group, int title, int summary, String key, boolean def) {
         return ui.switchRow(group, getString(title), getString(summary), flag(key, def),
-                on -> {
-                    prefs.edit().putBoolean(key, on).apply();
-                    AppDiagnostics.event("setting changed: " + key + "=" + on);
-                });
+                on -> prefs.edit().putBoolean(key, on).apply());
     }
 
     /** A switch whose dependants are dimmed while it is off. */
@@ -839,27 +840,27 @@ public final class SettingsActivity extends Activity {
     private void chooseApps(Runnable done) {
         new Thread(() -> {
             try {
-            PackageManager pm = getPackageManager();
-            Set<String> listed = listedApps();
-            Map<String, String> labels = new TreeMap<>();
-            android.content.Intent launcher = new android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER);
-            for (ResolveInfo info : pm.queryIntentActivities(launcher, 0)) {
-                labels.put(info.activityInfo.packageName, String.valueOf(info.loadLabel(pm)));
-            }
-            for (String pkg : listed) {
-                if (!labels.containsKey(pkg)) {
-                    labels.put(pkg, pkg);
+                PackageManager pm = getPackageManager();
+                Set<String> listed = listedApps();
+                Map<String, String> labels = new TreeMap<>();
+                android.content.Intent launcher = new android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER);
+                for (ResolveInfo info : pm.queryIntentActivities(launcher, 0)) {
+                    labels.put(info.activityInfo.packageName, String.valueOf(info.loadLabel(pm)));
                 }
-            }
-            List<Map.Entry<String, String>> rows = new ArrayList<>(labels.entrySet());
-            rows.sort((a, b) -> a.getValue().compareToIgnoreCase(b.getValue()));
-            runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed()) return;
-                AppPickerDialog.show(this, ui, rows, listed, selected -> {
-                    prefs.edit().putStringSet(ModuleSettings.KEY_APPS_LISTED, selected).apply();
-                    done.run();
+                for (String pkg : listed) {
+                    if (!labels.containsKey(pkg)) {
+                        labels.put(pkg, pkg);
+                    }
+                }
+                List<Map.Entry<String, String>> rows = new ArrayList<>(labels.entrySet());
+                rows.sort((a, b) -> a.getValue().compareToIgnoreCase(b.getValue()));
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    AppPickerDialog.show(this, ui, rows, listed, selected -> {
+                        prefs.edit().putStringSet(ModuleSettings.KEY_APPS_LISTED, selected).apply();
+                        done.run();
+                    });
                 });
-            });
             } catch (Throwable failure) {
                 if (failure instanceof VirtualMachineError || failure instanceof ThreadDeath) throw (Error) failure;
                 AppDiagnostics.error("settings app picker scan", failure);
