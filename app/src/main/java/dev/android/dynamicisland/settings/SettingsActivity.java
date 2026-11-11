@@ -206,6 +206,7 @@ public final class SettingsActivity extends Activity {
             state.build.run();
             AppDiagnostics.event("settings page built: " + state.build.getClass().getName());
         } catch (Throwable failure) {
+            if (failure instanceof VirtualMachineError || failure instanceof ThreadDeath) throw (Error) failure;
             AppDiagnostics.error("settings page build", failure);
             page.removeAllViews();
             TextView message = ui.text("This settings page could not be loaded. A debug record was saved locally. Open Advanced → Diagnostics to export it.", 14, ui.muted);
@@ -860,6 +861,7 @@ public final class SettingsActivity extends Activity {
                 });
             });
             } catch (Throwable failure) {
+                if (failure instanceof VirtualMachineError || failure instanceof ThreadDeath) throw (Error) failure;
                 AppDiagnostics.error("settings app picker scan", failure);
                 runOnUiThread(() -> Toast.makeText(this, "Could not load the installed app list. A debug record was saved.", Toast.LENGTH_LONG).show());
             }
