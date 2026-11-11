@@ -41,6 +41,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 /**
  * The settings app, in the One UI style: a hub of grouped cards that open sub pages. Every setting is one of
@@ -51,6 +53,7 @@ import java.util.TreeMap;
 public final class SettingsActivity extends Activity {
     private static final int[] AUTO_COLLAPSE_CHOICES = {2, 3, 4, 6, 8, 10, 15, 20, 30};
     private static final int[] PAUSED_CHOICES = {10, 30, 60, 120, 180, 300};
+    private static final int REQUEST_CREATE_DIAGNOSTICS = 7402;
 
     private SharedPreferences prefs;
     private OneUi ui;
@@ -65,6 +68,7 @@ public final class SettingsActivity extends Activity {
     private SettingChangeFeedback changeFeedback;
     private SettingsSearchScreen search;
     private ReleaseRecommendations recommendations;
+    private String pendingDiagnosticsExport;
     /** Builders of the open pages, the visible one on top. */
     private static final class PageState {
         final Runnable build;
@@ -92,6 +96,7 @@ public final class SettingsActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
+        AppDiagnostics.event("settings activity onCreate");
         prefs = openPrefs();
         ui = new OneUi(this);
         rules = new RulesScreen(this, ui, prefs);
@@ -197,7 +202,16 @@ public final class SettingsActivity extends Activity {
         statusHandler.removeCallbacksAndMessages(null);
         page.removeAllViews();
         PageState state = stack.peek();
-        state.build.run();
+        try {
+            state.build.run();
+            AppDiagnostics.event("settings page built: " + state.build.getClass().getName());
+        } catch (Throwable failure) {
+            AppDiagnostics.error("settings page build", failure);
+            page.removeAllViews();
+            TextView message = ui.text("This settings page could not be loaded. A debug record was saved locally. Open Advanced → Diagnostics to export it.", 14, ui.muted);
+            message.setPadding(ui.dp(18), ui.dp(18), ui.dp(18), ui.dp(18));
+            page.addView(message, new LinearLayout.LayoutParams(-1, -2));
+        }
         scroll.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
             @Override public void onGlobalLayout() {
                 scroll.getViewTreeObserver().removeOnGlobalLayoutListener(this);
@@ -320,7 +334,10 @@ public final class SettingsActivity extends Activity {
 
     Switch toggle(LinearLayout group, int title, int summary, String key, boolean def) {
         return ui.switchRow(group, getString(title), getString(summary), flag(key, def),
-                on -> prefs.edit().putBoolean(key, on).apply());
+                on -> {
+                    prefs.edit().putBoolean(key, on).apply();
+                    AppDiagnostics.event("setting changed: " + key + "=" + on);
+                });
     }
 
     /** A switch whose dependants are dimmed while it is off. */
@@ -820,6 +837,7 @@ public final class SettingsActivity extends Activity {
     /** A checklist of the installed apps that have a launcher icon, plus the apps already listed. */
     private void chooseApps(Runnable done) {
         new Thread(() -> {
+            try {
             PackageManager pm = getPackageManager();
             Set<String> listed = listedApps();
             Map<String, String> labels = new TreeMap<>();
@@ -841,6 +859,10 @@ public final class SettingsActivity extends Activity {
                     done.run();
                 });
             });
+            } catch (Throwable failure) {
+                AppDiagnostics.error("settings app picker scan", failure);
+                runOnUiThread(() -> Toast.makeText(this, "Could not load the installed app list. A debug record was saved.", Toast.LENGTH_LONG).show());
+            }
         }, "list-apps").start();
     }
 
@@ -848,20 +870,57 @@ public final class SettingsActivity extends Activity {
 
     private void diagnosticsPage() {
         subPage(getString(R.string.diagnostics_title));
-        String text = Diagnostics.read(this);
+        ui.note(page, "Local diagnostics only. The report combines settings-app crashes and errors with the separate System UI / LSPosed report. Nothing is uploaded automatically.");
+        String text = AppDiagnostics.report(this);
         LinearLayout card = ui.card(page);
-        TextView report = ui.text(text != null ? text : getString(R.string.diagnostics_none), 11, ui.muted);
+        TextView report = ui.text(text, 11, ui.muted);
         report.setTypeface(Typeface.MONOSPACE);
         report.setTextIsSelectable(true);
         report.setPadding(ui.dp(22), ui.dp(16), ui.dp(22), ui.dp(16));
         card.addView(report);
         LinearLayout actions = ui.card(page);
+        ui.actionRow(actions, "Export debug report (.txt)", "Save a text file you can attach to a bug report.", this::exportDiagnosticsText);
+        ui.actionRow(actions, "Report a feature problem", "Use this when a feature does nothing and no error is shown.", () -> AppDiagnostics.promptForIssue(this));
         ui.actionRow(actions, getString(R.string.diagnostics_refresh), null, this::render);
         ui.actionRow(actions, getString(R.string.diagnostics_copy), null, () -> {
             ClipboardManager cm = getSystemService(ClipboardManager.class);
-            cm.setPrimaryClip(ClipData.newPlainText("DynamicIsland", report.getText()));
+            if (cm == null) return;
+            cm.setPrimaryClip(ClipData.newPlainText("Coobvo debug report", AppDiagnostics.report(this)));
             Toast.makeText(this, R.string.diagnostics_copied, Toast.LENGTH_SHORT).show();
         });
+    }
+
+    private void exportDiagnosticsText() {
+        pendingDiagnosticsExport = AppDiagnostics.report(this);
+        Intent create = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        create.addCategory(Intent.CATEGORY_OPENABLE);
+        create.setType("text/plain");
+        create.putExtra(Intent.EXTRA_TITLE, "coobvo-debug-report.txt");
+        try {
+            startActivityForResult(create, REQUEST_CREATE_DIAGNOSTICS);
+        } catch (RuntimeException unavailable) {
+            AppDiagnostics.error("settings diagnostics export launch", unavailable);
+            Toast.makeText(this, "No file picker is available. Use Copy report instead.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_CREATE_DIAGNOSTICS || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        try (OutputStream output = getContentResolver().openOutputStream(data.getData(), "w")) {
+            if (output == null) throw new java.io.IOException("The selected document could not be opened");
+            String report = pendingDiagnosticsExport == null ? AppDiagnostics.report(this) : pendingDiagnosticsExport;
+            output.write(report.getBytes(StandardCharsets.UTF_8));
+            output.flush();
+            AppDiagnostics.event("debug report exported");
+            Toast.makeText(this, "Debug report saved", Toast.LENGTH_LONG).show();
+        } catch (Exception failure) {
+            AppDiagnostics.error("settings diagnostics export write", failure);
+            Toast.makeText(this, "Could not save the debug report", Toast.LENGTH_LONG).show();
+        } finally {
+            pendingDiagnosticsExport = null;
+        }
     }
 
     private void confirmRestart() {
