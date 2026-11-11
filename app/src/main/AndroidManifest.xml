@@ -13,6 +13,7 @@
     </queries>
 
     <application
+        android:name=".settings.CoobvoApplication"
         android:allowBackup="false"
         android:localeConfig="@xml/locales_config"
         android:extractNativeLibs="false"
@@ -21,8 +22,7 @@
         android:theme="@android:style/Theme.DeviceDefault.DayNight">
 
         <activity
-            android:name=".settings.SettingsActivity"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode"
+            android:name=".settings.AppLauncherActivity"
             android:exported="true"
             android:label="@string/app_name">
             <intent-filter>
@@ -30,6 +30,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".settings.SettingsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode"
+            android:exported="false"
+            android:label="@string/app_name" />
+
+        <activity
+            android:name=".settings.DiagnosticsActivity"
+            android:exported="false"
+            android:label="Coobvo diagnostics" />
 
         <provider
             android:name=".settings.SettingsProvider"
