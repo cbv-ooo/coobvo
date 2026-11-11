@@ -1,6 +1,6 @@
 # Fusion Context
 
-Last updated: 2026-11-08 (DI-first hierarchy). This file is the project source of truth for architecture, scope, constraints and backlog. Record implementation progress in docs/FUSION_PROGRESS.md.
+Last updated: 2026-11-11 (DI-first hierarchy). This file is the project source of truth for architecture, scope, constraints and backlog. Record implementation progress in docs/FUSION_PROGRESS.md.
 
 ## Product
 
@@ -14,7 +14,7 @@ The fusion uses the original Dynamic Island event, hook, window and Canvas archi
 
 - Work directly on main. Do not create branches or routine pull requests.
 - Make focused commits that leave the project compilable. Increment versionCode before each new debug APK build and retain the established debug package identity and signing key.
-- CI has two workflows. .github/workflows/debug-apk.yml builds the app with Java 17, runs assembleDebug, executes NotificationCooldownManagerTest and NotificationHistoryStoreTest, then uploads the APK. .github/workflows/prism-morphe.yml uses Java 21 to run :patches:buildAndroid, verifies that an .mpp exists and uploads it. Neither workflow verifies runtime behaviour on the owner's phone.
+- CI has two workflows. .github/workflows/debug-apk.yml builds the app with Java 17, runs assembleDebug, executes the selected settings, app-diagnostics/recovery, Prism, Smart Island, iMotion and cutout tests, then uploads the APK. .github/workflows/prism-morphe.yml uses Java 21 to run :patches:buildAndroid, verifies that an .mpp exists and uploads it. Neither workflow verifies runtime behaviour on the owner's phone.
 - Read the latest Debug APK result after changes. A green result proves compilation, packaging and artifact upload only.
 - Never claim S10e appearance, cutout alignment, touch behaviour or animation quality was verified without a real-device test.
 - Progress must separate source implementation, build evidence and owner-confirmed device behavior. Do not ask the owner to read raw Java/Kotlin or infer completion from a Settings label; report what is actually visible/usable and what remains unverified.
@@ -34,7 +34,7 @@ Samsung System UI hooks
   -> PillPainter / StackPainter / IMode (Canvas)
   -> TouchController / IslandWindow
 
-Keep the original Dynamic Island runtime: Xposed entry and isolated hook groups, source/event facade, controller, window/placement, item ledger, Director, Scene, analytic Springs, Canvas painters, touch controller, diagnostics and crash protection.
+Keep the original Dynamic Island runtime: Xposed entry and isolated hook groups, source/event facade, controller, window/placement, item ledger, Director, Scene, analytic Springs, Canvas painters, touch controller, diagnostics and crash protection. System UI/Xposed diagnostics and settings-app diagnostics are separate processes; AppDiagnostics keeps a bounded private log and crash report, and only exports it when the user chooses.
 
 Important files:
 - island/view/IslandView.java: main Canvas view, Choreographer frame loop and input dispatch. Never replace this file wholesale.
@@ -44,7 +44,7 @@ Important files:
 - island/IslandPlacement.java, island/view/IslandWindow.java: cutout geometry and overlay window.
 - island/source/*, IslandSources.java: isolated event sources.
 - island/view/card/*: Canvas card bodies, including media and timer.
-- settings/ModuleSettings.java, SettingsActivity.java, SettingsSearchCatalog.java: persisted settings and settings UI.
+- settings/ModuleSettings.java, SettingsActivity.java, SettingsSearchCatalog.java: persisted settings and settings UI. CoobvoApplication / AppDiagnostics install app-process crash capture before activities; AppLauncherActivity routes a pending crash to the standalone DiagnosticsActivity.
 - xposed/hooks/*: System UI hooks. Verify OEM/private method names against the owner's target SystemUI.apk; skip unknown hooks rather than guessing.
 
 ## Reference archives
