@@ -45,7 +45,7 @@ final class SettingsSearchScreen {
     private void warmUp() {
         if(catalog!=null||closed)return;
         worker.execute(()->{
-            try{ensureCatalog();}catch(Throwable failure){android.util.Log.w("DynamicIsland","Settings search index failed",failure);}
+            try{ensureCatalog();}catch(Throwable failure){AppDiagnostics.error("settings search index warmup",failure);android.util.Log.w("DynamicIsland","Settings search index failed",failure);}
         });
     }
     private void ensureCatalog() {
@@ -123,6 +123,7 @@ final class SettingsSearchScreen {
                 hits=catalog.engine.search(text,catalog.rows.size());
             }catch(Throwable unavailable) {
                 // Not only RuntimeException: an Error would end this worker silently and leave the page empty.
+                AppDiagnostics.error("settings search query",unavailable);
                 android.util.Log.w("DynamicIsland","Settings search unavailable",unavailable);
                 main.post(()->{if(!closed&&token==generation&&target==results&&visible()){
                     target.removeAllViews();
