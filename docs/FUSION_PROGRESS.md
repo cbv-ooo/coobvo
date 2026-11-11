@@ -1,6 +1,6 @@
 # Fusion Progress
 
-Last updated: 2026-11-08
+Last updated: 2026-11-11
 
 This file reports what is visible/usable, what is only present in source, and what the owner has confirmed. A green CI run is not a feature-completion check.
 
@@ -18,13 +18,22 @@ Smart Island detail: `docs/SMART_ISLAND_PORTS.md`, `docs/SMART_ISLAND_PORT_CONTE
 - **Owner-reported:** the installed coobvo settings app still will not launch on the Galaxy S10e. The owner therefore cannot inspect or confirm whether the new Prism appearance options are available, customizable or toggleable.
 - The latest completed Debug APK run #221 (versionCode 154 / `0.1.50-dev3`) proves compilation, the selected unit tests and artifact upload only. It did not launch the app on a phone. Do not describe Prism player/lyrics controls as verified or usable.
 - Static inspection found an existing Robolectric smoke test, `SettingsRenderTest.everyPageBuildsAndLaysOut`, that launches `SettingsActivity` and builds its settings pages. That test and `SettingsUxTest` are now included in the Debug APK workflow.
-- **Debug APK run #224 passed** for commit `1874cd244393317f43561e899276a252fb60557c`, versionCode 155 / `0.1.50-dev4`. It compiled and packaged the APK, passed `SettingsRenderTest.everyPageBuildsAndLaysOut`, `SettingsUxTest`, and the selected Prism/SI/iMotion/cutout tests, then uploaded [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42973534626/artifacts/13834052687). This confirms settings Activity initialization and page construction under Robolectric only—not launch on the S10e.
-- The current startup failure has **no confirmed root cause** yet. The latest Prism card/bridge changes primarily execute in System UI and do not establish why the separate settings Activity fails to open. Obtain the Android `AndroidRuntime` crash stack from a fresh launch before making a speculative startup fix.
-- Until a successful on-device app launch is confirmed, all newly mapped Prism preference controls and toggles remain **not verified**. The app-start blocker takes priority over further player customization work.
+- **Debug APK run #224 passed** for versionCode 155 / `0.1.50-dev4`; it verified settings Activity initialization under Robolectric, not S10e launch.
+- **Debug APK run #239 passed** for commit `b2baf4d202b263d4fcf2bb934588d9a4236db82b`, versionCode 156 / `0.1.50-dev5`. It compiled, passed `AppDiagnosticsTest`, `SettingsRenderTest`, `SettingsUxTest` and the selected Prism/SI/iMotion/cutout tests, and uploaded [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42976526742/artifacts/13835358211). This remains CI/Robolectric evidence, not a real-device launch confirmation.
+- The previous startup failure still has **no confirmed root cause**. Version 156 adds a persistent app-process crash handler and a launcher recovery route so the next launch after a settings-app crash opens diagnostics instead of repeating the failing settings screen. If even the standalone recovery screen fails to open, an external AndroidRuntime trace is still needed.
+- Until version 156 is opened successfully on the S10e, all newly mapped Prism preference controls and toggles remain **not verified**. The app-start blocker remains the priority.
+
+## In-app diagnostics and crash recovery — build-confirmed, device-unverified
+
+- The settings APK now installs `CoobvoApplication` before its Activities and records app-process uncaught exceptions to private internal storage: `files/diagnostics/last-crash.txt`. A bounded rolling `debug-log.txt` stores recent startup, page-build, settings-toggle, search and other diagnostic events/errors.
+- The launcher checks a crash-pending marker. After an app crash, the next open routes to a small standalone recovery screen so the main settings UI is not immediately retried. The user can inspect/copy the report, save `coobvo-debug-report.txt` through Android's document picker, report a feature that appears broken without throwing an exception, or acknowledge the crash and continue.
+- The exported report combines the settings-app crash/log with the existing separate System UI / LSPosed diagnostics. Reports remain on-device; there is no automatic upload. Review the text before sharing because a manually entered problem description and exception details are included.
+- Silent feature failures cannot be detected reliably just from the app process; use **Report a feature problem** to add the affected area and observed behavior to the local report. Known caught page-builder, app-picker and search errors are also recorded automatically.
+- Debug run [#239](https://github.com/cbv-ooo/coobvo/actions/runs/42976526742) passed build, selected unit tests and APK upload for versionCode 156 / `0.1.50-dev5`. App-side crash capture and recovery still require a real-device exercise.
 
 ## Current owner-confirmed results
 
-- **Settings app launch — owner-reported failure; still unresolved.** The versionCode 155 / `0.1.50-dev4` build now has an explicit settings startup/page-build smoke test in CI, but only the owner can confirm launch on the S10e. Capture the AndroidRuntime crash trace if this build still exits when opened.
+- **Settings app launch — owner-reported failure on version 155; version 156 recovery build awaits owner test.** The new launcher routes to a standalone diagnostics screen after an uncaught app crash. CI tests cover the normal route, the pending-crash route and diagnostics screen construction. Only an S10e test can confirm the launch and recovery behavior.
 
 
 - **S10e cutout alignment — owner-confirmed.** The owner reports the island is positioned relative to the camera cutout.
@@ -51,7 +60,7 @@ These confirmations do not verify both bubbles visibly render together, exact sp
 
 - Debug application ID: dev.android.dynamicisland.coobvo (release ID unchanged).
 - Stable debug-only signing key: app/coobvo-debug.keystore.
-- Current main source version: code 154 / `0.1.50-dev3`; current Morphe bridge source version: `0.1.4`. **Debug APK run #175 passed** for commit `5ff55fd9034d0d1c2326b2aab5d07afa81a4180b`, including `assembleDebug`, selected Prism parser/painter/player-preference tests, SI/iMode/cutout tests and APK upload. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42487474819/artifacts/13619808689) (2,346,491 bytes; SHA-256 `1e99b67dd058007ac93335ea30f5f97a0e51c631c61269a04b79202a802b5f49`). Morphe run #28 built and uploaded the version-0.1.4 patch: [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42487611825/artifacts/13620077914). These CI results do not prove exact-Prism APK fingerprint matching or S10e runtime behavior.
+- Current main source version: code 156 / `0.1.50-dev5`; current Morphe bridge source version: `0.1.5`. **Debug APK run #239 passed** for commit `b2baf4d202b263d4fcf2bb934588d9a4236db82b`: `assembleDebug`, AppDiagnostics/recovery tests, settings startup/page tests, selected Prism/SI/iMotion/cutout tests and APK upload. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42976526742/artifacts/13835358211) (2,388,047 bytes; SHA-256 `b06f2eeb8c1a10c064d56129fa08d9bbce651ecdb27023f07bb53c4ff4ffc82d`). The app's real crash behavior and launcher recovery still need S10e confirmation. Earlier evidence: **Debug APK run #175 passed** for commit `5ff55fd9034d0d1c2326b2aab5d07afa81a4180b`, including `assembleDebug`, selected Prism parser/painter/player-preference tests, SI/iMode/cutout tests and APK upload. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42487474819/artifacts/13619808689) (2,346,491 bytes; SHA-256 `1e99b67dd058007ac93335ea30f5f97a0e51c631c61269a04b79202a802b5f49`). Morphe run #28 built and uploaded the version-0.1.4 patch: [coobvo-prism-media-bridge-mpp](https://github.com/cbv-ooo/coobvo/actions/runs/42487611825/artifacts/13620077914). These CI results do not prove exact-Prism APK fingerprint matching or S10e runtime behavior.
 - Debug APK run #62 passed for commit 6ba861405271d4b6c5909f77aade4768267cc9b8, including the targeted NotificationCooldownManagerTest and APK artifact upload. Artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447577459/artifacts/13604291827).
 - Debug APK run #63 passed after the Smart Island and Prism documentation update; artifact: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447644666/artifacts/13604103064).
 - Debug APK run #67 passed for version 138 / 0.1.36-dev1, including app compilation, the cooldown unit test and APK upload: [app-debug.apk](https://github.com/cbv-ooo/coobvo/actions/runs/42447914833/artifacts/13604711073).
