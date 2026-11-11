@@ -61,30 +61,25 @@ public final class DiagnosticsActivity extends Activity {
         reportView.setTypeface(android.graphics.Typeface.MONOSPACE);
         reportView.setTextIsSelectable(true);
         reportView.setPadding(dp(12), dp(12), dp(12), dp(12));
-        reportView.setBackgroundColor(themeColor(android.R.attr.colorForeground, 0xFF202126) & 0x22FFFFFF | 0x11000000);
+        reportView.setBackgroundColor(themeColor(android.R.attr.colorBackgroundFloating, 0xFF25272C));
         scroll.addView(reportView, new ScrollView.LayoutParams(-1, -2));
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        root.addView(button("Export debug report (.txt)", v -> exportReport()));
-        root.addView(button("Copy report", v -> copyReport()));
-        root.addView(button("Report something not working", v -> AppDiagnostics.promptForIssue(this)));
-        root.addView(button("Continue to settings", v -> continueToSettings()));
+        addButton(root, "Export debug report (.txt)", v -> exportReport());
+        addButton(root, "Copy report", v -> copyReport());
+        addButton(root, "Report something not working", v -> AppDiagnostics.promptForIssue(this));
+        addButton(root, "Continue to settings", v -> continueToSettings());
         setContentView(root);
         refreshReport();
     }
 
-    private Button button(String label, View.OnClickListener listener) {
+    private void addButton(LinearLayout parent, String label, View.OnClickListener listener) {
         Button button = new Button(this);
         button.setText(label);
         button.setOnClickListener(listener);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.topMargin = dp(4);
-        return addButtonMargins(button, params);
-    }
-
-    private Button addButtonMargins(Button button, LinearLayout.LayoutParams params) {
-        button.setTag(params);
-        return button;
+        parent.addView(button, params);
     }
 
     private void refreshReport() {
